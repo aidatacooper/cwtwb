@@ -150,8 +150,10 @@ class FieldRegistry:
         # Look up the field
         fi = self._find_field(field_name)
 
-        # Calculated fields use derivation="User" (abbr: usr)
-        if fi.is_calculated and derivation == "None":
+        # Calculated measures use derivation="User" (abbr: usr).
+        # Calculated dimensions (boolean, nominal) keep derivation="None" so they
+        # are treated as plain dimension values rather than user-aggregated expressions.
+        if fi.is_calculated and fi.role == "measure" and derivation == "None":
             derivation = "User"
 
         # Determine type suffix

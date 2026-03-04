@@ -79,10 +79,27 @@ class TWBEditor:
     # ================================================================
 
     def _get_datasource(self) -> etree._Element:
-        """Get the first datasource element."""
+        """Get the primary data datasource element.
+
+        When a template contains multiple datasources (e.g. a 'Parameters'
+        datasource alongside a real data connection), the 'Parameters' one has
+        ``hasconnection='false'`` and no meaningful field metadata.  We skip it
+        and return the first datasource that actually holds data, so that
+        FieldRegistry.datasource_name is set to the real federated/connection
+        name and all column references resolve correctly.
+        """
         ds_list = self.root.findall(".//datasources/datasource")
         if not ds_list:
             raise ValueError("No datasource found in template")
+        # Prefer the first datasource whose name is not "Parameters" and that
+        # has a real connection (hasconnection != 'false').
+        for ds in ds_list:
+            if ds.get("name") == "Parameters":
+                continue
+            if ds.get("hasconnection") == "false":
+                continue
+            return ds
+        # Fallback: return the first datasource (e.g. default template with one DS)
         return ds_list[0]
 
     def _init_fields(self) -> None:
@@ -440,6 +457,20 @@ class TWBEditor:
         Returns:
             Confirmation message.
         """
+        # Guard: skip silently if an identically-captioned field already exists
+        # in the datasource XML.  This prevents duplicates when a template is
+        # loaded that already contains the same calculated field (e.g. the
+        # Superstore template ships with 'Order Profitable?' pre-defined).
+        internal_name = f"[Calculation_{field_name}]"
+        existing = self._datasource.find(f"column[@caption='{field_name}']")
+        if existing is None:
+            existing = self._datasource.find(f"column[@name='{internal_name}']")
+        if existing is not None:
+            return (
+                f"Calculated field '{field_name}' already exists in the datasource "
+                f"(name={existing.get('name')}). Skipped to avoid duplicate."
+            )
+
         # Determine role and type
         if datatype in ("real", "integer"):
             role = "measure"
@@ -447,8 +478,6 @@ class TWBEditor:
         else:
             role = "dimension"
             field_type = "nominal"
-
-        internal_name = f"[Calculation_{field_name}]"
 
         # Resolve field and parameter references in formula
         import re
