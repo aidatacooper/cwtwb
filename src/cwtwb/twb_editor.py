@@ -885,6 +885,51 @@ class TWBEditor:
         for el in sorted(instance_elements, key=lambda e: e.get("name", "")):
             deps.append(el)
 
+        # Fix 3: ensure raw columns referenced inside calculated-field formulas
+        # are also declared in datasource-dependencies.
+        # Example: {FIXED [Order ID]:SUM([Profit])}>0  →  needs [Order ID]
+        #          SUM([Profit])/COUNTD([Customer Name])  →  needs [Customer Name]
+        import re as _re
+        for col_el in list(column_elements):
+            calc_el = col_el.find("calculation")
+            if calc_el is None:
+                continue
+            formula = calc_el.get("formula", "")
+            # Extract every [FieldName] token from the formula
+            for ref_name in _re.findall(r'\[([^\]]+)\]', formula):
+                local_ref = f"[{ref_name}]"
+                # Skip if already in deps or if it looks like a parameter ref
+                if local_ref in seen_columns:
+                    continue
+                if ref_name.startswith("Parameter ") or ref_name == "Parameters":
+                    continue
+                # Look up in datasource
+                raw_col = self._datasource.find(f"column[@name='{local_ref}']")
+                if raw_col is None:
+                    # Try matching by remote-name in metadata
+                    for mr in self._datasource.findall(".//metadata-record[@class='column']"):
+                        rn = mr.findtext("remote-name", "")
+                        if rn == ref_name:
+                            ln = mr.findtext("local-name", "")
+                            raw_col = self._datasource.find(f"column[@name='{ln}']")
+                            if raw_col is not None:
+                                local_ref = ln
+                            break
+                if raw_col is not None and local_ref not in seen_columns:
+                    import copy as _copy
+                    seen_columns.add(local_ref)
+                    dep_col = etree.Element("column")
+                    dep_col.set("datatype", raw_col.get("datatype", "string"))
+                    dep_col.set("name", local_ref)
+                    dep_col.set("role", raw_col.get("role", "dimension"))
+                    dep_col.set("type", raw_col.get("type", "nominal"))
+                    # Insert before first column-instance to maintain schema order
+                    first_ci = deps.find("column-instance")
+                    if first_ci is not None:
+                        first_ci.addprevious(dep_col)
+                    else:
+                        deps.append(dep_col)
+
         # 2) Set mark type (Map uses Multipolygon for filled maps)
         actual_mark_type = "Multipolygon" if is_map else mark_type
         pane = table.find(".//pane")
@@ -1052,7 +1097,13 @@ class TWBEditor:
                 for expr in rows:
                     ci = instances[expr]
                     row_refs.append(self.field_registry.resolve_full_reference(ci.instance_name))
-                rows_el.text = " ".join(row_refs)
+                # Tableau requires multiple row fields to use product notation:
+                # (field1 * field2) — a plain space-join causes a parse error
+                # ("cannot associate operator with operand").
+                if len(row_refs) > 1:
+                    rows_el.text = "(" + " * ".join(row_refs) + ")"
+                else:
+                    rows_el.text = row_refs[0]
             elif rows_el is not None:
                 rows_el.text = None
 
@@ -1864,7 +1915,18 @@ class TWBEditor:
         
         # We need to set the xmlns:user via a workaround in lxml or just use nsmap
         action_el = etree.Element("action", nsmap={"user": USER_NS})
-        actions_el.append(action_el)
+        # Tableau XSD requires <action>* before <datasources>/<datasource-dependencies>
+        # inside <actions>.  When loading a template the <actions> block may already
+        # contain <datasources> or <datasource-dependencies> children; appending blindly
+        # would place the new action after them and produce a schema error.
+        # Find the first blocker element and insert before it.
+        first_blocker = actions_el.find("datasources")
+        if first_blocker is None:
+            first_blocker = actions_el.find("datasource-dependencies")
+        if first_blocker is not None:
+            first_blocker.addprevious(action_el)
+        else:
+            actions_el.append(action_el)
         
         action_caption = caption or f"{action_type.capitalize()} Action {len(actions_el)}"
         action_el.set("caption", action_caption)

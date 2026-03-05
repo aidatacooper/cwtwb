@@ -262,7 +262,7 @@ def configure_chart(
         wedge_size: Pie chart wedge size field expression (e.g. "SUM(Sales)").
         sort_descending: Sort dimension descending by this measure (e.g. "SUM(Sales)").
         tooltip: Tooltip encoding field expression(s). Can be a single string or list of strings.
-        filters: List of categorical filters, e.g. [{"column": "Region", "values": ["East", "West"]}].
+        filters: List of filters. Supports both categorical (e.g. [{"column": "Region"}]) and quantitative range filters (e.g. [{"column": "Order Date", "type": "quantitative"}]).
         geographic_field: Geographic dimension for Map charts (e.g. "State/Province").
         measure_values: List of measure expressions for Measure Names/Values mode.
             Creates a KPI card showing multiple measures as a text table.
@@ -468,10 +468,16 @@ def generate_layout_json(
     Args:
         output_path: Absolute file path where the JSON should be saved (e.g. /output/layout.json).
         layout_tree: The nested dictionary representing the layout.
-            Format requires 'type' ("container" or "worksheet").
-            If container, set 'direction' ("vertical" or "horizontal") and 'children' (list).
-            If worksheet, set 'name' (string).
-            Use 'layout_strategy'="distribute-evenly" for standard containers.
+            Supported component 'type' values:
+            - "container": A layout container. Requires 'direction' ("vertical" or "horizontal") and 'children' (list).
+                           Optional: 'layout_strategy' (e.g., "distribute-evenly", "fixed-width"), 
+                           'width' or 'height' (int) if sized fixedly.
+            - "worksheet": A worksheet dashboard zone. Requires 'name' (string, matching the worksheet name).
+                           Optional: 'weight' (int) to control proportional sizing within containers.
+            - "filter": A quick filter control. Requires 'worksheet' (the target sheet name) and 'field' (the target field name).
+                        Optional: 'mode' (e.g., "dropdown", "checkdropdown", or empty "" for default behavior).
+            - "paramctrl": An interactive parameter control. Requires 'param' (name of the parameter).
+            - "color": A color legend. Requires 'worksheet' (target sheet) and 'field' (the assigned color field).
         ascii_preview: REQUIRED. An ASCII string previewing the layout for human readers. 
             Use dashes, pipes, and brackets to represent containers and worksheets.
 
