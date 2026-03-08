@@ -205,13 +205,7 @@ class FieldRegistry:
             if k.lower() == name_lower:
                 return v
 
-        # Partial match (field name contains query or vice versa)
-        candidates = []
-        for k, v in self._fields.items():
-            if name_lower in k.lower() or k.lower() in name_lower:
-                candidates.append(v)
-        if len(candidates) == 1:
-            return candidates[0]
+        # Remove naive partial match which causes dangerous bugs (e.g. 'Sub-Category' matches 'Category')
 
         # Dynamic Field Registration for new database connections 
         # (Since we lack schema info offline, we guess type based on name)

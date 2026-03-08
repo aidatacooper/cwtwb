@@ -392,6 +392,77 @@ def configure_chart(
 
 
 @server.tool()
+def configure_dual_axis(
+    worksheet_name: str,
+    mark_type_1: str = "Bar",
+    mark_type_2: str = "Line",
+    columns: Optional[list[str]] = None,
+    rows: Optional[list[str]] = None,
+    dual_axis_shelf: str = "rows",
+    color_1: Optional[str] = None,
+    size_1: Optional[str] = None,
+    label_1: Optional[str] = None,
+    detail_1: Optional[str] = None,
+    color_2: Optional[str] = None,
+    size_2: Optional[str] = None,
+    label_2: Optional[str] = None,
+    detail_2: Optional[str] = None,
+    synchronized: bool = True,
+    sort_descending: Optional[str] = None,
+    filters: Optional[list[dict]] = None,
+) -> str:
+    """Configure a dual-axis chart (e.g. Lollipop, Donut, Combo chart).
+    
+    IMPORTANT: The `dual_axis_shelf` (either "rows" or "columns") MUST contain the duplicate measure expressions at the end of the list.
+    For example, for a horizontal Lollipop chart by Category and Sales:
+    rows=["Category"], columns=["SUM(Sales)", "SUM(Sales)"], dual_axis_shelf="columns".
+
+    Args:
+        worksheet_name: Target worksheet name.
+        mark_type_1: Mark type for the primary axis (e.g., "Bar").
+        mark_type_2: Mark type for the secondary axis (e.g., "Circle").
+        columns: Column shelf field expressions.
+        rows: Row shelf field expressions.
+        dual_axis_shelf: Which shelf contains the dual measures ("rows" or "columns").
+        color_1: Color encoding for primary axis.
+        size_1: Size encoding for primary axis.
+        label_1: Label encoding for primary axis.
+        detail_1: Detail encoding for primary axis.
+        color_2: Color encoding for secondary axis.
+        size_2: Size encoding for secondary axis.
+        label_2: Label encoding for secondary axis.
+        detail_2: Detail encoding for secondary axis.
+        synchronized: Whether to synchronize the secondary axis with the primary.
+        sort_descending: Sort dimension descending by this measure.
+        filters: List of filters.
+
+    Returns:
+        Confirmation message.
+    """
+    editor = _get_editor()
+    return editor.configure_dual_axis(
+        worksheet_name=worksheet_name,
+        mark_type_1=mark_type_1,
+        mark_type_2=mark_type_2,
+        columns=columns,
+        rows=rows,
+        dual_axis_shelf=dual_axis_shelf,
+        color_1=color_1,
+        size_1=size_1,
+        label_1=label_1,
+        detail_1=detail_1,
+        color_2=color_2,
+        size_2=size_2,
+        label_2=label_2,
+        detail_2=detail_2,
+        synchronized=synchronized,
+        sort_descending=sort_descending,
+        filters=filters,
+    )
+
+
+
+@server.tool()
 def set_mysql_connection(
     server: str,
     dbname: str,
