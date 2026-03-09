@@ -5,6 +5,25 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.8.0] - 2026-03-09
+
+### Added
+- **Capability Registry**: Added a shared capability catalog that classifies chart, encoding, dashboard, action, connection, and feature support into `core`, `advanced`, `recipe`, and `unsupported` tiers.
+- **TWB Gap Analysis**: Added `twb_analyzer.py` plus MCP tools `list_capabilities`, `describe_capability`, `analyze_twb`, and `diff_template_gap` so templates can be evaluated against the declared product boundary before implementation work begins.
+- **Hyper Example Coverage**: Added `tests/test_hyper_example.py` to lock in the Advent Calendar Hyper example's physical `Orders_*` table resolution via Tableau Hyper API.
+
+### Changed
+- **Product Positioning**: Updated the root README and example READMEs to describe `cwtwb` as a workbook engineering toolkit rather than a conversational analysis competitor.
+- **Chart Architecture**: Refactored chart handling into focused modules under `src/cwtwb/charts/`, including dispatcher, pattern mapping, routing policy, helpers, and a dedicated text builder while keeping the public `configure_chart` API stable.
+- **Dashboard Architecture**: Split dashboard orchestration, layout resolution, datasource dependency generation, and action creation into dedicated modules while keeping `DashboardsMixin` as a thin compatibility facade.
+- **Layout Architecture**: Split declarative layout computation and XML rendering into `layout_model.py` and `layout_rendering.py`, leaving `layout.py` as a compatibility export layer.
+- **MCP Architecture**: Split the MCP server implementation into `mcp/app.py`, `mcp/state.py`, `mcp/resources.py`, `mcp/tools_support.py`, `mcp/tools_layout.py`, and `mcp/tools_workbook.py`, with `server.py` now acting as a thin compatibility entry point.
+- **Advanced Hyper Example**: Updated `examples/hyper_and_new_charts.py` to prefer the Tableau Advent Calendar `Sample - EU Superstore.hyper` extract and resolve the physical `Orders_*` table name automatically.
+
+### Fixed
+- **Hyper Extract Selection**: The advanced Hyper example no longer picks the first bundled `.hyper` file opportunistically and instead targets the intended Superstore extract.
+- **Hyper Table Resolution**: The advanced Hyper example now resolves the real physical `Orders_*` table name instead of using an incorrect generic table name.
+
 ## [0.7.0] - 2026-03-06
 
 ### Added

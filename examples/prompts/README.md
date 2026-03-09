@@ -4,6 +4,12 @@ This directory contains prompt examples for interacting with the `cwtwb` MCP ser
 
 The prompts span multiple support tiers. Prefer starting with the core-fit and advanced-fit prompts listed in `examples/README.md` before using the recipe-heavy or debugging prompts.
 
+The surrounding docs now use the same capability-aware language as the SDK:
+core primitives, advanced patterns, and recipe-style showcase charts. When a
+prompt output starts drifting beyond the intended support boundary, validate it
+with `list_capabilities`, `describe_capability`, `analyze_twb`, or
+`diff_template_gap`.
+
 ## Examples list
 
 ### Basic and declarative layout examples

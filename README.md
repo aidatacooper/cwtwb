@@ -23,6 +23,14 @@ The default workflow is:
 pip install cwtwb
 ```
 
+To run the bundled Hyper-backed example that inspects `.hyper` files and
+resolves the physical `Orders_*` table automatically, install the optional
+example dependency as well:
+
+```bash
+pip install "cwtwb[examples]"
+```
+
 ### Requirements
 
 - Python >= 3.10
@@ -198,6 +206,13 @@ This keeps new feature work aligned with the project's real product boundary ins
 
 Custom layouts can be built programmatically using a nested `layout` dictionary or via `generate_layout_json` for MCP workflows.
 
+## Hyper-backed Example
+
+The advanced example at `examples/hyper_and_new_charts.py` now prefers the
+`Sample - EU Superstore.hyper` extract bundled under the Tableau Advent
+Calendar assets and resolves the physical `Orders_*` table via Tableau Hyper
+API before switching the workbook connection.
+
 ## Project Structure
 
 ```text
@@ -205,16 +220,22 @@ cwtwb/
 |-- src/cwtwb/
 |   |-- __init__.py
 |   |-- capability_registry.py
-|   |-- twb_analyzer.py
 |   |-- config.py
-|   |-- field_registry.py
-|   |-- twb_editor.py
 |   |-- charts/
-|   |-- dashboards.py
 |   |-- connections.py
-|   |-- parameters.py
-|   |-- validator.py
+|   |-- dashboard_actions.py
+|   |-- dashboard_dependencies.py
+|   |-- dashboard_layouts.py
+|   |-- dashboards.py
+|   |-- field_registry.py
 |   |-- layout.py
+|   |-- layout_model.py
+|   |-- layout_rendering.py
+|   |-- mcp/
+|   |-- parameters.py
+|   |-- twb_analyzer.py
+|   |-- twb_editor.py
+|   |-- validator.py
 |   `-- server.py
 |-- tests/
 |-- examples/
@@ -234,6 +255,9 @@ pytest --basetemp=output/pytest_tmp
 
 # Run the mixed showcase example
 python examples/all_supported_charts.py
+
+# Run the advanced Hyper-backed example
+python examples/hyper_and_new_charts.py
 
 # Start MCP server
 cwtwb

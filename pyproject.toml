@@ -1,7 +1,7 @@
 [project]
 name = "cwtwb"
-version = "0.7.0"
-description = "Tableau Workbook (.twb) Generation MCP Server"
+version = "0.8.0"
+description = "Tableau Workbook (.twb) generation toolkit and MCP server"
 readme = "README.md"
 
 requires-python = ">=3.10"
@@ -20,6 +20,11 @@ classifiers = [
 dependencies = [
     "lxml>=5.0",
     "mcp[cli]>=1.0",
+]
+
+[project.optional-dependencies]
+examples = [
+    "tableauhyperapi>=0.0.21408",
 ]
 
 [project.scripts]

@@ -24,7 +24,7 @@ These are supported, but they rely on advanced dashboard composition or interact
 |---|---|---|
 | `scripts/demo_declarative_layout.py` | Declarative JSON dashboard layouts, KPI composition, and more complex layout structures | `python examples/scripts/demo_declarative_layout.py` |
 | `scripts/demo_auto_layout4.py` | Advanced nested layout composition with fixed-size header and KPI band | `python examples/scripts/demo_auto_layout4.py` |
-| `hyper_and_new_charts.py` | Advanced chart patterns such as Scatterplot, Heatmap, Tree Map, and Bubble Chart, with optional Hyper switching | `python examples/hyper_and_new_charts.py` |
+| `hyper_and_new_charts.py` | Advanced chart patterns such as Scatterplot, Heatmap, Tree Map, and Bubble Chart, using the Tableau Advent Calendar `Sample - EU Superstore.hyper` extract and resolving the physical `Orders_*` table via Tableau Hyper API | `python examples/hyper_and_new_charts.py` |
 | `prompts/demo_auto_layout_prompt.md` | Short natural-language request that stays near the core and advanced happy path | Copy into an MCP-enabled assistant |
 | `prompts/demo_auto_layout4_prompt.md` | Prompt for advanced declarative layout composition | Copy into an MCP-enabled assistant |
 | `prompts/demo_c2_layout_prompt.md` | Prompt for reading a saved JSON layout into a dashboard workflow | Copy into an MCP-enabled assistant |
@@ -55,5 +55,9 @@ Recommended starting points:
 ## Output
 
 By default, examples write generated `.twb` files into the project-level `output/` directory.
+
+The `hyper_and_new_charts.py` example needs the optional `tableauhyperapi`
+dependency. Install it with `pip install "cwtwb[examples]"` if you want to run
+that example from a package install.
 
 If you are not sure whether a generated workbook still sits inside the intended product boundary, run `analyze_twb` or `diff_template_gap` on the output file before promoting the example into docs.
