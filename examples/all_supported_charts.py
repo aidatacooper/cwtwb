@@ -1,4 +1,9 @@
-"""Test generating all supported charts into a single workbook."""
+"""Generate a mixed workbook covering core, advanced, and recipe-heavy chart examples.
+
+This script is intentionally broader than the SDK's stable support promise. It is
+useful as a showcase and regression script, but it should not be read as a claim
+that every chart in this workbook is a first-class cwtwb primitive.
+"""
 
 import sys
 from pathlib import Path
@@ -10,6 +15,7 @@ sys.path.insert(0, str(project_root / "src"))
 from lxml import etree
 from cwtwb.twb_editor import TWBEditor
 
+
 def generate_all_charts():
     # Setup Paths
     template_path = project_root / "templates" / "twb" / "superstore.twb"
@@ -20,7 +26,7 @@ def generate_all_charts():
 
     print("Initializing Editor...")
     editor = TWBEditor(str(template_path))
-    
+
     print("Using built-in Excel connection from template...")
 
     # 1. Bar Chart
@@ -103,7 +109,7 @@ def generate_all_charts():
         size_value_2="1.5492265224456787",
         hide_axes=True,
     )
-    
+
     # 13. Donut Chart
     print("Configuring: Donut Chart")
     editor.add_calculated_field("min 0", "MIN(0)", datatype="integer")
@@ -155,7 +161,6 @@ def generate_all_charts():
         color="Sales Over 400",
         label="DAYTRUNC(Order Date)",
     )
-    # Post-configure: add MY filter, text-format, mark-sizing, and pane styles
     _apply_calendar_styles(editor)
 
     print(f"Saving to {output_path}...")
@@ -164,65 +169,59 @@ def generate_all_charts():
 
 
 def _apply_calendar_styles(editor):
-    """Apply Calendar Chart specific XML — filter, text-format, mark-sizing, pane styles."""
+    """Apply Calendar Chart-specific XML adjustments."""
     ws = editor._find_worksheet("Calendar Chart")
     table = ws.find("table")
     view = table.find("view")
-    ds_name = editor._datasource.get("name", "")
 
-    # 1. Add MY(Order Date) filter to show only one month
     my_ci = editor.field_registry.parse_expression("MY(Order Date)")
     my_ref = editor.field_registry.resolve_full_reference(my_ci.instance_name)
-    
-    # Add MY column + column-instance to datasource-dependencies
+
     deps = view.find("datasource-dependencies")
     if deps is not None:
         ci_el = etree.SubElement(deps, "column-instance")
-        ci_el.set("column", my_ci.column_local_name)  # already has brackets
+        ci_el.set("column", my_ci.column_local_name)
         ci_el.set("derivation", "MY")
         ci_el.set("name", my_ci.instance_name)
         ci_el.set("pivot", "key")
         ci_el.set("type", "ordinal")
-    
-    # Add filter element — must come before slices and aggregation per DTD
+
     agg = view.find("aggregation")
-    
+
     filt = etree.Element("filter")
     filt.set("class", "categorical")
     filt.set("column", my_ref)
     gf = etree.SubElement(filt, "groupfilter")
     gf.set("function", "member")
     gf.set("level", my_ci.instance_name)
-    gf.set("member", "202208")  # Aug 2022
+    gf.set("member", "202208")
     gf.set("{http://www.tableausoftware.com/xml/user}ui-domain", "database")
     gf.set("{http://www.tableausoftware.com/xml/user}ui-enumeration", "inclusive")
     gf.set("{http://www.tableausoftware.com/xml/user}ui-marker", "enumerate")
-    
+
     if agg is not None:
         agg.addprevious(filt)
     else:
         view.append(filt)
-    
-    # Add slices — must come before aggregation
+
     slices = etree.Element("slices")
     col_el = etree.SubElement(slices, "column")
     col_el.text = my_ref
-    
+
     if agg is not None:
         agg.addprevious(slices)
     else:
         view.append(slices)
-    
-    # 2. Add table-level style with text-format for day field
+
     tdy_ci = editor.field_registry.parse_expression("DAYTRUNC(Order Date)")
     tdy_ref = editor.field_registry.resolve_full_reference(tdy_ci.instance_name)
     wk_ci = editor.field_registry.parse_expression("WEEK(Order Date)")
     wk_ref = editor.field_registry.resolve_full_reference(wk_ci.instance_name)
-    
+
     old_style = table.find("style")
     if old_style is not None:
         table.remove(old_style)
-    
+
     style = etree.Element("style")
     cell_rule = etree.SubElement(style, "style-rule", {"element": "cell"})
     fmt_tf = etree.SubElement(cell_rule, "format")
@@ -233,43 +232,36 @@ def _apply_calendar_styles(editor):
     fmt_h.set("attr", "height")
     fmt_h.set("field", wk_ref)
     fmt_h.set("value", "38")
-    
-    # Insert style before panes
+
     panes = table.find("panes")
     if panes is not None:
         panes.addprevious(style)
     else:
         table.append(style)
-    
-    # 3. Add mark-sizing and pane styles to the pane
+
     pane = table.find(".//pane")
     if pane is not None:
         pane.set("selection-relaxation-option", "selection-relaxation-disallow")
-        
-        # Insert mark-sizing after mark
+
         mark_el = pane.find("mark")
         if mark_el is not None:
             ms = etree.Element("mark-sizing")
             ms.set("mark-sizing-setting", "marks-scaling-off")
             mark_el.addnext(ms)
-        
-        # Add pane-level style
+
         pane_style = pane.find("style")
         if pane_style is None:
             pane_style = etree.SubElement(pane, "style")
-        
-        # Cell alignment
+
         cell_sr = etree.SubElement(pane_style, "style-rule", {"element": "cell"})
         etree.SubElement(cell_sr, "format", {"attr": "text-align", "value": "center"})
         etree.SubElement(cell_sr, "format", {"attr": "vertical-align", "value": "center"})
-        
-        # Mark size
+
         for sr in pane_style.findall("style-rule"):
             if sr.get("element") == "mark":
                 etree.SubElement(sr, "format", {"attr": "size", "value": "1.5272375345230103"})
                 break
-        
-        # Pane height
+
         pane_sr = etree.SubElement(pane_style, "style-rule", {"element": "pane"})
         etree.SubElement(pane_sr, "format", {"attr": "minheight", "value": "-1"})
         etree.SubElement(pane_sr, "format", {"attr": "maxheight", "value": "-1"})

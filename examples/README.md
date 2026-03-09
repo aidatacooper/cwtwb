@@ -1,21 +1,47 @@
-﻿# cwtwb SDK Examples
+# cwtwb SDK Examples
 
-This directory contains various Python scripts and natural language prompts that demonstrate the core capabilities of the `cwtwb` SDK and its MCP Server. You can explore how to flexibly build Tableau Workbooks by executing these scripts or reading the prompts.
+This directory contains Python scripts and prompt examples for the `cwtwb` SDK and MCP server.
 
-## Python Quick Start Scripts
+The examples are intentionally split by support tier so the project does not accidentally present recipe-level charts as first-class product promises.
 
-| Script File | Demonstrated Features | How to Run |
-| :--- | :--- | :--- |
-| **`scripts/demo_declarative_layout.py`** | The most complex and important example. Demonstrates how to use `add_dashboard` with a nested JSON dictionary configuration to declaratively build structurally complex dashboards (e.g., a Dashboard with a sidebar and a fixed-width title bar). Also shows how to assign KPI metrics to Text type charts. | `python examples/scripts/demo_declarative_layout.py` |
-| **`scripts/demo_connections.py`** | Demonstrates the powerful data source configuration capabilities of the SDK. This script shows how to hot-swap connections from a base template to: a local MySQL database, and a published data source on Tableau Server. | `python examples/scripts/demo_connections.py` |
-| **`scripts/demo_e2e_mcp_workflow.py`** | Demonstrates an end-to-end workflow from the perspective of MCP (Model Context Protocol). Without instantiating underlying SDK objects, the script generates a multi-page workbook with KPI groups entirely by calling the exact same global Python functions that are exposed to Large Language Models. | `python examples/scripts/demo_e2e_mcp_workflow.py` |
+## Example tiers
 
-## Natural Language Prompts for Large Language Models (LLMs)
+### Core-fit examples
 
-If you are using an LLM tool equipped with an MCP client (such as Claude Desktop), you can directly copy the contents of the following files into the chat. The LLM will then act as an automated data analysis assistant, configuring complex Dashboards for you without any code:
+These stay inside the stable surface area and are the best reference points for users starting with the SDK.
 
-- **`prompts/demo_auto_layout_prompt.md`**: [Recommended] An extremely minimalist prompt. Asks the LLM to infer and construct all the necessary complex JSON Layout parameters itself, showcasing the extreme intelligence of LLMs when combined with the `cwtwb` MCP tool.
-- **`prompts/demo_c2_layout_prompt.md`**: A short, business-oriented prompt specifically for generating the "C.2 Replica" presentation dashboard (using an external file path for layout).
-- **`prompts/demo_declarative_layout_prompt.md`**: A longer, detailed prompt asking the LLM to assemble 8 charts into two different dashboards in a single task execution.
+| Example | What it shows | How to run |
+|---|---|---|
+| `scripts/demo_e2e_mcp_workflow.py` | End-to-end workbook creation from MCP-style tool calls using core chart and dashboard primitives | `python examples/scripts/demo_e2e_mcp_workflow.py` |
+| `scripts/demo_connections.py` | Supported datasource switching workflows | `python examples/scripts/demo_connections.py` |
 
-> All output files will be generated in the `output/` folder at the root of the project by default.
+### Advanced-fit examples
+
+These are supported, but they rely on advanced dashboard composition or interaction features.
+
+| Example | What it shows | How to run |
+|---|---|---|
+| `scripts/demo_declarative_layout.py` | Declarative JSON dashboard layouts, KPI composition, and more complex layout structures | `python examples/scripts/demo_declarative_layout.py` |
+
+### Recipe-heavy examples
+
+These are useful for exploration and showcase purposes, but they should not be treated as the default supported surface area for the SDK.
+
+| Example | What it shows | How to run |
+|---|---|---|
+| `all_supported_charts.py` | Mixed workbook including core, advanced, and recipe-level chart patterns such as Lollipop, Donut, Butterfly, and Calendar | `python examples/all_supported_charts.py` |
+| `hyper_and_new_charts.py` | Additional chart experiments and connection workflows | `python examples/hyper_and_new_charts.py` |
+
+## Prompt examples for MCP clients
+
+If you are using an LLM tool with an MCP client, you can copy the prompts in `examples/prompts/` into the chat.
+
+Recommended starting points:
+
+- `prompts/demo_auto_layout_prompt.md`
+- `prompts/demo_c2_layout_prompt.md`
+- `prompts/demo_declarative_layout_prompt.md`
+
+## Output
+
+By default, examples write generated `.twb` files into the project-level `output/` directory.

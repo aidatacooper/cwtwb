@@ -1,17 +1,21 @@
 # cwtwb
 
-> **Tableau Workbook (.twb) Generation MCP Server**  
-> Programmatically create Tableau workbooks with calculated fields, multiple chart types, dashboard layouts, and built-in structural validation.
+> **Tableau Workbook (.twb) generation toolkit for reproducible dashboards and workbook engineering**  
+> Programmatically create Tableau workbooks with stable analytical primitives, dashboard composition, and built-in structural validation.
 
 ## Overview
 
-**cwtwb** is a Model Context Protocol (MCP) server that generates Tableau Desktop workbook files (`.twb`) from AI-driven tool calls. It provides atomic operations for building visualizations step by step:
+**cwtwb** is a Model Context Protocol (MCP) server and Python toolkit for generating Tableau Desktop workbook files (`.twb`) from code or AI-driven tool calls.
 
-1. **Zero-Config Start**: Works out-of-the-box with a built-in clean template and a minimal `Sample - Superstore` dataset, or load your own TWB template.
-2. Add calculated fields
-3. Create worksheets with various chart types
-4. Assemble dashboards with flexible layouts
-5. Save valid `.twb` files that open directly in Tableau Desktop
+It is designed as a **workbook engineering layer**, not as a conversational data exploration agent. The goal is to make workbook generation reproducible, inspectable, and safe to automate in local workflows, scripts, and CI.
+
+The default workflow is:
+
+1. Start from a known template or the built-in zero-config template
+2. Add calculated fields and parameters
+3. Build worksheets from stable chart primitives
+4. Assemble dashboards and interactions
+5. Save and validate a `.twb` that opens in Tableau Desktop
 
 ## Installation
 
@@ -21,19 +25,19 @@ pip install cwtwb
 
 ### Requirements
 
-- Python ≥ 3.10
-- [lxml](https://lxml.de/) ≥ 5.0
-- [mcp](https://pypi.org/project/mcp/) ≥ 1.0
+- Python >= 3.10
+- [lxml](https://lxml.de/) >= 5.0
+- [mcp](https://pypi.org/project/mcp/) >= 1.0
 
 ## Quick Start
 
-### As MCP Server (Recommended for AI Tools)
+### As MCP Server
 
-To allow your AI Assistant to build Tableau Dashboards automatically, you need to add `cwtwb` to your MCP client's configuration file.
+To allow an MCP client to build Tableau workbooks automatically, add `cwtwb` to the client's MCP configuration.
 
-The easiest and safest way to use `cwtwb` is via `uvx` (an isolated Python environment runner via [uv](https://docs.astral.sh/uv/)). This requires zero installation.
+The simplest way to run it is via `uvx`.
 
-#### 1. Claude Desktop
+#### Claude Desktop
 Open `~/Library/Application Support/Claude/claude_desktop_config.json` (Mac) or `%APPDATA%\Claude\claude_desktop_config.json` (Windows) and add:
 
 ```json
@@ -47,33 +51,21 @@ Open `~/Library/Application Support/Claude/claude_desktop_config.json` (Mac) or 
 }
 ```
 
-#### 2. Cursor IDE
+#### Cursor IDE
 1. Open **Cursor Settings** -> **Features** -> **MCP**.
 2. Click **Add New MCP Server**.
 3. Set **Type** to `command`.
 4. Set **Name** to `cwtwb`.
 5. Set **Command** to `uvx cwtwb`.
 
-#### 3. Claude Code (CLI)
-Run the following command in your terminal to permanently add the server to your Claude Code workspace:
+#### Claude Code (CLI)
 
 ```bash
 claude mcp add cwtwb -- uvx cwtwb
 ```
 
-#### 4. VSCode (via Cline / RooCode)
-Open your MCP settings file (usually located at `~/Library/Application Support/Code/User/globalStorage/saoudrizwan.claude-dev/settings/cline_mcp_settings.json` or equivalent on Windows) and append:
-
-```json
-{
-  "mcpServers": {
-    "cwtwb": {
-      "command": "uvx",
-      "args": ["cwtwb"]
-    }
-  }
-}
-```
+#### VSCode (via Cline / RooCode)
+Add the same `uvx cwtwb` command to your MCP configuration.
 
 ### As Python Library
 
@@ -82,11 +74,8 @@ from cwtwb.twb_editor import TWBEditor
 
 editor = TWBEditor("templates/twb/superstore.twb")
 editor.clear_worksheets()
-
-# Add a calculated field
 editor.add_calculated_field("Profit Ratio", "SUM([Profit])/SUM([Sales])")
 
-# Create a bar chart
 editor.add_worksheet("Sales by Category")
 editor.configure_chart(
     worksheet_name="Sales by Category",
@@ -95,7 +84,6 @@ editor.configure_chart(
     columns=["SUM(Sales)"],
 )
 
-# Create a pie chart
 editor.add_worksheet("Segment Pie")
 editor.configure_chart(
     worksheet_name="Segment Pie",
@@ -104,7 +92,6 @@ editor.configure_chart(
     wedge_size="SUM(Sales)",
 )
 
-# Build a dashboard
 editor.add_dashboard(
     dashboard_name="Overview",
     worksheet_names=["Sales by Category", "Segment Pie"],
@@ -125,36 +112,66 @@ editor.save("output/my_workbook.twb")
 | `remove_calculated_field` | Remove a previously added calculated field |
 | `add_worksheet` | Add a new blank worksheet |
 | `configure_chart` | Configure chart type and field mappings |
+| `configure_dual_axis` | Configure a dual-axis chart composition |
 | `add_dashboard` | Create a dashboard combining worksheets |
 | `add_dashboard_action` | Add filter or highlight actions to a dashboard |
 | `generate_layout_json` | Build an interactive structured dashboard flexbox layout |
+| `list_capabilities` | Show cwtwb's declared support boundary |
+| `analyze_twb` | Analyze a `.twb` file against the capability catalog |
+| `diff_template_gap` | Summarize the non-core gap of a template |
 | `set_mysql_connection` | Configure the datasource to use a local MySQL connection |
 | `set_tableauserver_connection` | Configure connection to an online Tableau Server |
 | `set_hyper_connection` | Configure the datasource to use a local Hyper extract connection |
 | `save_workbook` | Save the final TWB file |
 
-## Supported Chart Types
+## Capability Model
 
-- **Bar** — horizontal/vertical bar charts
-- **Line** — line charts and trends
-- **Pie** — pie charts with color and wedge-size encodings
-- **Area** — area charts
-- **Map** — geographic maps with `geographic_field` and optional `map_fields` for LOD
-- **Circle** / **Square** — shape marks
-- **Scatterplot** — visual comparison between two measures
-- **Heatmap** — categorical intersections colored by a measure
-- **Tree Map** — hierarchical data sized and colored by measures
-- **Bubble Chart** — categorical data represented as circles sized by a measure
-- **Text** — text tables and KPI cards (via `measure_values`)
-- **Automatic** — Tableau's automatic mark type
+### Core primitives
+
+These are the stable building blocks the project should continue to promise:
+
+- **Bar**
+- **Line**
+- **Area**
+- **Pie**
+- **Map**
+- **Text** / KPI cards
+- Parameters and calculated fields
+- Basic dashboard composition
+
+### Advanced patterns
+
+These are supported, but they are higher-level compositions or interaction features rather than the default surface area:
+
+- **Scatterplot**
+- **Heatmap**
+- **Tree Map**
+- **Bubble Chart**
+- **Dual Axis**
+- Filter zones, parameter controls, color legends
+- Dashboard filter/highlight actions
+- Declarative JSON layout workflows
+
+### Recipes and showcase patterns
+
+These can be generated today, but they should be treated as recipes or examples rather than first-class promises:
+
+- **Donut**
+- **Lollipop**
+- **Bullet**
+- **Bump**
+- **Butterfly**
+- **Calendar**
+
+This distinction matters because `cwtwb` is not trying to become a chart zoo or compete with Tableau's own conversational analysis tooling. The project is strongest when it provides a reliable, automatable workbook generation layer.
 
 ## Built-in Validation
 
 `save()` automatically validates the TWB XML structure before writing:
 
-- **Fatal errors** (missing `<workbook>`, `<datasources>`, etc.) raise `TWBValidationError` and block saving
-- **Warnings** (missing `<view>`, `<panes>`, etc.) are logged but don't block saving
-- Disable with `editor.save("output.twb", validate=False)`
+- **Fatal errors** such as missing `<workbook>` or `<datasources>` raise `TWBValidationError`
+- **Warnings** such as missing `<view>` or `<panes>` are logged but do not block saving
+- Validation can be disabled with `editor.save("output.twb", validate=False)`
 
 ## Dashboard Layouts
 
@@ -162,39 +179,33 @@ editor.save("output/my_workbook.twb")
 |---|---|
 | `vertical` | Stack worksheets top to bottom |
 | `horizontal` | Place worksheets side by side |
-| `grid-2x2` | 2×2 grid layout (up to 4 worksheets) |
-| `dict` (JSON) | **Declarative Custom Layouts**: An infinitely nestable FlexBox-style JSON structure for enterprise dashboards. |
+| `grid-2x2` | 2x2 grid layout (up to 4 worksheets) |
+| `dict` (JSON) | Declarative custom layouts for more complex dashboards |
 
-Custom layouts can be built programmatically using the `TWBEditor` API by passing a `layout` nested dictionary. See `examples/scripts/demo_declarative_layout.py` for a complete example of generating a side-bar executive dashboard.
+Custom layouts can be built programmatically using a nested `layout` dictionary or via `generate_layout_json` for MCP workflows.
 
 ## Project Structure
 
-```
+```text
 cwtwb/
 ├── src/cwtwb/
-│   ├── __init__.py          # Package init + API exports
-│   ├── config.py            # Shared constants and utilities
-│   ├── field_registry.py    # Field name ↔ TWB reference mapping
-│   ├── twb_editor.py        # Core TWBEditor class (Mixin-based)
-│   ├── charts.py            # ChartsMixin — chart configuration
-│   ├── dashboards.py        # DashboardsMixin — dashboard creation
-│   ├── connections.py       # ConnectionsMixin — DB connections
-│   ├── parameters.py        # ParametersMixin — parameter management
-│   ├── validator.py         # Runtime TWB XML structural validator
-│   ├── layout.py            # Dashboard layout engine
-│   └── server.py            # MCP server with FastMCP
+│   ├── __init__.py
+│   ├── capability_registry.py
+│   ├── twb_analyzer.py
+│   ├── config.py
+│   ├── field_registry.py
+│   ├── twb_editor.py
+│   ├── charts/
+│   ├── dashboards.py
+│   ├── connections.py
+│   ├── parameters.py
+│   ├── validator.py
+│   ├── layout.py
+│   └── server.py
 ├── tests/
-│   ├── twb_assert.py        # TWBAssert chainable assertion DSL
-│   ├── conftest.py          # Shared pytest fixtures
-│   ├── test_twb_structure.py # Structural validation tests
-│   └── ...                  # Other integration tests
-├── examples/                # Example scripts and prompts
-│   ├── scripts/             # Python examples for SDK
-│   ├── prompts/             # Natural language prompts for MCP LLM
-│   └── layouts/             # JSON declarative layout definitions
+├── examples/
 ├── docs/
-│   └── ROADMAP.md           # Project roadmap and priorities
-├── pyproject.toml           # Package configuration
+├── pyproject.toml
 └── README.md
 ```
 
@@ -205,10 +216,10 @@ cwtwb/
 pip install -e .
 
 # Run test suite
-pytest
+pytest --basetemp=output/pytest_tmp
 
-# Test end-to-end workflow demo
-python examples/scripts/demo_e2e_mcp_workflow.py
+# Run the all-supported-charts example
+python examples/all_supported_charts.py
 
 # Start MCP server
 cwtwb

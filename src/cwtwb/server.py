@@ -1,4 +1,4 @@
-"""cwtwb MCP Server — Tableau Workbook (.twb) generation tools.
+"""cwtwb MCP Server - Tableau Workbook (.twb) generation tools.
 
 Provides the following MCP tools:
 - create_workbook: Create a new workbook from template
@@ -24,6 +24,8 @@ logger = logging.getLogger(__name__)
 
 # Resource paths
 from .config import REFERENCES_DIR, TABLEAU_FUNCTIONS_JSON, SKILLS_DIR
+from .capability_registry import format_capability_catalog
+from .twb_analyzer import analyze_workbook
 
 # ---------- MCP Server ----------
 
@@ -83,7 +85,7 @@ def read_skills_index() -> str:
     professional-quality Tableau workbooks. Each skill focuses on one
     phase of the dashboard creation process.
 
-    Workflow: calculation_builder → chart_builder → dashboard_designer → formatting
+    Workflow: calculation_builder -> chart_builder -> dashboard_designer -> formatting
 
     Returns:
         Index of available skills with descriptions.
@@ -674,6 +676,45 @@ def generate_layout_json(
     except Exception as e:
         return f"Failed to generate layout JSON: {str(e)}"
 
+
+
+@server.tool()
+def list_capabilities() -> str:
+    """List cwtwb's declared capability boundary.
+
+    Returns:
+        Human-readable catalog grouped by support level.
+    """
+    return format_capability_catalog()
+
+
+@server.tool()
+def analyze_twb(file_path: str) -> str:
+    """Analyze a TWB file against cwtwb's declared capabilities.
+
+    Args:
+        file_path: Absolute or workspace-relative path to a .twb file.
+
+    Returns:
+        Summary of detected supported, recipe, and unsupported capabilities.
+    """
+    report = analyze_workbook(file_path)
+    return report.to_text()
+
+
+@server.tool()
+def diff_template_gap(file_path: str) -> str:
+    """Summarize the non-core capability gap of a TWB template.
+
+    Args:
+        file_path: Absolute or workspace-relative path to a .twb file.
+
+    Returns:
+        Decision-oriented summary of advanced, recipe-only, unsupported,
+        and unknown capabilities.
+    """
+    report = analyze_workbook(file_path)
+    return report.to_gap_text()
 
 @server.tool()
 def save_workbook(output_path: str) -> str:
