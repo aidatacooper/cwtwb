@@ -2,48 +2,25 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
 from typing import Optional, Union
 
 from .builder_basic import BasicChartBuilder
 from .builder_dual_axis import DualAxisChartBuilder
 from .builder_maps import MapChartBuilder
 from .builder_pie import PieChartBuilder
-from .pattern_mapping import normalize_chart_pattern
+from .routing_policy import ChartRouteProfile, profile_chart_request, profile_dual_axis_request
 
 
-@dataclass(frozen=True)
-class ChartDispatchDecision:
-    """Decision describing which builder a chart request should use."""
-
-    builder_name: str
-    actual_mark_type: str
-    requested_mark_type: str
-
-
-@dataclass(frozen=True)
-class DualAxisDispatchDecision:
-    """Decision describing the dual-axis builder route."""
-
-    builder_name: str
-
-
-def decide_chart_builder(mark_type: str) -> ChartDispatchDecision:
+def decide_chart_builder(mark_type: str) -> ChartRouteProfile:
     """Choose the stable builder layer for a chart request."""
 
-    if mark_type == "Pie":
-        return ChartDispatchDecision("pie", "Pie", mark_type)
-    if mark_type == "Map":
-        return ChartDispatchDecision("map", "Map", mark_type)
-
-    resolution = normalize_chart_pattern(mark_type)
-    return ChartDispatchDecision("basic", resolution.actual_mark_type, mark_type)
+    return profile_chart_request(mark_type)
 
 
-def decide_dual_axis_builder() -> DualAxisDispatchDecision:
+def decide_dual_axis_builder() -> ChartRouteProfile:
     """Choose the stable builder layer for a dual-axis request."""
 
-    return DualAxisDispatchDecision("dual_axis")
+    return profile_dual_axis_request()
 
 
 def configure_chart(
