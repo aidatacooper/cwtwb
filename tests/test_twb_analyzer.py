@@ -1,9 +1,8 @@
-﻿from pathlib import Path
+from pathlib import Path
 
+from cwtwb.server import describe_capability, diff_template_gap
 from cwtwb.twb_analyzer import analyze_workbook
 from cwtwb.twb_editor import TWBEditor
-from cwtwb.server import diff_template_gap
-
 
 
 def test_analyze_generated_workbook_detects_core_and_advanced():
@@ -84,7 +83,6 @@ def test_analyze_generated_workbook_detects_core_and_advanced():
     assert report.fit_level == "advanced-fit"
 
 
-
 def test_analyze_advent_calendar_detects_recipe_patterns():
     path = Path("templates/viz/Tableau Advent Calendar.twb")
     report = analyze_workbook(path)
@@ -94,7 +92,6 @@ def test_analyze_advent_calendar_detects_recipe_patterns():
     assert ("chart", "Lollipop") in detected
     assert ("chart", "Bullet") in detected
     assert report.fit_level == "recipe-heavy"
-
 
 
 def test_gap_summary_highlights_non_core_items():
@@ -109,7 +106,6 @@ def test_gap_summary_highlights_non_core_items():
     assert "Recommendation:" in gap_text
 
 
-
 def test_diff_template_gap_tool_returns_gap_summary():
     path = Path("templates/viz/Tableau Advent Calendar.twb")
     result = diff_template_gap(str(path))
@@ -117,3 +113,11 @@ def test_diff_template_gap_tool_returns_gap_summary():
     assert "Capability gap:" in result
     assert "Template fit: recipe-heavy" in result
     assert "recipe-only" in result
+
+
+def test_describe_capability_tool_reports_support_tier():
+    result = describe_capability("chart", "Scatterplot")
+
+    assert "chart: Scatterplot" in result
+    assert "Level: advanced" in result
+    assert "advanced" in result

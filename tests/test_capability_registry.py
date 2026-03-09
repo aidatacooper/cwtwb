@@ -1,5 +1,6 @@
-﻿from cwtwb.capability_registry import (
+from cwtwb.capability_registry import (
     format_capability_catalog,
+    format_capability_detail,
     get_capability,
     get_level_summary,
     list_capabilities,
@@ -13,12 +14,10 @@ def test_chart_alias_resolution():
     assert spec.level == "core"
 
 
-
 def test_recipe_capabilities_are_listed():
     recipe_names = [spec.canonical for spec in list_capabilities(level="recipe")]
     assert "Donut" in recipe_names
     assert "Lollipop" in recipe_names
-
 
 
 def test_level_summary_and_catalog_text():
@@ -33,3 +32,10 @@ def test_level_summary_and_catalog_text():
     assert "[core]" in catalog
     assert "chart: Bar" in catalog
 
+
+def test_capability_detail_explains_tier_and_recommendation():
+    detail = format_capability_detail("chart", "Donut")
+
+    assert "chart: Donut" in detail
+    assert "Level: recipe" in detail
+    assert "first-class SDK promise" in detail

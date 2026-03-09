@@ -11,6 +11,7 @@ from .capability_registry import (  # noqa: E402
     CAPABILITY_SPECS,
     CapabilitySpec,
     format_capability_catalog,
+    format_capability_detail,
     get_capability,
     list_capabilities,
 )
@@ -30,6 +31,7 @@ __all__ = [
     "__version__",
     "analyze_workbook",
     "format_capability_catalog",
+    "format_capability_detail",
     "get_capability",
     "list_capabilities",
 ]

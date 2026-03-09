@@ -428,6 +428,34 @@ def get_level_summary() -> dict[CapabilityLevel, int]:
     return summary
 
 
+def format_capability_detail(kind: CapabilityKind, name: str) -> str:
+    """Render one capability with tier guidance and rationale."""
+
+    spec = get_capability(kind, name)
+    if spec is None:
+        return (
+            f"No declared capability matched kind='{kind}' name='{name}'. "
+            "Use list_capabilities() to inspect the current support boundary."
+        )
+
+    lines = [f"{spec.kind}: {spec.canonical}", f"Level: {spec.level}"]
+    if spec.aliases:
+        lines.append(f"Aliases: {', '.join(spec.aliases)}")
+    if spec.rationale:
+        lines.append(f"Rationale: {spec.rationale}")
+    if spec.notes:
+        lines.append(f"Notes: {spec.notes}")
+
+    recommendation = {
+        "core": "Recommendation: Safe default for SDK docs, examples, and the MCP happy path.",
+        "advanced": "Recommendation: Supported, but keep behind explicit APIs and document it as an advanced pattern.",
+        "recipe": "Recommendation: Treat as a recipe or showcase pattern, not a first-class SDK promise.",
+        "unsupported": "Recommendation: Do not expose this as supported generation surface yet.",
+    }[spec.level]
+    lines.append(recommendation)
+    return "\n".join(lines)
+
+
 def format_capability_catalog() -> str:
     """Render the registry as a concise human-readable summary."""
 

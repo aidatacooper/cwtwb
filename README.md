@@ -1,6 +1,6 @@
 # cwtwb
 
-> **Tableau Workbook (.twb) generation toolkit for reproducible dashboards and workbook engineering**  
+> **Tableau Workbook (.twb) generation toolkit for reproducible dashboards and workbook engineering**
 > Programmatically create Tableau workbooks with stable analytical primitives, dashboard composition, and built-in structural validation.
 
 ## Overview
@@ -38,7 +38,8 @@ To allow an MCP client to build Tableau workbooks automatically, add `cwtwb` to 
 The simplest way to run it is via `uvx`.
 
 #### Claude Desktop
-Open `~/Library/Application Support/Claude/claude_desktop_config.json` (Mac) or `%APPDATA%\Claude\claude_desktop_config.json` (Windows) and add:
+
+Open `~/Library/Application Support/Claude/claude_desktop_config.json` on macOS or `%APPDATA%\Claude\claude_desktop_config.json` on Windows and add:
 
 ```json
 {
@@ -52,19 +53,21 @@ Open `~/Library/Application Support/Claude/claude_desktop_config.json` (Mac) or 
 ```
 
 #### Cursor IDE
-1. Open **Cursor Settings** -> **Features** -> **MCP**.
-2. Click **Add New MCP Server**.
-3. Set **Type** to `command`.
-4. Set **Name** to `cwtwb`.
-5. Set **Command** to `uvx cwtwb`.
 
-#### Claude Code (CLI)
+1. Open **Cursor Settings** -> **Features** -> **MCP**
+2. Click **Add New MCP Server**
+3. Set **Type** to `command`
+4. Set **Name** to `cwtwb`
+5. Set **Command** to `uvx cwtwb`
+
+#### Claude Code
 
 ```bash
 claude mcp add cwtwb -- uvx cwtwb
 ```
 
-#### VSCode (via Cline / RooCode)
+#### VSCode
+
 Add the same `uvx cwtwb` command to your MCP configuration.
 
 ### As Python Library
@@ -107,7 +110,7 @@ editor.save("output/my_workbook.twb")
 |---|---|
 | `create_workbook` | Load a TWB template and initialize the workspace |
 | `list_fields` | List all available dimensions and measures |
-| `add_parameter` | Add an interactive parameter for What-if analysis |
+| `add_parameter` | Add an interactive parameter for what-if analysis |
 | `add_calculated_field` | Add a calculated field with Tableau formula |
 | `remove_calculated_field` | Remove a previously added calculated field |
 | `add_worksheet` | Add a new blank worksheet |
@@ -117,6 +120,7 @@ editor.save("output/my_workbook.twb")
 | `add_dashboard_action` | Add filter or highlight actions to a dashboard |
 | `generate_layout_json` | Build an interactive structured dashboard flexbox layout |
 | `list_capabilities` | Show cwtwb's declared support boundary |
+| `describe_capability` | Explain whether a chart or feature is core, advanced, recipe, or unsupported |
 | `analyze_twb` | Analyze a `.twb` file against the capability catalog |
 | `diff_template_gap` | Summarize the non-core gap of a template |
 | `set_mysql_connection` | Configure the datasource to use a local MySQL connection |
@@ -149,7 +153,7 @@ These are supported, but they are higher-level compositions or interaction featu
 - **Bubble Chart**
 - **Dual Axis**
 - Filter zones, parameter controls, color legends
-- Dashboard filter/highlight actions
+- Dashboard filter and highlight actions
 - Declarative JSON layout workflows
 
 ### Recipes and showcase patterns
@@ -165,6 +169,16 @@ These can be generated today, but they should be treated as recipes or examples 
 
 This distinction matters because `cwtwb` is not trying to become a chart zoo or compete with Tableau's own conversational analysis tooling. The project is strongest when it provides a reliable, automatable workbook generation layer.
 
+### Capability-first workflow
+
+When you are not sure whether something belongs in the stable SDK surface:
+
+1. Use `list_capabilities` to inspect the declared boundary
+2. Use `describe_capability` to check a specific chart, encoding, or feature
+3. Use `analyze_twb` or `diff_template_gap` before chasing a showcase template
+
+This keeps new feature work aligned with the project's real product boundary instead of with whatever happens to appear in a sample workbook.
+
 ## Built-in Validation
 
 `save()` automatically validates the TWB XML structure before writing:
@@ -179,8 +193,8 @@ This distinction matters because `cwtwb` is not trying to become a chart zoo or 
 |---|---|
 | `vertical` | Stack worksheets top to bottom |
 | `horizontal` | Place worksheets side by side |
-| `grid-2x2` | 2x2 grid layout (up to 4 worksheets) |
-| `dict` (JSON) | Declarative custom layouts for more complex dashboards |
+| `grid-2x2` | 2x2 grid layout for up to four worksheets |
+| `dict` or `.json` path | Declarative custom layouts for more complex dashboards |
 
 Custom layouts can be built programmatically using a nested `layout` dictionary or via `generate_layout_json` for MCP workflows.
 
@@ -188,25 +202,25 @@ Custom layouts can be built programmatically using a nested `layout` dictionary 
 
 ```text
 cwtwb/
-├── src/cwtwb/
-│   ├── __init__.py
-│   ├── capability_registry.py
-│   ├── twb_analyzer.py
-│   ├── config.py
-│   ├── field_registry.py
-│   ├── twb_editor.py
-│   ├── charts/
-│   ├── dashboards.py
-│   ├── connections.py
-│   ├── parameters.py
-│   ├── validator.py
-│   ├── layout.py
-│   └── server.py
-├── tests/
-├── examples/
-├── docs/
-├── pyproject.toml
-└── README.md
+|-- src/cwtwb/
+|   |-- __init__.py
+|   |-- capability_registry.py
+|   |-- twb_analyzer.py
+|   |-- config.py
+|   |-- field_registry.py
+|   |-- twb_editor.py
+|   |-- charts/
+|   |-- dashboards.py
+|   |-- connections.py
+|   |-- parameters.py
+|   |-- validator.py
+|   |-- layout.py
+|   `-- server.py
+|-- tests/
+|-- examples/
+|-- docs/
+|-- pyproject.toml
+`-- README.md
 ```
 
 ## Development
@@ -218,7 +232,7 @@ pip install -e .
 # Run test suite
 pytest --basetemp=output/pytest_tmp
 
-# Run the all-supported-charts example
+# Run the mixed showcase example
 python examples/all_supported_charts.py
 
 # Start MCP server

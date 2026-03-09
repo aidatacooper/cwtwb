@@ -1,28 +1,28 @@
-# CWTWB Prompts Examples Directory
+# cwtwb Prompt Examples
 
-This directory contains a collection of prompt examples for interacting with the `cwtwb` MCP server. You can copy and paste these prompts directly to an MCP-enabled AI assistant (like Cline, Cursor, Gemini, etc.) to automate the generation of complex Tableau workbooks (.twb).
+This directory contains prompt examples for interacting with the `cwtwb` MCP server. You can copy and paste these prompts into an MCP-enabled assistant to automate Tableau workbook generation.
 
-These examples demonstrate how to use natural language commands to instruct the AI assistant to leverage `cwtwb`'s capabilities, including automated data processing, parameter configuration, chart generation, and complex dashboard layouts.
+The prompts span multiple support tiers. Prefer starting with the core-fit and advanced-fit prompts listed in `examples/README.md` before using the recipe-heavy or debugging prompts.
 
-## Examples List
+## Examples list
 
-### 1. Basic & Declarative Layout Examples
-- **`demo_simple.md`**: Basic example. Instructs the AI to create 4 simple charts (KPIs and Bar charts) using the `superstore.twb` template, and guides it to use the `generate_layout_json` tool to arrange them in a combined vertical and horizontal layout.
-- **`demo_auto_layout_prompt.md`**: Auto layout prompt example. With very brief natural language, it lets the LLM infer and build an adaptive dashboard layout combining 3 charts.
-- **`demo_auto_layout4_prompt.md`**: Demonstrates the latest Declarative Layout features and handling of fixed sizing in Tableau.
-- **`demo_c2_layout_prompt.md`**: A quick example showing how to command the AI to directly read an existing external JSON layout configuration (`layout_c2.json`) and apply it to a new dashboard.
-- **`demo_declarative_layout_prompt.md`**: Advanced declarative layout demonstration. Creates 8 charts in bulk and instructs the AI to read two different external JSON layout files (`layout_executive.json` and `layout_c2.json`) to map out two different dashboards.
+### Basic and declarative layout examples
 
-### 2. Comprehensive Business Dashboard Examples (Overview Dashboard)
-These prompts show how to create a fully functional, interactive business dashboard including "What-If" analysis, calculated fields, maps, filter actions, and complex layouts.
-- **`overview_business_demo.md`**: Framed as a business executive's requirements, demonstrating how to use natural business language to guide the AI to build a complete "Superstore Profitability Overview" dashboard.
-- **`overview_natural_en.md`**: Detailed English natural language prompt. Contains very specific technical metric definitions and layout dimensions for accurately recreating a given Overview dashboard.
-- **`overview_natural zh_cn.md`**: The **Chinese version** natural language prompt for the fully featured Overview dashboard mentioned above.
+- **`demo_simple.md`**: Small core-path example using KPI and bar-chart primitives with `generate_layout_json`
+- **`demo_auto_layout_prompt.md`**: Short natural-language request for an adaptive dashboard layout
+- **`demo_auto_layout4_prompt.md`**: Advanced declarative layout example with fixed sizing
+- **`demo_c2_layout_prompt.md`**: Reads an existing external JSON layout and applies it to a dashboard
+- **`demo_declarative_layout_prompt.md`**: Larger dashboard assembly flow using external layout files
 
-### 3. Testing and Debugging Cases
-- **`test_parameter_prefix_bug.md`**: A specific test prompt to verify whether `cwtwb` correctly parses calculation logic when referencing parameters (with or without the `[Parameters].` prefix).
+### Interactive overview examples
 
----
+- **`overview_business_demo.md`**: Business-oriented prompt for an interactive overview dashboard
+- **`overview_natural_en.md`**: Detailed English prompt for a more technical overview reconstruction
+- **`overview_natural zh_cn.md`**: Chinese version of the detailed overview prompt
 
-> **💡 Tip:**
-> If you encounter context truncation or memory issues due to excessively long payloads when using these instructions, please pay special attention to the standard execution step (Best Practice) shown in files like `demo_simple.md`: **"Call the `generate_layout_json` tool first to write the local JSON file, and then pass the absolute file path to `add_dashboard`."**
+### Debugging and narrow checks
+
+- **`test_parameter_prefix_bug.md`**: Checks parameter reference parsing with and without the `[Parameters].` prefix
+
+> Tip:
+> If you encounter payload or context limits, follow the pattern used in `demo_simple.md`: call `generate_layout_json` first, save the JSON locally, and then pass the file path to `add_dashboard`.

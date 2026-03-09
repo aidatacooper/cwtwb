@@ -24,7 +24,7 @@ logger = logging.getLogger(__name__)
 
 # Resource paths
 from .config import REFERENCES_DIR, TABLEAU_FUNCTIONS_JSON, SKILLS_DIR
-from .capability_registry import format_capability_catalog
+from .capability_registry import format_capability_catalog, format_capability_detail
 from .twb_analyzer import analyze_workbook
 
 # ---------- MCP Server ----------
@@ -34,6 +34,8 @@ server = FastMCP(
     instructions="Tableau Workbook (.twb) generation MCP Server. "
     "Create visualizations by calling create_workbook first, "
     "then add_worksheet + configure_chart, and finally save_workbook. "
+    "Prefer core primitives first, and use list_capabilities or describe_capability "
+    "when you need to check whether a chart or feature is core, advanced, or recipe-only. "
     "For professional-quality output, read the agent skills "
     "(cwtwb://skills/index) before starting each phase.",
 )
@@ -312,6 +314,13 @@ def configure_chart(
     Supported aggregations: SUM, AVG, COUNT, COUNTD, MIN, MAX, MEDIAN, ATTR.
     Supported date parts: YEAR, QUARTER, MONTH, DAY.
 
+    Capability tiers:
+    - Core primitives: Bar, Line, Area, Pie, Map, Text
+    - Advanced patterns: Scatterplot, Heatmap, Tree Map, Bubble Chart
+    - Recipe patterns such as Donut or Lollipop should usually be built from
+      explicit dual-axis or helper workflows instead of being treated as
+      first-class chart primitives.
+
     For Pie charts, use 'color' for the slice dimension
     and 'wedge_size' for the measure (leave columns/rows empty).
 
@@ -325,8 +334,9 @@ def configure_chart(
 
     Args:
         worksheet_name: Target worksheet name.
-        mark_type: Chart mark type. One of:
-            Bar, Line, Pie, Area, Circle, Square, Text, Map, Automatic.
+        mark_type: Chart mark type or higher-level chart pattern. Common choices:
+            Bar, Line, Pie, Area, Text, Map, Scatterplot, Heatmap,
+            Tree Map, Bubble Chart, Circle, Square, Automatic.
         columns: Column shelf field expressions (e.g. ["SUM(Sales)"]).
         rows: Row shelf field expressions (e.g. ["Category"]).
         color: Color encoding field expression.
@@ -413,11 +423,14 @@ def configure_dual_axis(
     sort_descending: Optional[str] = None,
     filters: Optional[list[dict]] = None,
 ) -> str:
-    """Configure a dual-axis chart (e.g. Lollipop, Donut, Combo chart).
+    """Configure a dual-axis chart composition.
     
     IMPORTANT: The `dual_axis_shelf` (either "rows" or "columns") MUST contain the duplicate measure expressions at the end of the list.
     For example, for a horizontal Lollipop chart by Category and Sales:
     rows=["Category"], columns=["SUM(Sales)", "SUM(Sales)"], dual_axis_shelf="columns".
+
+    This is an advanced building block and is often the basis for recipe-level
+    patterns such as Lollipop or Donut charts.
 
     Args:
         worksheet_name: Target worksheet name.
@@ -686,6 +699,21 @@ def list_capabilities() -> str:
         Human-readable catalog grouped by support level.
     """
     return format_capability_catalog()
+
+
+@server.tool()
+def describe_capability(kind: str, name: str) -> str:
+    """Describe one declared capability and its support tier.
+
+    Args:
+        kind: Capability kind such as chart, encoding, dashboard_zone, action,
+            connection, or feature.
+        name: Raw or canonical capability name.
+
+    Returns:
+        Tier, rationale, aliases, and recommendation text for the capability.
+    """
+    return format_capability_detail(kind, name)
 
 
 @server.tool()

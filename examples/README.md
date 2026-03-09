@@ -14,6 +14,7 @@ These stay inside the stable surface area and are the best reference points for 
 |---|---|---|
 | `scripts/demo_e2e_mcp_workflow.py` | End-to-end workbook creation from MCP-style tool calls using core chart and dashboard primitives | `python examples/scripts/demo_e2e_mcp_workflow.py` |
 | `scripts/demo_connections.py` | Supported datasource switching workflows | `python examples/scripts/demo_connections.py` |
+| `prompts/demo_simple.md` | Small core dashboard prompt using KPI and bar-chart primitives | Copy into an MCP-enabled assistant |
 
 ### Advanced-fit examples
 
@@ -22,6 +23,15 @@ These are supported, but they rely on advanced dashboard composition or interact
 | Example | What it shows | How to run |
 |---|---|---|
 | `scripts/demo_declarative_layout.py` | Declarative JSON dashboard layouts, KPI composition, and more complex layout structures | `python examples/scripts/demo_declarative_layout.py` |
+| `scripts/demo_auto_layout4.py` | Advanced nested layout composition with fixed-size header and KPI band | `python examples/scripts/demo_auto_layout4.py` |
+| `hyper_and_new_charts.py` | Advanced chart patterns such as Scatterplot, Heatmap, Tree Map, and Bubble Chart, with optional Hyper switching | `python examples/hyper_and_new_charts.py` |
+| `prompts/demo_auto_layout_prompt.md` | Short natural-language request that stays near the core and advanced happy path | Copy into an MCP-enabled assistant |
+| `prompts/demo_auto_layout4_prompt.md` | Prompt for advanced declarative layout composition | Copy into an MCP-enabled assistant |
+| `prompts/demo_c2_layout_prompt.md` | Prompt for reading a saved JSON layout into a dashboard workflow | Copy into an MCP-enabled assistant |
+| `prompts/demo_declarative_layout_prompt.md` | Prompt for a larger advanced dashboard assembly flow | Copy into an MCP-enabled assistant |
+| `prompts/overview_business_demo.md` | Interactive dashboard prompt with filters, parameters, and business framing | Copy into an MCP-enabled assistant |
+| `prompts/overview_natural_en.md` | Detailed English prompt for a more complex overview dashboard | Copy into an MCP-enabled assistant |
+| `prompts/overview_natural zh_cn.md` | Chinese version of the advanced overview prompt | Copy into an MCP-enabled assistant |
 
 ### Recipe-heavy examples
 
@@ -30,7 +40,7 @@ These are useful for exploration and showcase purposes, but they should not be t
 | Example | What it shows | How to run |
 |---|---|---|
 | `all_supported_charts.py` | Mixed workbook including core, advanced, and recipe-level chart patterns such as Lollipop, Donut, Butterfly, and Calendar | `python examples/all_supported_charts.py` |
-| `hyper_and_new_charts.py` | Additional chart experiments and connection workflows | `python examples/hyper_and_new_charts.py` |
+| `prompts/test_parameter_prefix_bug.md` | Narrow debugging prompt rather than a clean product-path example | Copy into an MCP-enabled assistant |
 
 ## Prompt examples for MCP clients
 
@@ -38,10 +48,12 @@ If you are using an LLM tool with an MCP client, you can copy the prompts in `ex
 
 Recommended starting points:
 
+- `prompts/demo_simple.md`
 - `prompts/demo_auto_layout_prompt.md`
-- `prompts/demo_c2_layout_prompt.md`
 - `prompts/demo_declarative_layout_prompt.md`
 
 ## Output
 
 By default, examples write generated `.twb` files into the project-level `output/` directory.
+
+If you are not sure whether a generated workbook still sits inside the intended product boundary, run `analyze_twb` or `diff_template_gap` on the output file before promoting the example into docs.
