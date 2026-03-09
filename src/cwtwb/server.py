@@ -1,31 +1,23 @@
-"""cwtwb MCP Server - Tableau Workbook (.twb) generation tools.
+"""cwtwb MCP Server - Tableau Workbook (.twb) generation tools."""
 
-Provides the following MCP tools:
-- create_workbook: Create a new workbook from template
-- list_fields: List datasource fields
-- add_calculated_field: Add a calculated field
-- remove_calculated_field: Remove a calculated field
-- add_worksheet: Add a worksheet
-- configure_chart: Configure chart type and encodings
-- add_dashboard: Create a dashboard
-- save_workbook: Save the TWB file
-"""
-
-import json
 import logging
-from pathlib import Path
 from typing import Optional
 
 from .twb_editor import TWBEditor
 
 logger = logging.getLogger(__name__)
 
-from .capability_registry import format_capability_catalog, format_capability_detail
 from .mcp.app import server
 from .mcp.resources import read_skill, read_skills_index, read_tableau_functions
 from .mcp.state import get_editor as _get_editor
 from .mcp.state import set_editor as _set_editor
-from .twb_analyzer import analyze_workbook
+from .mcp.tools_layout import generate_layout_json
+from .mcp.tools_support import (
+    analyze_twb,
+    describe_capability,
+    diff_template_gap,
+    list_capabilities,
+)
 
 # ---------- Tools ----------
 
@@ -524,112 +516,6 @@ def add_dashboard_action(
         caption=caption,
     )
 
-
-@server.tool()
-def generate_layout_json(
-    output_path: str,
-    layout_tree: dict,
-    ascii_preview: str,
-) -> str:
-    """Generate and save a Dashboard layout JSON file.
-
-    IMPORTANT: For complex custom layouts, you should always use this tool FIRST,
-    and then pass the generated file path to `add_dashboard`. This avoids memory issues.
-
-    Args:
-        output_path: Absolute file path where the JSON should be saved (e.g. /output/layout.json).
-        layout_tree: The nested dictionary representing the layout.
-            Supported component 'type' values:
-            - "container": A layout container. Requires 'direction' ("vertical" or "horizontal") and 'children' (list).
-                           Optional: 'layout_strategy' (e.g., "distribute-evenly", "fixed-width"), 
-                           'width' or 'height' (int) if sized fixedly.
-            - "worksheet": A worksheet dashboard zone. Requires 'name' (string, matching the worksheet name).
-                           Optional: 'weight' (int) to control proportional sizing within containers.
-            - "filter": A quick filter control. Requires 'worksheet' (the target sheet name) and 'field' (the target field name).
-                        Optional: 'mode' (e.g., "dropdown", "checkdropdown", or empty "" for default behavior).
-            - "paramctrl": An interactive parameter control. Requires 'param' (name of the parameter).
-            - "color": A color legend. Requires 'worksheet' (target sheet) and 'field' (the assigned color field).
-        ascii_preview: REQUIRED. An ASCII string previewing the layout for human readers. 
-            Use dashes, pipes, and brackets to represent containers and worksheets.
-
-    Returns:
-        Confirmation message with the exact absolute file path to pass to `add_dashboard`.
-    """
-    try:
-        path = Path(output_path)
-        path.parent.mkdir(parents=True, exist_ok=True)
-        
-        output_data = {}
-        if ascii_preview:
-            # Split ASCII by lines to make it clean in JSON
-            output_data["_ascii_layout_preview"] = ascii_preview.strip().split("\n")
-            
-        output_data["layout_schema"] = layout_tree
-        
-        with open(path, "w", encoding="utf-8") as f:
-            json.dump(output_data, f, indent=2, ensure_ascii=False)
-            
-        return (
-            f"Layout JSON successfully written to: {path.absolute()}\n"
-            f"You can now call `add_dashboard` and set the `layout` parameter to exactly this file path."
-        )
-    except Exception as e:
-        return f"Failed to generate layout JSON: {str(e)}"
-
-
-
-@server.tool()
-def list_capabilities() -> str:
-    """List cwtwb's declared capability boundary.
-
-    Returns:
-        Human-readable catalog grouped by support level.
-    """
-    return format_capability_catalog()
-
-
-@server.tool()
-def describe_capability(kind: str, name: str) -> str:
-    """Describe one declared capability and its support tier.
-
-    Args:
-        kind: Capability kind such as chart, encoding, dashboard_zone, action,
-            connection, or feature.
-        name: Raw or canonical capability name.
-
-    Returns:
-        Tier, rationale, aliases, and recommendation text for the capability.
-    """
-    return format_capability_detail(kind, name)
-
-
-@server.tool()
-def analyze_twb(file_path: str) -> str:
-    """Analyze a TWB file against cwtwb's declared capabilities.
-
-    Args:
-        file_path: Absolute or workspace-relative path to a .twb file.
-
-    Returns:
-        Summary of detected supported, recipe, and unsupported capabilities.
-    """
-    report = analyze_workbook(file_path)
-    return report.to_text()
-
-
-@server.tool()
-def diff_template_gap(file_path: str) -> str:
-    """Summarize the non-core capability gap of a TWB template.
-
-    Args:
-        file_path: Absolute or workspace-relative path to a .twb file.
-
-    Returns:
-        Decision-oriented summary of advanced, recipe-only, unsupported,
-        and unknown capabilities.
-    """
-    report = analyze_workbook(file_path)
-    return report.to_gap_text()
 
 @server.tool()
 def save_workbook(output_path: str) -> str:
