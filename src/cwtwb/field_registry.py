@@ -27,6 +27,10 @@ _DERIVATION_MAP: dict[str, str] = {
     "QUARTER": "Quarter",
     "MONTH": "Month",
     "DAY": "Day",
+    "WEEK": "Week",
+    "WEEKDAY": "Weekday",
+    "MY": "MY",
+    "DAYTRUNC": "Day-Trunc",
 }
 
 # Derivation abbreviations (used for column-instance name generation)
@@ -45,10 +49,14 @@ _DERIVATION_ABBR: dict[str, str] = {
     "Quarter": "qr",
     "Month": "mn",
     "Day": "day",
+    "Week": "wk",
+    "Weekday": "wd",
+    "MY": "my",
+    "Day-Trunc": "tdy",
 }
 
 # Temporal derivations (result type is ordinal key)
-_TEMPORAL_DERIVATIONS = {"Year", "Quarter", "Month", "Day"}
+_TEMPORAL_DERIVATIONS = {"Year", "Quarter", "Month", "Day", "Week", "Weekday", "MY"}
 
 # Expression regex: FUNC(field) or bare field
 _EXPR_RE = re.compile(
@@ -161,6 +169,8 @@ class FieldRegistry:
             ci_type = fi.field_type   # nominal / quantitative — preserve field's own type
         elif derivation in _TEMPORAL_DERIVATIONS:
             ci_type = "ordinal"
+        elif derivation == "Day-Trunc":
+            ci_type = "quantitative"
         else:
             ci_type = "quantitative"
 

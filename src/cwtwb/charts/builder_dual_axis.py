@@ -24,7 +24,18 @@ class DualAxisChartBuilder(BaseChartBuilder):
                  detail_2: Optional[str] = None,
                  synchronized: bool = True,
                  sort_descending: Optional[str] = None,
-                 filters: Optional[list[dict]] = None) -> None:
+                 filters: Optional[list[dict]] = None,
+                 wedge_size_1: Optional[str] = None,
+                 wedge_size_2: Optional[str] = None,
+                 show_labels: bool = True,
+                 hide_axes: bool = False,
+                 hide_zeroline: bool = False,
+                 mark_sizing_off: bool = False,
+                 size_value_1: Optional[str] = None,
+                 size_value_2: Optional[str] = None,
+                 mark_color_2: Optional[str] = None,
+                 reverse_axis_1: bool = False,
+                 ) -> None:
         super().__init__(editor)
         self.worksheet_name = worksheet_name
         self.mark_type_1 = mark_type_1
@@ -43,6 +54,16 @@ class DualAxisChartBuilder(BaseChartBuilder):
         self.synchronized = synchronized
         self.sort_descending = sort_descending
         self.filters = filters
+        self.wedge_size_1 = wedge_size_1
+        self.wedge_size_2 = wedge_size_2
+        self.show_labels = show_labels
+        self.hide_axes = hide_axes
+        self.hide_zeroline = hide_zeroline
+        self.mark_sizing_off = mark_sizing_off
+        self.size_value_1 = size_value_1
+        self.size_value_2 = size_value_2
+        self.mark_color_2 = mark_color_2
+        self.reverse_axis_1 = reverse_axis_1
 
     def build(self) -> str:
         if self.dual_axis_shelf == "rows":
@@ -68,16 +89,18 @@ class DualAxisChartBuilder(BaseChartBuilder):
 
         ds_name = self._datasource.get("name", "")
         
+        # Gather all expressions
         all_exprs = self._gather_expressions(
-            self.columns, self.rows, self.color_1, self.size_1, self.label_1, self.detail_1, None, self.sort_descending, None, self.filters, None, None
+            self.columns, self.rows, self.color_1, self.size_1, self.label_1, self.detail_1, self.wedge_size_1, self.sort_descending, None, self.filters, None, None
         )
-        for enc in (self.color_2, self.size_2, self.label_2, self.detail_2):
+        for enc in (self.color_2, self.size_2, self.label_2, self.detail_2, self.wedge_size_2):
             if enc and enc not in all_exprs:
                 all_exprs.append(enc)
                 
         instances = self._parse_and_prepare_instances(all_exprs, self.filters)
         self._setup_datasource_dependencies(view, ds_name, instances, all_exprs)
 
+        # Remove old pane/panes
         old_pane = table.find("pane")
         old_panes = table.find("panes")
         
@@ -99,17 +122,6 @@ class DualAxisChartBuilder(BaseChartBuilder):
         panes_el = etree.Element("panes")
         table.insert(insert_idx, panes_el)
         
-        # Pane 0: Primary (Automatic mark acts as a container or layout base)
-        pane_0 = etree.SubElement(panes_el, "pane")
-        pane_0.set("selection-relaxation-option", "selection-relaxation-allow")
-        p0_view = etree.SubElement(pane_0, "view")
-        etree.SubElement(p0_view, "breakdown", value="auto")
-        etree.SubElement(pane_0, "mark", {"class": "Automatic"})
-        
-        # Pane 1: Primary Axis Mark
-        pane_1 = etree.SubElement(panes_el, "pane")
-        pane_1.set("id", "1")
-        pane_1.set("selection-relaxation-option", "selection-relaxation-allow")
         axis_attr_name = "y-axis-name" if self.dual_axis_shelf == "rows" else "x-axis-name"
         axis_attr_index = "y-index" if self.dual_axis_shelf == "rows" else "x-index"
         
@@ -118,31 +130,69 @@ class DualAxisChartBuilder(BaseChartBuilder):
         ref_m1 = self.field_registry.resolve_full_reference(ci_m1.instance_name)
         ref_m2 = self.field_registry.resolve_full_reference(ci_m2.instance_name)
         
+        # Pane 0: Primary (Automatic mark acts as a container/layout base)
+        pane_0 = etree.SubElement(panes_el, "pane")
+        pane_0.set("selection-relaxation-option", "selection-relaxation-allow")
+        p0_view = etree.SubElement(pane_0, "view")
+        etree.SubElement(p0_view, "breakdown", value="auto")
+        etree.SubElement(pane_0, "mark", {"class": "Automatic"})
+        if not self.show_labels:
+            self._add_pane_label_style(pane_0, show=False)
+        
+        # Pane 1: Primary Axis Mark
+        pane_1 = etree.SubElement(panes_el, "pane")
+        pane_1.set("id", "1")
+        pane_1.set("selection-relaxation-option", "selection-relaxation-allow")
         pane_1.set(axis_attr_name, ref_m1)
         p1_view = etree.SubElement(pane_1, "view")
         etree.SubElement(p1_view, "breakdown", value="auto")
         
         self._setup_pane(
             pane_1, self.mark_type_1, self.mark_type_1, instances,
-            self.color_1, self.size_1, self.label_1, self.detail_1, None, None,
+            self.color_1, self.size_1, self.label_1, self.detail_1, self.wedge_size_1, None,
             False, None, None, ds_name
         )
         
+        if self.mark_sizing_off:
+            self._insert_mark_sizing(pane_1)
+        
+        # Override pane 1 style if needed
+        if not self.show_labels or self.size_value_1:
+            self._override_pane_style(pane_1, show_labels=self.show_labels, size_value=self.size_value_1)
+        
         # Pane 2: Secondary Axis Mark
-        pane_2 = etree.SubElement(panes_el, "pane")
-        pane_2.set("id", "2")
-        pane_2.set("selection-relaxation-option", "selection-relaxation-allow")
-        pane_2.set(axis_attr_name, ref_m1)
-        pane_2.set(axis_attr_index, "1")
+        if measure_1 == measure_2:
+            # Same measure on both axes (Lollipop, Donut) — use index
+            pane_2 = etree.SubElement(panes_el, "pane")
+            pane_2.set("id", "2")
+            pane_2.set("selection-relaxation-option", "selection-relaxation-allow")
+            pane_2.set(axis_attr_name, ref_m1)
+            pane_2.set(axis_attr_index, "1")
+        else:
+            # Different measures (Combo) — pane 3 with second measure ref
+            pane_2 = etree.SubElement(panes_el, "pane")
+            pane_2.set("id", "3")
+            pane_2.set("selection-relaxation-option", "selection-relaxation-allow")
+            pane_2.set(axis_attr_name, ref_m2)
+        
         p2_view = etree.SubElement(pane_2, "view")
         etree.SubElement(p2_view, "breakdown", value="auto")
         
         self._setup_pane(
             pane_2, self.mark_type_2, self.mark_type_2, instances,
-            self.color_2, self.size_2, self.label_2, self.detail_2, None, None,
+            self.color_2, self.size_2, self.label_2, self.detail_2, self.wedge_size_2, None,
             False, None, None, ds_name
         )
+        
+        if self.mark_sizing_off:
+            self._insert_mark_sizing(pane_2)
+        
+        # Override pane 2 style if needed
+        if not self.show_labels or self.size_value_2 or self.mark_color_2:
+            self._override_pane_style(pane_2, show_labels=self.show_labels, 
+                                      size_value=self.size_value_2, mark_color=self.mark_color_2)
 
+        # Build rows/cols shelf text
         rows_el = table.find("rows")
         if rows_el is not None:
             if self.rows:
@@ -171,22 +221,58 @@ class DualAxisChartBuilder(BaseChartBuilder):
             else:
                 cols_el.text = None
 
+        # Build style with dual encoding
         old_style = table.find("style")
         if old_style is not None:
             table.remove(old_style)
         style_el = etree.Element("style")
+        scope = "cols" if self.dual_axis_shelf == "columns" else "rows"
         
         rule_el = etree.SubElement(style_el, "style-rule", {"element": "axis"})
-        enc_el = etree.SubElement(rule_el, "encoding")
-        enc_el.set("attr", "space")
-        enc_el.set("class", "1")
-        enc_el.set("field", ref_m1)
-        enc_el.set("field-type", "quantitative")
-        enc_el.set("fold", "true")
-        enc_el.set("scope", "cols" if self.dual_axis_shelf == "columns" else "rows")
+        
+        # Encoding for primary axis (class="1")
+        enc_1 = etree.SubElement(rule_el, "encoding")
+        enc_1.set("attr", "space")
+        enc_1.set("class", "1")
+        enc_1.set("field", ref_m1)
+        enc_1.set("field-type", "quantitative")
+        enc_1.set("fold", "true")
+        enc_1.set("scope", scope)
         if self.synchronized:
-            enc_el.set("synchronized", "true")
-        enc_el.set("type", "space")
+            enc_1.set("synchronized", "true")
+        enc_1.set("type", "space")
+        
+        # Encoding for secondary axis (class="0") — needed for proper dual axis
+        if measure_1 != measure_2:
+            enc_0 = etree.SubElement(rule_el, "encoding")
+            enc_0.set("attr", "space")
+            enc_0.set("class", "0")
+            enc_0.set("field", ref_m1 if self.reverse_axis_1 else ref_m2)
+            enc_0.set("field-type", "quantitative")
+            if not self.reverse_axis_1:
+                enc_0.set("fold", "true")
+            if self.reverse_axis_1:
+                enc_0.set("reverse", "true")
+            enc_0.set("scope", scope)
+            if self.synchronized and not self.reverse_axis_1:
+                enc_0.set("synchronized", "true")
+            enc_0.set("type", "space")
+        
+        # Hide axes display if requested
+        if self.hide_axes:
+            for cls_val in ("0", "1"):
+                fmt = etree.SubElement(rule_el, "format")
+                fmt.set("attr", "display")
+                fmt.set("class", cls_val)
+                fmt.set("field", ref_m1 if measure_1 == measure_2 else (ref_m1 if cls_val == "1" else ref_m2))
+                fmt.set("scope", scope)
+                fmt.set("value", "false")
+        
+        # Hide zeroline if requested (Donut/Butterfly)
+        if self.hide_zeroline:
+            zr = etree.SubElement(style_el, "style-rule", {"element": "zeroline"})
+            etree.SubElement(zr, "format", {"attr": "stroke-size", "value": "0"})
+            etree.SubElement(zr, "format", {"attr": "line-visibility", "value": "off"})
         
         insert_before = None
         for tag in ("panes", "rows", "cols"):
@@ -205,3 +291,61 @@ class DualAxisChartBuilder(BaseChartBuilder):
             self._add_filters(view, instances, self.filters)
 
         return f"Configured worksheet '{self.worksheet_name}' as Dual Axis chart"
+
+    def _insert_mark_sizing(self, pane: etree._Element) -> None:
+        """Insert mark-sizing right after mark element (required by Tableau DTD)."""
+        mark_el = pane.find("mark")
+        ms_el = etree.Element("mark-sizing")
+        ms_el.set("mark-sizing-setting", "marks-scaling-off")
+        if mark_el is not None:
+            mark_el.addnext(ms_el)
+        else:
+            pane.append(ms_el)
+
+    def _add_pane_label_style(self, pane: etree._Element, show: bool = True) -> None:
+        """Add label visibility style to a pane."""
+        style = pane.find("style")
+        if style is None:
+            style = etree.SubElement(pane, "style")
+        sr = etree.SubElement(style, "style-rule", {"element": "mark"})
+        etree.SubElement(sr, "format", {"attr": "mark-labels-cull", "value": "true"})
+        etree.SubElement(sr, "format", {"attr": "mark-labels-show", "value": "true" if show else "false"})
+
+    def _override_pane_style(self, pane: etree._Element, show_labels: bool = True, 
+                             size_value: Optional[str] = None, mark_color: Optional[str] = None) -> None:
+        """Override existing pane style with label/size/color settings."""
+        style = pane.find("style")
+        if style is None:
+            style = etree.SubElement(pane, "style")
+        
+        # Find or create mark style-rule
+        sr = None
+        for existing_sr in style.findall("style-rule"):
+            if existing_sr.get("element") == "mark":
+                sr = existing_sr
+                break
+        if sr is None:
+            sr = etree.SubElement(style, "style-rule", {"element": "mark"})
+        
+        # Update label visibility
+        label_found = False
+        for fmt in sr.findall("format"):
+            if fmt.get("attr") == "mark-labels-show":
+                fmt.set("value", "true" if show_labels else "false")
+                label_found = True
+        if not label_found:
+            etree.SubElement(sr, "format", {"attr": "mark-labels-show", "value": "true" if show_labels else "false"})
+        
+        # Set size
+        if size_value:
+            size_found = False
+            for fmt in sr.findall("format"):
+                if fmt.get("attr") == "size":
+                    fmt.set("value", size_value)
+                    size_found = True
+            if not size_found:
+                etree.SubElement(sr, "format", {"attr": "size", "value": size_value})
+        
+        # Set mark color
+        if mark_color:
+            etree.SubElement(sr, "format", {"attr": "mark-color", "value": mark_color})

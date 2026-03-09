@@ -78,13 +78,27 @@ class ChartsMixin:
         synchronized: bool = True,
         sort_descending: Optional[str] = None,
         filters: Optional[list[dict]] = None,
+        wedge_size_1: Optional[str] = None,
+        wedge_size_2: Optional[str] = None,
+        show_labels: bool = True,
+        hide_axes: bool = False,
+        hide_zeroline: bool = False,
+        mark_sizing_off: bool = False,
+        size_value_1: Optional[str] = None,
+        size_value_2: Optional[str] = None,
+        mark_color_2: Optional[str] = None,
+        reverse_axis_1: bool = False,
     ) -> str:
         """Route dual axis configuration to the specific builder."""
         builder = DualAxisChartBuilder(
             self, worksheet_name, mark_type_1, mark_type_2, columns, rows, dual_axis_shelf,
             color_1, size_1, label_1, detail_1,
             color_2, size_2, label_2, detail_2,
-            synchronized, sort_descending, filters
+            synchronized, sort_descending, filters,
+            wedge_size_1, wedge_size_2, show_labels,
+            hide_axes, hide_zeroline, mark_sizing_off,
+            size_value_1, size_value_2, mark_color_2,
+            reverse_axis_1
         )
         return builder.build()
 
