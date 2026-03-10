@@ -64,6 +64,69 @@ def test_propose_field_mapping_auto_scans_source_and_target() -> None:
     assert mapped["Country/Region"] == "国家/地区"
 
 
+def test_propose_field_mapping_disables_ai_review_without_key(monkeypatch) -> None:
+    monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+
+    proposal = propose_field_mapping(
+        TEMPLATE_PATH,
+        TARGET_SOURCE,
+        use_ai_for_warnings=True,
+    )
+
+    assert proposal["ai_review"]["status"] == "disabled"
+    assert proposal["blocking_issue_count"] == 0
+
+
+def test_propose_field_mapping_can_apply_ai_review(monkeypatch) -> None:
+    def fake_ai_review(**_: object) -> dict[str, object]:
+        return {
+            "enabled": True,
+            "attempted": True,
+            "used": True,
+            "status": "completed",
+            "model": "gpt-5-mini",
+            "reviewed_fields": ["State/Province", "Country/Region", "Region"],
+            "applied_suggestions": [
+                {
+                    "source_field": "State/Province",
+                    "target_field": "省/自治区",
+                    "confidence": 0.91,
+                    "reason": "confirmed from distribution and workbook context",
+                },
+                {
+                    "source_field": "Country/Region",
+                    "target_field": "国家/地区",
+                    "confidence": 0.93,
+                    "reason": "single-country semantic match",
+                },
+                {
+                    "source_field": "Region",
+                    "target_field": "区域",
+                    "confidence": 0.88,
+                    "reason": "distribution and worksheet usage align",
+                },
+            ],
+        }
+
+    monkeypatch.setattr("cwtwb.migration._review_warning_candidates_with_ai", fake_ai_review)
+
+    proposal = propose_field_mapping(
+        TEMPLATE_PATH,
+        TARGET_SOURCE,
+        use_ai_for_warnings=True,
+    )
+
+    warning_fields = {
+        issue["field"]
+        for issue in proposal["issues"]
+        if issue["issue_type"] == "low-confidence"
+    }
+    assert proposal["ai_review"]["status"] == "completed"
+    assert "State/Province" not in warning_fields
+    assert "Country/Region" not in warning_fields
+    assert "Region" not in warning_fields
+
+
 def test_preview_twb_migration_reports_expected_scope() -> None:
     preview = preview_twb_migration(TEMPLATE_PATH, TARGET_SOURCE)
 

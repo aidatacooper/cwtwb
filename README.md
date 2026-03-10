@@ -259,6 +259,11 @@ template `.twb`, the original Superstore Excel, the target Chinese Superstore
 Excel, and a runnable script that writes the migrated workbook plus JSON reports
 back into that same example folder.
 
+If `OPENAI_API_KEY` is set, migration tools can optionally ask OpenAI to review
+only the low-confidence warning mappings after the deterministic matcher has
+finished. This AI pass never replaces the core rule engine; it only reviews the
+warning tail.
+
 ## Project Structure
 
 ```text
