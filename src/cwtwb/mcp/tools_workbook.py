@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from typing import Optional
 
+from ..charts.showcase_recipes import configure_chart_recipe as configure_chart_recipe_impl
 from ..twb_editor import TWBEditor
 from .app import server
 from .state import get_editor, set_editor
@@ -39,11 +40,19 @@ def add_calculated_field(
     field_name: str,
     formula: str,
     datatype: str = "real",
+    role: str = "",
+    field_type: str = "",
 ) -> str:
     """Add a calculated field to the datasource."""
 
     editor = get_editor()
-    return editor.add_calculated_field(field_name, formula, datatype)
+    return editor.add_calculated_field(
+        field_name,
+        formula,
+        datatype,
+        role=role or None,
+        field_type=field_type or None,
+    )
 
 
 @server.tool()
@@ -149,6 +158,16 @@ def configure_dual_axis(
     synchronized: bool = True,
     sort_descending: Optional[str] = None,
     filters: Optional[list[dict]] = None,
+    wedge_size_1: Optional[str] = None,
+    wedge_size_2: Optional[str] = None,
+    show_labels: bool = True,
+    hide_axes: bool = False,
+    hide_zeroline: bool = False,
+    mark_sizing_off: bool = False,
+    size_value_1: Optional[str] = None,
+    size_value_2: Optional[str] = None,
+    mark_color_2: Optional[str] = None,
+    reverse_axis_1: bool = False,
 ) -> str:
     """Configure a dual-axis chart composition."""
 
@@ -171,6 +190,35 @@ def configure_dual_axis(
         synchronized=synchronized,
         sort_descending=sort_descending,
         filters=filters,
+        wedge_size_1=wedge_size_1,
+        wedge_size_2=wedge_size_2,
+        show_labels=show_labels,
+        hide_axes=hide_axes,
+        hide_zeroline=hide_zeroline,
+        mark_sizing_off=mark_sizing_off,
+        size_value_1=size_value_1,
+        size_value_2=size_value_2,
+        mark_color_2=mark_color_2,
+        reverse_axis_1=reverse_axis_1,
+    )
+
+
+@server.tool()
+def configure_chart_recipe(
+    worksheet_name: str,
+    recipe_name: str,
+    recipe_args: dict[str, str] | None = None,
+    auto_ensure_prerequisites: bool = True,
+) -> str:
+    """Configure a showcase recipe chart through the shared recipe registry."""
+
+    editor = get_editor()
+    return configure_chart_recipe_impl(
+        editor,
+        worksheet_name,
+        recipe_name,
+        recipe_args=recipe_args,
+        auto_ensure_prerequisites=auto_ensure_prerequisites,
     )
 
 

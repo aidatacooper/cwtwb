@@ -12,7 +12,7 @@ from pathlib import Path
 project_root = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(project_root / "src"))
 
-from lxml import etree
+from cwtwb.charts.showcase_recipes import configure_chart_recipe
 from cwtwb.twb_editor import TWBEditor
 
 
@@ -96,176 +96,49 @@ def generate_all_charts():
     # 12. Lollipop Chart
     print("Configuring: Lollipop Chart")
     editor.add_worksheet("Lollipop Chart")
-    editor.configure_dual_axis(
+    configure_chart_recipe(
+        editor,
         "Lollipop Chart",
-        mark_type_1="Bar",
-        mark_type_2="Circle",
-        columns=["SUM(Sales)", "SUM(Sales)"],
-        rows=["State/Province"],
-        dual_axis_shelf="columns",
-        show_labels=False,
-        mark_sizing_off=True,
-        size_value_1="0.98850828409194946",
-        size_value_2="1.5492265224456787",
-        hide_axes=True,
+        "lollipop",
+        {"dimension": "State/Province", "measure": "SUM(Sales)"},
     )
 
     # 13. Donut Chart
     print("Configuring: Donut Chart")
-    editor.add_calculated_field("min 0", "MIN(0)", datatype="integer")
     editor.add_worksheet("Donut Chart")
-    editor.configure_dual_axis(
+    configure_chart_recipe(
+        editor,
         "Donut Chart",
-        mark_type_1="Pie",
-        mark_type_2="Pie",
-        columns=[],
-        rows=["min 0", "min 0"],
-        dual_axis_shelf="rows",
-        color_1="Category",
-        wedge_size_1="SUM(Sales)",
-        label_2="SUM(Sales)",
-        show_labels=True,
-        hide_axes=True,
-        hide_zeroline=True,
-        mark_sizing_off=True,
-        size_value_1="1.8",
-        size_value_2="1.2193922996520996",
-        mark_color_2="#ffffff",
+        "donut",
+        {"category": "Category", "measure": "SUM(Sales)"},
     )
 
     # 14. Butterfly Chart (reversed first axis)
     print("Configuring: Butterfly Chart")
     editor.add_worksheet("Butterfly Chart")
-    editor.configure_dual_axis(
+    configure_chart_recipe(
+        editor,
         "Butterfly Chart",
-        mark_type_1="Bar",
-        mark_type_2="Bar",
-        columns=["SUM(Sales)", "SUM(Quantity)"],
-        rows=["Region"],
-        dual_axis_shelf="columns",
-        show_labels=True,
-        hide_zeroline=True,
-        synchronized=False,
-        reverse_axis_1=True,
+        "butterfly",
+        {
+            "dimension": "Region",
+            "left_measure": "SUM(Sales)",
+            "right_measure": "SUM(Quantity)",
+        },
     )
 
     # 15. Calendar Chart
     print("Configuring: Calendar Chart")
-    editor.add_calculated_field("Sales Over 400", 'IF SUM([Sales]) > 500 THEN "Yes" ELSE "No" END', datatype="string")
     editor.add_worksheet("Calendar Chart")
-    editor.configure_chart(
+    configure_chart_recipe(
+        editor,
         "Calendar Chart",
-        mark_type="Square",
-        rows=["WEEK(Order Date)"],
-        columns=["WEEKDAY(Order Date)"],
-        color="Sales Over 400",
-        label="DAYTRUNC(Order Date)",
+        "calendar",
     )
-    _apply_calendar_styles(editor)
 
     print(f"Saving to {output_path}...")
     editor.save(str(output_path))
     print("Success!")
-
-
-def _apply_calendar_styles(editor):
-    """Apply Calendar Chart-specific XML adjustments."""
-    ws = editor._find_worksheet("Calendar Chart")
-    table = ws.find("table")
-    view = table.find("view")
-
-    my_ci = editor.field_registry.parse_expression("MY(Order Date)")
-    my_ref = editor.field_registry.resolve_full_reference(my_ci.instance_name)
-
-    deps = view.find("datasource-dependencies")
-    if deps is not None:
-        ci_el = etree.SubElement(deps, "column-instance")
-        ci_el.set("column", my_ci.column_local_name)
-        ci_el.set("derivation", "MY")
-        ci_el.set("name", my_ci.instance_name)
-        ci_el.set("pivot", "key")
-        ci_el.set("type", "ordinal")
-
-    agg = view.find("aggregation")
-
-    filt = etree.Element("filter")
-    filt.set("class", "categorical")
-    filt.set("column", my_ref)
-    gf = etree.SubElement(filt, "groupfilter")
-    gf.set("function", "member")
-    gf.set("level", my_ci.instance_name)
-    gf.set("member", "202208")
-    gf.set("{http://www.tableausoftware.com/xml/user}ui-domain", "database")
-    gf.set("{http://www.tableausoftware.com/xml/user}ui-enumeration", "inclusive")
-    gf.set("{http://www.tableausoftware.com/xml/user}ui-marker", "enumerate")
-
-    if agg is not None:
-        agg.addprevious(filt)
-    else:
-        view.append(filt)
-
-    slices = etree.Element("slices")
-    col_el = etree.SubElement(slices, "column")
-    col_el.text = my_ref
-
-    if agg is not None:
-        agg.addprevious(slices)
-    else:
-        view.append(slices)
-
-    tdy_ci = editor.field_registry.parse_expression("DAYTRUNC(Order Date)")
-    tdy_ref = editor.field_registry.resolve_full_reference(tdy_ci.instance_name)
-    wk_ci = editor.field_registry.parse_expression("WEEK(Order Date)")
-    wk_ref = editor.field_registry.resolve_full_reference(wk_ci.instance_name)
-
-    old_style = table.find("style")
-    if old_style is not None:
-        table.remove(old_style)
-
-    style = etree.Element("style")
-    cell_rule = etree.SubElement(style, "style-rule", {"element": "cell"})
-    fmt_tf = etree.SubElement(cell_rule, "format")
-    fmt_tf.set("attr", "text-format")
-    fmt_tf.set("field", tdy_ref)
-    fmt_tf.set("value", "*d")
-    fmt_h = etree.SubElement(cell_rule, "format")
-    fmt_h.set("attr", "height")
-    fmt_h.set("field", wk_ref)
-    fmt_h.set("value", "38")
-
-    panes = table.find("panes")
-    if panes is not None:
-        panes.addprevious(style)
-    else:
-        table.append(style)
-
-    pane = table.find(".//pane")
-    if pane is not None:
-        pane.set("selection-relaxation-option", "selection-relaxation-disallow")
-
-        mark_el = pane.find("mark")
-        if mark_el is not None:
-            ms = etree.Element("mark-sizing")
-            ms.set("mark-sizing-setting", "marks-scaling-off")
-            mark_el.addnext(ms)
-
-        pane_style = pane.find("style")
-        if pane_style is None:
-            pane_style = etree.SubElement(pane, "style")
-
-        cell_sr = etree.SubElement(pane_style, "style-rule", {"element": "cell"})
-        etree.SubElement(cell_sr, "format", {"attr": "text-align", "value": "center"})
-        etree.SubElement(cell_sr, "format", {"attr": "vertical-align", "value": "center"})
-
-        for sr in pane_style.findall("style-rule"):
-            if sr.get("element") == "mark":
-                etree.SubElement(sr, "format", {"attr": "size", "value": "1.5272375345230103"})
-                break
-
-        pane_sr = etree.SubElement(pane_style, "style-rule", {"element": "pane"})
-        etree.SubElement(pane_sr, "format", {"attr": "minheight", "value": "-1"})
-        etree.SubElement(pane_sr, "format", {"attr": "maxheight", "value": "-1"})
-
 
 if __name__ == "__main__":
     generate_all_charts()

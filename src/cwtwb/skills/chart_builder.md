@@ -139,6 +139,88 @@ configure_chart("Market Share", mark_type="Pie",
 - Leave columns and rows empty for Pie charts
 - Always add label to show values
 
+## Recipe Charts
+
+These showcase-only charts are not plain `configure_chart(...)` calls. When the
+user asks for the `all_supported_charts` workbook or explicitly asks for a
+Lollipop, Donut, Butterfly, or Calendar chart, use
+`configure_chart_recipe(...)` instead of adding recipe-specific MCP tools.
+
+Supported `recipe_name` values:
+- `lollipop`
+- `donut`
+- `butterfly`
+- `calendar`
+
+### Lollipop
+
+Rules:
+- Put the dimension in `rows` and repeat the same measure on both dual-axis positions.
+- The first axis is the bar, the second axis is the circle.
+- Keep the axes synchronized.
+- Hide labels by default.
+- Keep the bar size smaller than the circle size so the lollipop head is visible.
+
+```python
+configure_chart_recipe(
+    worksheet_name="Lollipop Chart",
+    recipe_name="lollipop",
+    recipe_args={"dimension": "State/Province", "measure": "SUM(Sales)"},
+)
+```
+
+### Donut
+
+Rules:
+- Use `min 0` on both dual-axis positions.
+- Put the categorical split on the first pie.
+- Put the sales label on the second pie.
+- Make the second pie white so it cuts out the middle of the donut.
+- The recipe auto-creates `min 0 = MIN(0)` when the default field is missing.
+
+```python
+configure_chart_recipe(
+    worksheet_name="Donut Chart",
+    recipe_name="donut",
+    recipe_args={"category": "Category", "measure": "SUM(Sales)"},
+)
+```
+
+### Butterfly
+
+Rules:
+- Use one bar axis for the left measure and one for the right measure.
+- Reverse the first axis so the chart mirrors around the center.
+- Do not synchronize the axes.
+
+```python
+configure_chart_recipe(
+    worksheet_name="Butterfly Chart",
+    recipe_name="butterfly",
+    recipe_args={
+        "dimension": "Region",
+        "left_measure": "SUM(Sales)",
+        "right_measure": "SUM(Quantity)",
+    },
+)
+```
+
+### Calendar
+
+Rules:
+- Because the default color formula uses `SUM([Sales])`, treat it as an aggregated nominal measure, not a plain dimension.
+- Use `WEEK(Order Date)` on rows and `WEEKDAY(Order Date)` on columns.
+- Use `DAYTRUNC(Order Date)` for the day labels.
+- Apply a single `MY(Order Date)` filter member such as `202208`.
+- The recipe auto-creates `Sales Over 400` when the default field is missing.
+
+```python
+configure_chart_recipe(
+    worksheet_name="Calendar Chart",
+    recipe_name="calendar",
+)
+```
+
 ## Filter Strategy
 
 ### Filter Types

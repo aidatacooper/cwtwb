@@ -16,6 +16,7 @@ from .mcp.tools_workbook import (
     add_parameter,
     add_worksheet,
     configure_chart,
+    configure_chart_recipe,
     configure_dual_axis,
     create_workbook,
     list_fields,

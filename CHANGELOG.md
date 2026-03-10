@@ -5,6 +5,20 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.9.0] - 2026-03-10
+
+### Added
+- **Unified Recipe Chart API**: Added `configure_chart_recipe` as the single MCP/server entrypoint for showcase recipes, covering `lollipop`, `donut`, `butterfly`, and `calendar` via one registry-driven dispatcher.
+- **Recipe Validation Coverage**: Added regression tests for unknown recipe rejection, required-argument validation, automatic prerequisite field creation, and full `all_supported_charts` showcase reconstruction through the unified recipe API.
+
+### Changed
+- **Recipe Tool Surface**: Replaced the old recipe-specific MCP tools with one `configure_chart_recipe` interface to keep the public API compact as more showcase patterns are added.
+- **Recipe Defaults**: Donut and Calendar recipes now auto-create their standard helper calculations (`min 0` and `Sales Over 400`) when those defaults are used and the fields are missing.
+- **Examples and Prompts**: Updated README, examples, skill docs, and the showcase MCP prompt to teach the unified recipe workflow instead of enumerating one tool per recipe chart.
+
+### Removed
+- **Recipe-Specific MCP Tools**: Removed `configure_lollipop_chart`, `configure_donut_chart`, `configure_butterfly_chart`, `configure_calendar_chart`, and `apply_calendar_chart_layout` from the public MCP/server API.
+
 ## [0.8.0] - 2026-03-09
 
 ### Added

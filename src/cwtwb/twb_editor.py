@@ -28,6 +28,11 @@ from .parameters import ParametersMixin
 
 logger = logging.getLogger(__name__)
 
+_AGGREGATE_FUNCTION_RE = re.compile(
+    r"\b(SUM|AVG|COUNT|COUNTD|MIN|MAX|MEDIAN|ATTR)\s*\(",
+    re.IGNORECASE,
+)
+
 
 class TWBEditor(ParametersMixin, ConnectionsMixin, ChartsMixin, DashboardsMixin):
     """lxml-based TWB XML editor."""
@@ -195,6 +200,8 @@ class TWBEditor(ParametersMixin, ConnectionsMixin, ChartsMixin, DashboardsMixin)
         field_name: str,
         formula: str,
         datatype: str = "real",
+        role: Optional[str] = None,
+        field_type: Optional[str] = None,
     ) -> str:
         """Add a calculated field to the datasource.
 
@@ -202,20 +209,18 @@ class TWBEditor(ParametersMixin, ConnectionsMixin, ChartsMixin, DashboardsMixin)
             field_name: Display name, e.g. "Profit Ratio"
             formula: Tableau calculation formula, e.g. "SUM([Profit])/SUM([Sales])"
             datatype: Data type: real/string/integer/date/boolean
+            role: Optional explicit Tableau role override (dimension/measure)
+            field_type: Optional explicit Tableau field type override
 
         Returns:
             Confirmation message.
         """
-        # Determine role and field type from the datatype
-        if datatype in ("real", "integer"):
-            role = "measure"
-            field_type = "quantitative"
-        elif datatype == "boolean":
-            role = "measure"
-            field_type = "nominal"
-        else:
-            role = "dimension"
-            field_type = "nominal"
+        inferred_role, inferred_field_type = self._infer_calculated_field_semantics(
+            formula,
+            datatype,
+        )
+        role = role or inferred_role
+        field_type = field_type or inferred_field_type
 
         # Resolve field and parameter references in formula
         resolved_formula = formula
@@ -282,6 +287,23 @@ class TWBEditor(ParametersMixin, ConnectionsMixin, ChartsMixin, DashboardsMixin)
         )
 
         return f"Added calculated field '{field_name}' = {formula}"
+
+    def _infer_calculated_field_semantics(self, formula: str, datatype: str) -> tuple[str, str]:
+        """Infer Tableau role/type for a calculated field."""
+
+        if datatype in ("real", "integer"):
+            return "measure", "quantitative"
+
+        if datatype == "boolean":
+            return "measure", "nominal"
+
+        if datatype == "date":
+            return "dimension", "ordinal"
+
+        if _AGGREGATE_FUNCTION_RE.search(formula):
+            return "measure", "nominal"
+
+        return "dimension", "nominal"
 
     def remove_calculated_field(self, field_name: str) -> str:
         """Remove a calculated field."""

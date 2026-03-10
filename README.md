@@ -124,6 +124,7 @@ editor.save("output/my_workbook.twb")
 | `add_worksheet` | Add a new blank worksheet |
 | `configure_chart` | Configure chart type and field mappings |
 | `configure_dual_axis` | Configure a dual-axis chart composition |
+| `configure_chart_recipe` | Configure a showcase recipe chart such as `lollipop`, `donut`, `butterfly`, or `calendar` |
 | `add_dashboard` | Create a dashboard combining worksheets |
 | `add_dashboard_action` | Add filter or highlight actions to a dashboard |
 | `generate_layout_json` | Build an interactive structured dashboard flexbox layout |
@@ -174,6 +175,10 @@ These can be generated today, but they should be treated as recipes or examples 
 - **Bump**
 - **Butterfly**
 - **Calendar**
+
+Recipe charts are intentionally exposed through a single `configure_chart_recipe`
+tool so the public MCP surface does not grow one tool at a time for every
+showcase pattern.
 
 This distinction matters because `cwtwb` is not trying to become a chart zoo or compete with Tableau's own conversational analysis tooling. The project is strongest when it provides a reliable, automatable workbook generation layer.
 

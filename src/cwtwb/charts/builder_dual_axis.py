@@ -164,7 +164,7 @@ class DualAxisChartBuilder(BaseChartBuilder):
         if measure_1 == measure_2:
             # Same measure on both axes (Lollipop, Donut) — use index
             pane_2 = etree.SubElement(panes_el, "pane")
-            pane_2.set("id", "2")
+            pane_2.set("id", "3")
             pane_2.set("selection-relaxation-option", "selection-relaxation-allow")
             pane_2.set(axis_attr_name, ref_m1)
             pane_2.set(axis_attr_index, "1")

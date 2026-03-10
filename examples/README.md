@@ -40,6 +40,8 @@ These are useful for exploration and showcase purposes, but they should not be t
 | Example | What it shows | How to run |
 |---|---|---|
 | `all_supported_charts.py` | Mixed workbook including core, advanced, and recipe-level chart patterns such as Lollipop, Donut, Butterfly, and Calendar | `python examples/all_supported_charts.py` |
+| `scripts/demo_all_supported_charts_mcp.py` | The same mixed workbook recreated strictly through the exported MCP tool functions, using the single `configure_chart_recipe` recipe entrypoint for Lollipop, Donut, Butterfly, and Calendar | `python examples/scripts/demo_all_supported_charts_mcp.py` |
+| `prompts/all_supported_charts_showcase_en.md` | English MCP prompt for rebuilding the full worksheet showcase workbook with the unified `configure_chart_recipe` tool | Copy into an MCP-enabled assistant |
 | `prompts/test_parameter_prefix_bug.md` | Narrow debugging prompt rather than a clean product-path example | Copy into an MCP-enabled assistant |
 
 ## Prompt examples for MCP clients
