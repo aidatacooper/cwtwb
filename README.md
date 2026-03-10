@@ -35,6 +35,7 @@ pip install "cwtwb[examples]"
 
 - Python >= 3.10
 - [lxml](https://lxml.de/) >= 5.0
+- [uv](https://docs.astral.sh/uv/getting-started/installation/)
 - [mcp](https://pypi.org/project/mcp/) >= 1.0
 
 ## Quick Start
