@@ -3,6 +3,11 @@
 from .mcp.app import server
 from .mcp.resources import read_skill, read_skills_index, read_tableau_functions
 from .mcp.tools_layout import generate_layout_json
+from .mcp.tools_migration import (
+    apply_twb_migration,
+    inspect_target_schema,
+    preview_twb_migration,
+)
 from .mcp.tools_support import (
     analyze_twb,
     describe_capability,

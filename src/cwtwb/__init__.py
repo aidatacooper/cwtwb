@@ -16,6 +16,12 @@ from .capability_registry import (  # noqa: E402
     list_capabilities,
 )
 from .field_registry import FieldRegistry  # noqa: E402
+from .migration import (  # noqa: E402
+    DEFAULT_BILINGUAL_FIELD_MAPPING,
+    apply_twb_migration,
+    inspect_target_schema,
+    preview_twb_migration,
+)
 from .twb_analyzer import AnalysisReport, TWBAnalyzer, analyze_workbook  # noqa: E402
 from .twb_editor import TWBEditor  # noqa: E402
 from .validator import TWBValidationError  # noqa: E402
@@ -24,16 +30,20 @@ __all__ = [
     "AnalysisReport",
     "CAPABILITY_SPECS",
     "CapabilitySpec",
+    "DEFAULT_BILINGUAL_FIELD_MAPPING",
     "FieldRegistry",
     "TWBAnalyzer",
     "TWBEditor",
     "TWBValidationError",
     "__version__",
+    "apply_twb_migration",
     "analyze_workbook",
     "format_capability_catalog",
     "format_capability_detail",
     "get_capability",
+    "inspect_target_schema",
     "list_capabilities",
+    "preview_twb_migration",
 ]
 
 

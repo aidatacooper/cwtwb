@@ -39,3 +39,6 @@ dashboard/
 *.hyper
 *.twbr
 tmp/
+templates/migrate/* - migrated to *.twb
+templates/migrate/migration_report.json
+templates/migrate/field_mapping.json
