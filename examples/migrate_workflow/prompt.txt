@@ -1,0 +1,2 @@
+Please use mcp tool  cwtwb's migrate_twb_guided, migrate this twb @"5 KPI Design Ideas (2).twb" to a new Excel data
+   source 示例 - 超市 , and tell me the results. then save the new twb
