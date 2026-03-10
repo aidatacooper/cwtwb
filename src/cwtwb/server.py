@@ -6,6 +6,7 @@ from .mcp.tools_layout import generate_layout_json
 from .mcp.tools_migration import (
     apply_twb_migration,
     inspect_target_schema,
+    migrate_twb_guided,
     profile_twb_for_migration,
     propose_field_mapping,
     preview_twb_migration,

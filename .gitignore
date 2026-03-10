@@ -42,3 +42,7 @@ tmp/
 templates/migrate/* - migrated to *.twb
 templates/migrate/migration_report.json
 templates/migrate/field_mapping.json
+examples/migrate_workflow/* - migrated to *.twb
+examples/migrate_workflow/* - migrated.twb
+examples/migrate_workflow/migration_report.json
+examples/migrate_workflow/field_mapping.json

@@ -5,6 +5,7 @@ from __future__ import annotations
 from ..migration import (
     apply_twb_migration_json,
     inspect_target_schema as inspect_target_schema_impl,
+    migrate_twb_guided_json,
     profile_twb_for_migration_json,
     propose_field_mapping_json,
     preview_twb_migration_json,
@@ -86,4 +87,25 @@ def apply_twb_migration(
         scope=scope,
         mapping_overrides=mapping_overrides,
         output_path=output_path,
+    )
+
+
+@server.tool()
+def migrate_twb_guided(
+    file_path: str,
+    target_source: str,
+    output_path: str = "",
+    scope: str = "workbook",
+    mapping_overrides: dict[str, str] | None = None,
+    apply_if_no_blockers: bool = True,
+) -> str:
+    """Run the built-in migration workflow: profile, map, preview, and optionally apply."""
+
+    return migrate_twb_guided_json(
+        file_path=file_path,
+        target_source=target_source,
+        output_path=output_path or None,
+        scope=scope,
+        mapping_overrides=mapping_overrides,
+        apply_if_no_blockers=apply_if_no_blockers,
     )

@@ -165,6 +165,7 @@ editor.save("output/my_workbook.twb")
 | `describe_capability` | Explain whether a chart or feature is core, advanced, recipe, or unsupported |
 | `analyze_twb` | Analyze a `.twb` file against the capability catalog |
 | `diff_template_gap` | Summarize the non-core gap of a template |
+| `migrate_twb_guided` | Run the built-in TWB migration workflow from schema scan through apply |
 | `set_mysql_connection` | Configure the datasource to use a local MySQL connection |
 | `set_tableauserver_connection` | Configure connection to an online Tableau Server |
 | `set_hyper_connection` | Configure the datasource to use a local Hyper extract connection |
@@ -251,6 +252,13 @@ The advanced example at `examples/hyper_and_new_charts.py` now prefers the
 Calendar assets and resolves the physical `Orders_*` table via Tableau Hyper
 API before switching the workbook connection.
 
+## Guided Migration Example
+
+The self-contained migration case under `examples/migrate_workflow/` includes a
+template `.twb`, the original Superstore Excel, the target Chinese Superstore
+Excel, and a runnable script that writes the migrated workbook plus JSON reports
+back into that same example folder.
+
 ## Project Structure
 
 ```text
@@ -296,6 +304,9 @@ python examples/all_supported_charts.py
 
 # Run the advanced Hyper-backed example
 python examples/hyper_and_new_charts.py
+
+# Run the guided migration example
+python examples/migrate_workflow/test_migration_workflow.py
 
 # Start MCP server
 cwtwb

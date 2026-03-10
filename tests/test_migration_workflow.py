@@ -9,12 +9,14 @@ sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
 from cwtwb.migration import (  # noqa: E402
     apply_twb_migration,
+    migrate_twb_guided,
     preview_twb_migration,
     profile_twb_for_migration,
     propose_field_mapping,
 )
 from cwtwb.server import (  # noqa: E402
     apply_twb_migration as apply_twb_migration_tool,
+    migrate_twb_guided as migrate_twb_guided_tool,
     preview_twb_migration as preview_twb_migration_tool,
     profile_twb_for_migration as profile_twb_for_migration_tool,
     propose_field_mapping as propose_field_mapping_tool,
@@ -146,3 +148,51 @@ def test_apply_tool_returns_json_payload(tmp_path: Path) -> None:
 
     assert payload["output_summary"]["migrated_twb"].endswith("tool-migrated.twb")
     assert payload["removable_datasources"] == ["Sample - Superstore (copy)"]
+
+
+def test_apply_twb_migration_retargets_excel_connection_path(tmp_path: Path) -> None:
+    output_path = tmp_path / "retargeted.twb"
+
+    apply_twb_migration(
+        TEMPLATE_PATH,
+        TARGET_SOURCE,
+        output_path=output_path,
+    )
+
+    root = ET.parse(output_path).getroot()
+    filenames = {
+        conn.get("filename")
+        for conn in root.findall(".//connection[@class='excel-direct']")
+        if conn.get("filename")
+    }
+
+    assert any(str(TARGET_SOURCE.resolve()).replace("\\", "/") == filename for filename in filenames)
+
+
+def test_migrate_twb_guided_runs_end_to_end(tmp_path: Path) -> None:
+    output_path = tmp_path / "guided.twb"
+
+    payload = migrate_twb_guided(
+        TEMPLATE_PATH,
+        TARGET_SOURCE,
+        output_path=output_path,
+    )
+
+    assert payload["workflow_status"] == "applied"
+    assert payload["next_action"] == "done"
+    assert output_path.exists()
+
+
+def test_migrate_twb_guided_tool_returns_json_payload(tmp_path: Path) -> None:
+    output_path = tmp_path / "guided-tool.twb"
+
+    payload = json.loads(
+        migrate_twb_guided_tool(
+            str(TEMPLATE_PATH),
+            str(TARGET_SOURCE),
+            str(output_path),
+        )
+    )
+
+    assert payload["workflow_status"] == "applied"
+    assert payload["output_summary"]["migrated_twb"].endswith("guided-tool.twb")
