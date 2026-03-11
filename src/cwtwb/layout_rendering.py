@@ -44,6 +44,8 @@ def render_flex_node(
         _render_paramctrl(node, zone, context)
     elif node.type == "color":
         _render_color(node, zone, context)
+    elif node.type == "empty":
+        _render_empty(node, zone)
 
     style_dict = dict(node.style)
     if node.type in ("filter", "paramctrl"):
@@ -134,6 +136,11 @@ def _render_text(node: FlexNode, zone: etree._Element) -> None:
     run.set("fontcolor", node.font_color)
     run.set("fontsize", str(node.font_size))
     run.text = node.text_content
+
+
+def _render_empty(node: FlexNode, zone: etree._Element) -> None:
+    """Render an empty spacer zone."""
+    zone.set("type-v2", "empty")
 
 
 def _render_filter(

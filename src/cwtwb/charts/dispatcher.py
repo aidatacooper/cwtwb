@@ -41,6 +41,11 @@ def configure_chart(
     geographic_field: Optional[str] = None,
     measure_values: Optional[list[str]] = None,
     map_fields: Optional[list[str]] = None,
+    mark_sizing_off: bool = False,
+    axis_fixed_range: Optional[dict] = None,
+    customized_label: Optional[str] = None,
+    color_map: Optional[dict[str, str]] = None,
+    text_format: Optional[dict[str, str]] = None,
 ) -> str:
     """Route chart configuration to the correct builder."""
 
@@ -97,6 +102,11 @@ def configure_chart(
         sort_descending,
         tooltip,
         filters,
+        mark_sizing_off=mark_sizing_off,
+        axis_fixed_range=axis_fixed_range,
+        customized_label=customized_label,
+        color_map=color_map,
+        text_format=text_format,
     )
     return builder.build()
 

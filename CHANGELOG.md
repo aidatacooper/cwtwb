@@ -5,6 +5,18 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.10.0] - 2026-03-11
+
+### Fixed
+- **XML Schema Conformity**: Fixed strict DTD validation errors related to `<pane>` child element ordering (e.g., `<customized-label>` must precede `<style>`) and `<datasource>` element ordering.
+- **Customized Labels**: Fixed `<customized-label>` generation to correctly wrap dynamic template variables with physical `<` and `>` runs within the XML `<formatted-text>` nodes, complying with strict formatting limits.
+- **Object-Graph Relationship Wiping**: Completely rewrote the `set_hyper_connection` logic for multi-table connections. It now preserves table-level relational links by surgically updating individual pre-existing `<object-graph>/<relation>` attributes correctly matching object definitions instead of flattening them into an unmapped collection.
+
+### Added
+- **Charting Capabilities**: Added parameters `axis_fixed_range` to configure exact visual bounds on measures, `color_map` for granular dataset-level color palette assignments, `mark_sizing_off` to disable auto scaling, `customized_label` for rich template texts, and `text_format` for rapid formatting adjustments.
+- **Dashboard Enhancements**: Added support for explicit `"empty"` layout model objects acting as blank spacers within absolute sizing layouts.
+- **MCP Server Capabilities**: Exposed `configure_worksheet_style` tool expressly to cleanly edit gridlines and aesthetics independently of core configuration.
+
 ## [0.9.0] - 2026-03-10
 
 ### Added

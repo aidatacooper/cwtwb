@@ -5,6 +5,7 @@ from __future__ import annotations
 from typing import Optional
 
 from ..charts.showcase_recipes import configure_chart_recipe as configure_chart_recipe_impl
+from ..connections import inspect_hyper_schema
 from ..twb_editor import TWBEditor
 from .app import server
 from .state import get_editor, set_editor
@@ -166,6 +167,11 @@ def configure_chart(
     geographic_field: str | None = None,
     measure_values: list[str] | None = None,
     map_fields: list[str] | None = None,
+    mark_sizing_off: bool = False,
+    axis_fixed_range: dict | None = None,
+    customized_label: str | None = None,
+    color_map: dict[str, str] | None = None,
+    text_format: dict[str, str] | None = None,
 ) -> str:
     """Configure chart type and field mappings for a worksheet."""
 
@@ -186,6 +192,11 @@ def configure_chart(
         geographic_field=geographic_field,
         measure_values=measure_values,
         map_fields=map_fields,
+        mark_sizing_off=mark_sizing_off,
+        axis_fixed_range=axis_fixed_range,
+        customized_label=customized_label,
+        color_map=color_map,
+        text_format=text_format,
     )
 
 
@@ -254,6 +265,30 @@ def configure_dual_axis(
 
 
 @server.tool()
+def configure_worksheet_style(
+    worksheet_name: str,
+    background_color: str | None = None,
+    hide_axes: bool = False,
+    hide_gridlines: bool = False,
+    hide_zeroline: bool = False,
+    hide_borders: bool = False,
+    hide_band_color: bool = False,
+) -> str:
+    """Apply worksheet-level styling: background color, axis/grid/border visibility."""
+
+    editor = get_editor()
+    return editor.configure_worksheet_style(
+        worksheet_name=worksheet_name,
+        background_color=background_color,
+        hide_axes=hide_axes,
+        hide_gridlines=hide_gridlines,
+        hide_zeroline=hide_zeroline,
+        hide_borders=hide_borders,
+        hide_band_color=hide_band_color,
+    )
+
+
+@server.tool()
 def configure_chart_recipe(
     worksheet_name: str,
     recipe_name: str,
@@ -315,9 +350,26 @@ def set_tableauserver_connection(
 
 
 @server.tool()
+def inspect_target_schema(target_source: str) -> str:
+    """Inspect the first-sheet schema of a target Excel datasource."""
+    # Delegate to inspect_hyper_schema for .hyper files
+    if target_source.endswith(".hyper"):
+        import json
+        result = inspect_hyper_schema(target_source)
+        lines = [f"=== Hyper Schema: {target_source} ==="]
+        for tbl in result["tables"]:
+            lines.append(f"\nTable: [{tbl['schema']}].[{tbl['name']}]")
+            for col in tbl["columns"]:
+                lines.append(f"  {col['name']}: {col['type']}")
+        return "\n".join(lines)
+    return f"Unsupported file type: {target_source}"
+
+
+@server.tool()
 def set_hyper_connection(
     filepath: str,
     table_name: str = "Extract",
+    tables: list[dict] | None = None,
 ) -> str:
     """Configure the workbook datasource to use a local Hyper extract connection."""
 
@@ -325,6 +377,7 @@ def set_hyper_connection(
     return editor.set_hyper_connection(
         filepath=filepath,
         table_name=table_name,
+        tables=tables,
     )
 
 

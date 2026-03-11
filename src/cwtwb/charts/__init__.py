@@ -11,6 +11,7 @@ from .dispatcher import configure_dual_axis as dispatch_configure_dual_axis
 from .helpers import (
     apply_chart_macros,
     apply_measure_values,
+    apply_worksheet_style,
     build_dimension_shelf,
     setup_mapsources,
     setup_table_style,
@@ -37,6 +38,11 @@ class ChartsMixin:
         geographic_field: Optional[str] = None,
         measure_values: Optional[list[str]] = None,
         map_fields: Optional[list[str]] = None,
+        mark_sizing_off: bool = False,
+        axis_fixed_range: Optional[dict] = None,
+        customized_label: Optional[str] = None,
+        color_map: Optional[dict[str, str]] = None,
+        text_format: Optional[dict[str, str]] = None,
     ) -> str:
         """Route chart configuration to the correct builder."""
 
@@ -57,6 +63,11 @@ class ChartsMixin:
             geographic_field=geographic_field,
             measure_values=measure_values,
             map_fields=map_fields,
+            mark_sizing_off=mark_sizing_off,
+            axis_fixed_range=axis_fixed_range,
+            customized_label=customized_label,
+            color_map=color_map,
+            text_format=text_format,
         )
 
     def configure_dual_axis(
@@ -121,6 +132,40 @@ class ChartsMixin:
             mark_color_2=mark_color_2,
             reverse_axis_1=reverse_axis_1,
         )
+
+    def configure_worksheet_style(
+        self,
+        worksheet_name: str,
+        background_color: Optional[str] = None,
+        hide_axes: bool = False,
+        hide_gridlines: bool = False,
+        hide_zeroline: bool = False,
+        hide_borders: bool = False,
+        hide_band_color: bool = False,
+    ) -> str:
+        """Apply worksheet-level styling after chart configuration."""
+        ws = self._find_worksheet(worksheet_name)
+        table = ws.find("table")
+        if table is None:
+            raise ValueError(f"Worksheet '{worksheet_name}' is malformed: missing <table>")
+        apply_worksheet_style(
+            table,
+            background_color=background_color,
+            hide_axes=hide_axes,
+            hide_gridlines=hide_gridlines,
+            hide_zeroline=hide_zeroline,
+            hide_borders=hide_borders,
+            hide_band_color=hide_band_color,
+        )
+        parts = []
+        if background_color:
+            parts.append(f"background={background_color}")
+        for flag_name, flag_val in [("hide_axes", hide_axes), ("hide_gridlines", hide_gridlines),
+                                     ("hide_zeroline", hide_zeroline), ("hide_borders", hide_borders),
+                                     ("hide_band_color", hide_band_color)]:
+            if flag_val:
+                parts.append(flag_name)
+        return f"Styled worksheet '{worksheet_name}': {', '.join(parts)}"
 
     def _apply_chart_macros(
         self,

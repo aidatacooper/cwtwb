@@ -156,6 +156,7 @@ editor.save("output/my_workbook.twb")
 | `remove_calculated_field` | Remove a previously added calculated field |
 | `add_worksheet` | Add a new blank worksheet |
 | `configure_chart` | Configure chart type and field mappings |
+| `configure_worksheet_style` | Apply worksheet-level styling: background color, axis/grid/border visibility |
 | `configure_dual_axis` | Configure a dual-axis chart composition |
 | `configure_chart_recipe` | Configure a showcase recipe chart such as `lollipop`, `donut`, `butterfly`, or `calendar` |
 | `add_dashboard` | Create a dashboard combining worksheets |

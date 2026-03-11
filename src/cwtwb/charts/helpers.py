@@ -52,18 +52,7 @@ def build_dimension_shelf(editor, instances: dict[str, "ColumnInstance"], exprs:
 def setup_table_style(table: etree._Element, mark_type: str) -> None:
     """Ensure table-level style exists and apply mark-specific rules."""
 
-    table_style = table.find("style")
-    if table_style is None:
-        table_style = etree.Element("style")
-        insert_before = None
-        for tag in ("panes", "pane", "mark-layout", "rows", "cols", "table-calc-densification"):
-            insert_before = table.find(tag)
-            if insert_before is not None:
-                break
-        if insert_before is not None:
-            insert_before.addprevious(table_style)
-        else:
-            table.append(table_style)
+    table_style = _get_or_create_table_style(table)
 
     if mark_type in ("Tree Map", "Bubble Chart"):
         axis_rule = etree.SubElement(table_style, "style-rule")
@@ -119,6 +108,86 @@ def setup_mapsources(editor, view: etree._Element) -> None:
             editor.root.append(root_ms)
         rms = etree.SubElement(root_ms, "mapsource")
         rms.set("name", "Tableau")
+
+
+def _get_or_create_table_style(table: etree._Element) -> etree._Element:
+    """Get existing or create new <style> element on the table."""
+    table_style = table.find("style")
+    if table_style is None:
+        table_style = etree.Element("style")
+        insert_before = None
+        for tag in ("panes", "pane", "mark-layout", "rows", "cols", "table-calc-densification"):
+            insert_before = table.find(tag)
+            if insert_before is not None:
+                break
+        if insert_before is not None:
+            insert_before.addprevious(table_style)
+        else:
+            table.append(table_style)
+    return table_style
+
+
+def apply_worksheet_style(
+    table: etree._Element,
+    *,
+    background_color: str | None = None,
+    hide_axes: bool = False,
+    hide_gridlines: bool = False,
+    hide_zeroline: bool = False,
+    hide_borders: bool = False,
+    hide_band_color: bool = False,
+) -> None:
+    """Apply worksheet-level styling: background, axis/grid/border visibility."""
+    table_style = _get_or_create_table_style(table)
+
+    if background_color:
+        rule = etree.SubElement(table_style, "style-rule")
+        rule.set("element", "table")
+        fmt = etree.SubElement(rule, "format")
+        fmt.set("attr", "background-color")
+        fmt.set("value", background_color)
+
+    if hide_axes:
+        rule = etree.SubElement(table_style, "style-rule")
+        rule.set("element", "axis")
+        fmt = etree.SubElement(rule, "format")
+        fmt.set("attr", "display")
+        fmt.set("value", "false")
+
+    if hide_gridlines:
+        rule = etree.SubElement(table_style, "style-rule")
+        rule.set("element", "gridline")
+        fmt = etree.SubElement(rule, "format")
+        fmt.set("attr", "line-visibility")
+        fmt.set("value", "off")
+
+    if hide_zeroline:
+        rule = etree.SubElement(table_style, "style-rule")
+        rule.set("element", "zeroline")
+        fmt = etree.SubElement(rule, "format")
+        fmt.set("attr", "line-visibility")
+        fmt.set("value", "off")
+        fmt2 = etree.SubElement(rule, "format")
+        fmt2.set("attr", "stroke-size")
+        fmt2.set("value", "0")
+
+    if hide_borders:
+        for element_name in ("header", "pane"):
+            rule = etree.SubElement(table_style, "style-rule")
+            rule.set("element", element_name)
+            fmt_w = etree.SubElement(rule, "format")
+            fmt_w.set("attr", "border-width")
+            fmt_w.set("value", "0")
+            fmt_s = etree.SubElement(rule, "format")
+            fmt_s.set("attr", "border-style")
+            fmt_s.set("value", "none")
+
+    if hide_band_color:
+        rule = etree.SubElement(table_style, "style-rule")
+        rule.set("element", "pane")
+        fmt = etree.SubElement(rule, "format")
+        fmt.set("attr", "band-color")
+        fmt.set("value", "#00000000")
 
 
 def apply_measure_values(
