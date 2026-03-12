@@ -38,6 +38,26 @@
 
 ## 2. Bug 跟踪
 
+### Bug #4: Top N 过滤器不生效 ✅ 已修复
+
+**现象**: `Sales by Top Manufacturers` 和 `Top 5 Locations` 两个工作表设置了 Top 5 筛选，但在 Tableau 中实际显示全部数据，过滤器不起作用
+
+**根因**: **SDK** — `builder_base.py` 的 `_add_filters` 方法在生成 Top N `<groupfilter>` 时有三处缺陷：
+
+1. **`expression` 格式错误**: 中间 `<groupfilter>` 的 `expression` 属性使用完整列实例引用 `[federated...][sum:...:qk]`，Tableau 要求公式语法 `SUM([Calculation_...])`
+2. **缺少 `<slices>` 元素**: Tableau 需要 `<view>` 下存在 `<slices><column>...</column></slices>` 才能正确识别 Top N 过滤的维度域
+3. **缺少 `ui-manual-selection` 属性**: 最内层 `<groupfilter>` 缺少 `ns0:ui-manual-selection="true"`、`ns0:ui-manual-selection-all-when-empty="true"`、`ns0:ui-manual-selection-is-empty="true"` 三个属性
+
+**修复**: `src/cwtwb/charts/builder_base.py`
+- `expression` 改为 `f"{by_ci.derivation.upper()}({by_ci.column_local_name})"` 生成公式语法
+- 新增 `<slices>` 元素，自动写入被过滤维度的完整列引用，位置在 `<aggregation>` 前
+- 补充三个 `ns0:ui-manual-selection*` 属性
+
+**同时修复**: `examples/superstore_recreated/build_exec_overview.py`
+- `Top 5 Locations` 的 `configure_chart` 增加 `customized_label` 参数，消除 Tableau 默认渲染时出现的冗余 "State/Province" 列标题
+
+---
+
 ### Bug #1: KPI Difference 工作表 — 列/轴/标签/颜色配置错误
 
 **现象**: Sales KPI Difference 等工作表渲染不正确
@@ -194,6 +214,7 @@
 
 - [x] 脚本能成功运行生成 TWB
 - [x] TWB 能在 Tableau 中打开 (修复 Circle Mark 枚举问题)
+- [x] Top N 过滤器生效 (Sales by Top Manufacturers / Top 5 Locations 均过滤到 Top 5)
 - [ ] KPI Difference 工作表样式正确 (仅 Sales 手动修复, 其他 3 个待修复)
 - [ ] 数据连接读取 Hyper schema (当前硬编码表名)
 - [ ] 仪表板整体布局与原版一致

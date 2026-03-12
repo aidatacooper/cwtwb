@@ -344,23 +344,38 @@ class BaseChartBuilder:
                 gf_order = etree.SubElement(gf_top, "groupfilter")
                 gf_order.set("direction", f.get("direction", "DESC"))
                 
-                # Resolve the 'by' measure
+                # Resolve the 'by' measure — Tableau requires formula syntax SUM([col]) not instance ref
                 by_measure = f.get("by")
                 if by_measure:
                     try:
                         by_ci = self.field_registry.parse_expression(by_measure)
-                        by_ref = self.field_registry.resolve_full_reference(by_ci.instance_name)
-                        gf_order.set("expression", by_ref)
+                        by_expr = f"{by_ci.derivation.upper()}({by_ci.column_local_name})"
+                        gf_order.set("expression", by_expr)
                     except (KeyError, ValueError):
                         gf_order.set("expression", by_measure)
-                
+
                 gf_order.set("function", "order")
                 gf_order.set(f"{USER_NS}ui-marker", "order")
-                
+
                 gf_level = etree.SubElement(gf_order, "groupfilter")
                 gf_level.set("function", "level-members")
                 gf_level.set("level", ci.instance_name)
+                gf_level.set(f"{USER_NS}ui-manual-selection", "true")
+                gf_level.set(f"{USER_NS}ui-manual-selection-all-when-empty", "true")
+                gf_level.set(f"{USER_NS}ui-manual-selection-is-empty", "true")
                 gf_level.set(f"{USER_NS}ui-marker", "enumerate")
+
+                # Add dimension to <slices> — required for Tableau to apply Top N correctly
+                slices_el = view.find("slices")
+                if slices_el is None:
+                    slices_el = etree.Element("slices")
+                    agg_el = view.find("aggregation")
+                    if agg_el is not None:
+                        agg_el.addprevious(slices_el)
+                    else:
+                        view.append(slices_el)
+                slice_col = etree.SubElement(slices_el, "column")
+                slice_col.text = self.field_registry.resolve_full_reference(ci.instance_name)
             else:
                 filter_el.set("class", "categorical")
                 filter_el.set("column", self.field_registry.resolve_full_reference(ci.instance_name))

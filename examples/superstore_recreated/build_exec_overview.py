@@ -232,7 +232,7 @@ def create_worksheets(editor: TWBEditor) -> None:
         "Top 5 Locations", mark_type="Text",
         rows=["State/Province"],
         label="SUM(Current Year Sales)",
-        customized_label="<State/Province>  <SUM(Current Year Sales)>",
+        customized_label=" <SUM(Current Year Sales)>",
         sort_descending="SUM(Current Year Sales)",
         filters=yf + [{"column": "State/Province", "top": 5, "by": "SUM(Current Year Sales)"}],
     )
