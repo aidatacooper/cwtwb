@@ -81,6 +81,32 @@ add_parameter(
 - For boolean fields, use question format: "Order Profitable?"
 - For estimates, suffix with "estimate": "Sales estimate"
 
+## Table Calculations (Rank, Running Sum, etc.)
+
+Table calculations like `RANK_DENSE`, `RUNNING_SUM`, and `WINDOW_SUM` require an extra `table_calc` parameter so the SDK emits the correct `<table-calc>` XML element inside the calculation:
+
+```python
+add_calculated_field(
+    field_name="Rank CY",
+    formula="RANK_DENSE(sum([Current Year Sales]),'desc')",
+    datatype="integer",
+    field_type="ordinal",   # important: ordinal → :ok suffix → Pie/Text mark can use it as label
+    table_calc="Rows",      # must match the partitioning direction
+)
+```
+
+**Rules:**
+- `table_calc` must be `"Rows"` (partition by row) or `"Columns"` (partition by column).
+- The SDK automatically propagates the `<table-calc ordering-type="Columns"/>` element into every `<column-instance>` that references this field.
+- Set `field_type="ordinal"` when the result is a rank (integer used as a label, not summed).
+- Use `field_type="quantitative"` (default) for running totals / window aggregates.
+
+| Pattern | Formula | datatype | field_type | table_calc |
+|---------|---------|----------|------------|------------|
+| Dense rank (desc) | `RANK_DENSE(SUM([Sales]),'desc')` | `integer` | `ordinal` | `"Rows"` |
+| Running total | `RUNNING_SUM(SUM([Sales]))` | `real` | `quantitative` | `"Rows"` |
+| Window sum | `WINDOW_SUM(SUM([Profit]))` | `real` | `quantitative` | `"Rows"` |
+
 ## Common Pitfalls
 
 | Pitfall | Problem | Fix |

@@ -5,6 +5,23 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.11.0] - 2026-03-13
+
+### Added
+- **Table Calculation Fields**: `add_calculated_field` now accepts a `table_calc` parameter (e.g. `table_calc="Rows"`) that writes a `<table-calc ordering-type="..."/>` child inside the `<calculation>` element, enabling `RANK_DENSE`, `RUNNING_SUM`, `WINDOW_AVG`, and all other Tableau table calculation functions to work correctly in the generated workbook.
+- **Table Calc Column Instances**: `_setup_datasource_dependencies` in `builder_base` now automatically propagates a `<table-calc ordering-type="Columns"/>` element to any `<column-instance>` whose source column contains a table-calc calculation, matching the pattern Tableau uses for rank and running calculations.
+- **Multi-field Label Support**: `configure_chart` now accepts `label_extra: list[str]` to bind multiple `<text>` encodings to a single mark, enabling combined text labels such as a sales figure plus a state name in one cell.
+- **Row Dimension Label Hiding**: `configure_worksheet_style` now accepts `hide_row_label: str` to suppress the header column that Tableau renders for a rows-shelf dimension (adds `<style-rule element="label"><format attr="display" ... value="false"/></style-rule>`).
+- **Donut Chart via `extra_axes`**: Pie panes in `configure_dual_axis(extra_axes=[...])` now automatically receive a `<size column="[Multiple Values]"/>` encoding when `measure_values` is present, completing the standard Tableau donut chart pattern without manual intervention.
+- **Non-traditional Pie Mark via `BasicChartBuilder`**: `configure_chart(mark_type="Pie")` without `color` or `wedge_size` now routes through `BasicChartBuilder` instead of `PieChartBuilder`, allowing a Pie mark to display a label (e.g. a rank number) on a dimension-shelved view while retaining full rows/sort/filter support.
+- **`selection-relaxation-disallow` on single-pane charts**: All charts built by `BasicChartBuilder` now set `selection-relaxation-option="selection-relaxation-disallow"` on the `<pane>` element, matching Tableau's default for filtered single-view worksheets and preventing click-interaction from relaxing Top N or categorical filters.
+
+### Fixed
+- **Measure Names filter ordering**: In `configure_dual_axis` with `extra_axes` containing `measure_values`, the Measure Names `<filter>` is now inserted into the `<view>` before Top N filters, matching the element order Tableau produces when creating these worksheets interactively.
+
+### Example
+- **Exec Overview Recreated** (`examples/superstore_recreated/`): Added `Rank CY` table calculation field; corrected `Top 5 Locations` to use Pie mark with Rank CY label; corrected `Top 5 Locations text` and `Sales by Sub-Category` to match reference workbook (donut size encoding, label style rules, filter order).
+
 ## [0.10.0] - 2026-03-11
 
 ### Fixed

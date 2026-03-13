@@ -139,6 +139,102 @@ configure_chart("Market Share", mark_type="Pie",
 - Leave columns and rows empty for Pie charts
 - Always add label to show values
 
+## Advanced Patterns (configure_chart / configure_dual_axis)
+
+### KPI Difference Badge (MIN(1) dummy axis + fixed range + color_map + customized_label)
+
+Used for "vs PY" KPI comparison cards where you want a tiny coloured pill showing a percentage difference:
+
+```python
+configure_chart(
+    "Sales KPI Difference",
+    mark_type="Circle",                   # or "Square"
+    columns=["MIN(1)"],                   # dummy axis so there is no real x-axis
+    color="Sales Color Filter",           # a string field returning "BAD"/"GOOD"
+    label="Sales Difference",             # AGG calc returning a % value
+    axis_fixed_range={"min": 0, "max": 1, "scope": "cols"},
+    mark_sizing_off=True,
+    customized_label="<Sales Difference> vs PY",
+    color_map={"BAD": "#e15759", "GOOD": "#03a44e"},
+    text_format={"Sales Difference": "p0.00%"},
+)
+```
+
+**Rules:**
+- `MIN(1)` formula with `user:unnamed` attribute is the standard dummy-column trick to get a fixed-width pill.
+- `axis_fixed_range` must be `{"min": 0, "max": 1, "scope": "cols"}` to match the dummy measure range.
+- `mark_sizing_off=True` prevents the circle from scaling with data.
+- `customized_label` template uses `<FieldName>` placeholders; suffix text (e.g. `" vs PY"`) is appended literally.
+- `color_map` keys must exactly match string values returned by the color field.
+
+### Non-Traditional Pie Mark — Rank Display
+
+When you want to show a row-by-row rank number as a label without a real pie chart (wedge slices):
+
+```python
+# First define the rank calc with table_calc:
+add_calculated_field(
+    "Rank CY", "RANK_DENSE(sum([Current Year Sales]),'desc')",
+    datatype="integer", field_type="ordinal", table_calc="Rows"
+)
+
+# Then use Pie mark with only `label` (no color, no wedge_size):
+configure_chart(
+    "Top 5 Locations",
+    mark_type="Pie",
+    rows=["State/Province"],
+    label="Rank CY",
+    sort_descending="SUM(Current Year Sales)",
+    filters=[{"column": "State/Province", "top": 5, "by": "SUM(Current Year Sales)"}],
+)
+```
+
+**Why Pie mark without color/wedge_size?** Tableau renders a full-width circle mark per row, which gives a clean round badge appearance for the rank number. The SDK routes this to `BasicChartBuilder` (not `PieChartBuilder`) when neither `color` nor `wedge_size` is provided.
+
+### Donut Chart via extra_axes (configure_dual_axis)
+
+This produces a donut chart where one ring shows the breakdown and the inner white circle creates the hole. It uses `extra_axes` on `configure_dual_axis` rather than the recipe path — use this when the donut is part of a larger multi-pane layout:
+
+```python
+configure_dual_axis(
+    "Sales by Sub-Category",
+    mark_type_1="Bar",       # main axis (Gantt bars etc.)
+    mark_type_2="Circle",    # second axis
+    columns=["..."],
+    rows=["..."],
+    extra_axes=[
+        {
+            "mark_type": "Pie",
+            "color": "Measure Names",
+            "measure_values": ["SUM(Sales CY)", "SUM(Sales PY)"],
+            # SDK auto-adds [Multiple Values] as size for Pie+measure_values
+        },
+        {
+            "mark_type": "Automatic",
+            "mark_color": "#ffffff",  # white fill to cut out centre
+        },
+    ],
+)
+```
+
+**Key rules:**
+- The SDK automatically adds `[Multiple Values]` as the `size` encoding for any `extra_axes` pane whose `mark_type` is `"Pie"` and `measure_values` is non-empty. Do **not** add it manually.
+- The Measure Names filter is always emitted **before** the Top N or categorical filters in the `<view>` XML.
+- The white `Automatic` pane must come last in `extra_axes`.
+
+### Row Dimension Header Suppression (hide_row_label)
+
+When a chart has a dimension on the `rows` shelf but you don't want the dimension name displayed as a column header:
+
+```python
+configure_worksheet_style(
+    "Top 5 Locations",
+    hide_row_label="State/Province",  # pass the dimension field name
+)
+```
+
+The SDK resolves this to a `<style-rule element="label"><format attr="display" field="..." value="false"/>` entry. Use for ranked lists, ordered text lists, etc. where the row labels are self-explanatory.
+
 ## Recipe Charts
 
 These showcase-only charts are not plain `configure_chart(...)` calls. When the

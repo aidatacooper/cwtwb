@@ -196,6 +196,10 @@ These are supported, but they are higher-level compositions or interaction featu
 - **Tree Map**
 - **Bubble Chart**
 - **Dual Axis**
+- **Table Calculations** — `RANK_DENSE`, `RUNNING_SUM`, `WINDOW_SUM` via `add_calculated_field(table_calc="Rows")`
+- **KPI Difference badges** — `MIN(1)` dummy axis + `axis_fixed_range` + `color_map` + `customized_label`
+- **Donut (via extra_axes)** — multi-pane Pie + white circle using `configure_dual_axis(extra_axes=[...])`
+- **Row dimension header suppression** — `configure_worksheet_style(hide_row_label="FieldName")`
 - Filter zones, parameter controls, color legends
 - Dashboard filter and highlight actions
 - Declarative JSON layout workflows

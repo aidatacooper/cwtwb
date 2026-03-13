@@ -1,6 +1,6 @@
 # cwtwb 项目路线图 & 审核报告
 
-> 最后更新: 2026-03-06  
+> 最后更新: 2026-03-13
 > 目标：持续改进 cwtwb，建立社区共创生态，构建 Dashboard-as-Code 工程化能力
 
 ---
@@ -78,7 +78,7 @@
 | 参考线 | `//reference-line` | ❌ 未支持 |
 | 排序 | `//sort/*` | shelf-sort (降序) |
 | 趋势线 | `//trend-line` | ❌ 未支持 |
-| 表计算 | `//table-calc-*` | ❌ 未支持 |
+| 表计算 | `//table-calc-*` | ✅ 支持 (add_calculated_field table_calc 参数) |
 | 数据桶 | `//bin` | ❌ 未支持 |
 | 集(Sets) | `//group[@type='set']` | ❌ 未支持 |
 | 参数应用 | `//calculation[contains(@formula,'Parameters')]` | ✅ 支持 |
