@@ -46,6 +46,7 @@ def configure_chart(
     customized_label: Optional[str] = None,
     color_map: Optional[dict[str, str]] = None,
     text_format: Optional[dict[str, str]] = None,
+    map_layers: Optional[list[dict]] = None,
     label_extra: Optional[list[str]] = None,
 ) -> str:
     """Route chart configuration to the correct builder."""
@@ -70,6 +71,7 @@ def configure_chart(
             tooltip,
             map_fields,
             filters,
+            map_layers=map_layers,
         )
         return builder.build()
 

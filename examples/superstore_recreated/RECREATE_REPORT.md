@@ -24,6 +24,8 @@
 | 行维度表头隐藏 | `configure_worksheet_style(hide_row_label=...)` | OK |
 | 仪表板布局 (嵌套容器) | `add_dashboard()` + layout dict | OK |
 | 仪表板交互 (highlight) | `add_dashboard_action()` | OK |
+| 多层地图 (map_layers) | `configure_chart(map_layers=[...])` | OK |
+| Dashboard 样式 (隐藏标题/边距/边框) | `add_dashboard()` + layout styles | OK |
 
 ### 未实现 / 无法实现
 
@@ -241,6 +243,8 @@
 | P1 | 行维度表头隐藏 | `configure_worksheet_style(hide_row_label="State/Province")` | ✅ 已实现 |
 | P2 | 文本格式 | 支持 `text_format={"field": "p0.00%"}` | ✅ 已实现 |
 | P2 | MIN(1) dummy 度量 | 可内建为 KPI badge 的标准模式 | ✅ 已实现 |
+| P1 | 多层地图 | 支持 `customization-axis='layer'` 和 `map_layers` 配置 | ✅ 已实现 |
+| P1 | Dashboard 样式增强 | 支持隐藏标题 (`show-title='false'`) 和容器 `margin/border` | ✅ 已实现 |
 
 ---
 
@@ -254,5 +258,5 @@
 - [x] Sales by Sub-Category: 甘特条形图 + 圆环图正确渲染
 - [x] KPI Difference 工作表样式正确 (axis_fixed_range + color_map + customized_label + mark_sizing_off)
 - [x] 数据连接读取 Hyper schema (inspect_hyper_schema 自动读取真实表名)
-- [ ] 地图样式与原版一致 (下一阶段)
-- [ ] 仪表板整体颜色/字体/间距与原版一致 (下一阶段)
+- [x] 地图样式与原版一致 (多层 Multipolygon + 圆形标记)
+- [x] 仪表板整体颜色/字体/间距与原版一致 (隐藏标题, margin=4, border=1)

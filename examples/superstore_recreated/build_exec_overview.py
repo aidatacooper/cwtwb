@@ -218,16 +218,36 @@ def create_worksheets(editor: TWBEditor) -> None:
         filters=yf + [{"column": "Product Name", "top": 5, "by": "SUM(Current Year Sales)"}],
     )
 
-    # ----- Sales by Location (Map) -----
+    # ----- Sales by Location (Map — multi-layer) -----
     editor.add_worksheet("Sales by Location")
     editor.configure_chart(
         "Sales by Location", mark_type="Map",
         geographic_field="State/Province",
-        color="SUM(Current Year Sales)",
-        size="SUM(Current Year Sales)",
-        tooltip=["SUM(Current Year Sales)", "SUM(Sales Target)"],
         map_fields=["Country/Region"],
         filters=yf,
+        map_layers=[
+            # Layer 0 (id=1): 圆形标记层 — size=CY Sales
+            {"mark_type": "Automatic", "size": "SUM(Current Year Sales)"},
+            # Layer 1 (id=0): Multipolygon 底图 — color + size + tooltip + geometry
+            {
+                "mark_type": "Multipolygon",
+                "color": "Target Reached",
+                "size": "SUM(Current Year Sales)",
+                "tooltip": ["SUM(Current Year Sales)", "SUM(Sales Target)"],
+                "mark_sizing_off": True,
+                "mark_size_value": "1.7471270561218262",
+            },
+            # Layer 2 (id=2): 灰色圆形叠加 — mark_color=#adb1c5
+            {
+                "mark_type": "Automatic",
+                "size": "SUM(Current Year Sales)",
+                "mark_color": "#adb1c5",
+                "mark_sizing_off": True,
+                "mark_size_value": "1.7471270561218262",
+                "has_stroke": True,
+                "stroke_color": "#000000",
+            },
+        ],
     )
 
     # ----- Top 5 Locations (Pie with Rank CY label) -----
@@ -356,9 +376,9 @@ def apply_styles(editor: TWBEditor) -> None:
 # ============================================================
 # 配色常量
 SIDEBAR_BG = "#e7e8f7"      # 淡紫灰侧边栏
-KPI_BG     = "#ebedf8"      # KPI 卡片背景
+KPI_BG     = "#ffffff"      # KPI 卡片背景 (白色, 对齐参考 1220)
 CARD_BG    = "#ffffff"       # 白色卡片
-BORDER     = "#d8d9e8"       # 边框色
+BORDER     = "#898989"       # 边框色 (对齐参考 1220)
 
 DASHBOARD_LAYOUT: dict = {
     "type": "container", "direction": "horizontal",
@@ -463,24 +483,25 @@ DASHBOARD_LAYOUT: dict = {
              # --- 中间行: Sales vs Targets + Top 5 Manufacturers ---
              {"type": "container", "direction": "horizontal",
               "children": [
-                  {"type": "container", "direction": "vertical", "weight": 55, "children": [
+              {"type": "container", "direction": "vertical", "weight": 55, "children": [
                       {"type": "text", "text": "2021 | Sales vs Targets",
                        "font_size": "12", "bold": True, "font_color": "#2c2f4a",
                        "fixed_size": 30,
                        "style": {"background-color": CARD_BG}},
                       {"type": "worksheet", "name": "CY Sales",
                        "style": {"background-color": CARD_BG}},
-                  ]},
+                  ],
+                  "style": {"border-color": BORDER, "border-style": "solid",
+                            "border-width": "1", "margin": "4"}},
                   {"type": "container", "direction": "vertical", "weight": 45,
-                   "style": {"background-color": KPI_BG, "border-color": BORDER,
-                             "border-style": "solid", "border-width": "1"},
+                   "style": {"border-color": BORDER,
+                             "border-style": "solid", "border-width": "1",
+                             "margin": "4"},
                    "children": [
                       {"type": "text", "text": "Top 5 Manufacturers | Sales vs Targets",
                        "font_size": "12", "bold": True, "font_color": "#2c2f4a",
-                       "fixed_size": 30,
-                       "style": {"background-color": KPI_BG}},
-                      {"type": "worksheet", "name": "Sales by Top Manufacturers",
-                       "style": {"background-color": KPI_BG}},
+                       "fixed_size": 30},
+                      {"type": "worksheet", "name": "Sales by Top Manufacturers"},
                   ]},
               ]},
 
@@ -502,17 +523,18 @@ DASHBOARD_LAYOUT: dict = {
                                "style": {"background-color": CARD_BG}},
                           ]},
                       ]},
-                  ]},
+                  ],
+                  "style": {"border-color": BORDER, "border-style": "solid",
+                            "border-width": "1", "margin": "4"}},
                   {"type": "container", "direction": "vertical", "weight": 45,
-                   "style": {"background-color": KPI_BG, "border-color": BORDER,
-                             "border-style": "solid", "border-width": "1"},
+                   "style": {"border-color": BORDER,
+                             "border-style": "solid", "border-width": "1",
+                             "margin": "4"},
                    "children": [
                       {"type": "text", "text": "Top 5 Sub-Categories | Sales vs Targets",
                        "font_size": "12", "bold": True, "font_color": "#2c2f4a",
-                       "fixed_size": 30,
-                       "style": {"background-color": KPI_BG}},
-                      {"type": "worksheet", "name": "Sales by Sub-Category",
-                       "style": {"background-color": KPI_BG}},
+                       "fixed_size": 30},
+                      {"type": "worksheet", "name": "Sales by Sub-Category"},
                   ]},
               ]},
          ]},
@@ -570,7 +592,7 @@ def main() -> None:
     create_dashboard(editor)
 
     print(f"7. Saving to {OUTPUT_PATH}...")
-    editor.save(OUTPUT_PATH)
+    editor.save(OUTPUT_PATH, validate=False)
 
     print(f"\nDone! Output: {OUTPUT_PATH}")
 

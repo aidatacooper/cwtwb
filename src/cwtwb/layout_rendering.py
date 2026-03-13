@@ -36,6 +36,7 @@ def render_flex_node(
     elif node.type == "worksheet":
         if node.name:
             zone.set("name", node.name)
+        zone.set("show-title", "false")
     elif node.type == "text":
         _render_text(node, zone)
     elif node.type == "filter":

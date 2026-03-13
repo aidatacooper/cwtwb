@@ -43,6 +43,7 @@ class ChartsMixin:
         customized_label: Optional[str] = None,
         color_map: Optional[dict[str, str]] = None,
         text_format: Optional[dict[str, str]] = None,
+        map_layers: Optional[list[dict]] = None,
         label_extra: Optional[list[str]] = None,
     ) -> str:
         """Route chart configuration to the correct builder."""
@@ -69,6 +70,7 @@ class ChartsMixin:
             customized_label=customized_label,
             color_map=color_map,
             text_format=text_format,
+            map_layers=map_layers,
             label_extra=label_extra,
         )
 
