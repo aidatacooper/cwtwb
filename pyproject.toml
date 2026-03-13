@@ -1,6 +1,6 @@
 [project]
 name = "cwtwb"
-version = "0.10.0"
+version = "0.12.0"
 description = "Tableau Workbook (.twb) generation toolkit and MCP server"
 readme = "README.md"
 
@@ -43,9 +43,8 @@ build-backend = "hatchling.build"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/cwtwb"]
-artifacts = [
-  "src/cwtwb/skills/*.md",
-]
+# All non-Python files under src/cwtwb/ (skills/*.md, references/*) are
+# git-tracked and included in the wheel automatically via `packages`.
 
 [tool.hatch.build.targets.sdist]
 exclude = [

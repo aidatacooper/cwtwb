@@ -1,4 +1,7 @@
 ---
+step: 10
+level: "⭐⭐⭐ Advanced"
+demonstrates: "参数 + LOD 计算字段 + 地图 + 面积图 + 筛选侧边栏 + 仪表板交互动作 — 纯中文自然语言提示词"
 description: 纯自然语言演示提示词 — 完全还原 overview_full correct.twb
 ---
 

@@ -37,6 +37,7 @@ backup/
 dashboard/
 *.twbx
 *.hyper
+!src/cwtwb/references/*.hyper
 *.twbr
 tmp/
 templates/migrate/* - migrated to *.twb

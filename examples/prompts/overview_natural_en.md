@@ -1,4 +1,7 @@
 ---
+step: 9
+level: "⭐⭐⭐ Advanced"
+demonstrates: "Parameters + 6 calculated fields (LOD, What-If) + Map + 2 Area charts + filter sidebar + 3 dashboard actions — structured English prompt"
 description: Natural Language Prompt (English) — Fully replicating the Overview dashboard from Overview.twb
 ---
 

@@ -1,15 +1,24 @@
+"""Demo: Nested Declarative Dashboard Layout
+
+Step 3 / 5  |  Level: ⭐⭐ Intermediate
+Demonstrates: Building a 3-row dashboard with a fixed header, KPI band, and
+chart row using an inline Python layout dict. Covers Text KPIs + Bar charts
++ fixed_size / distribute-evenly layout containers.
+
+Usage:
+    python examples/scripts/demo_auto_layout4.py
+"""
 import os
 from pathlib import Path
 from cwtwb.twb_editor import TWBEditor
 
 def main():
     base_dir = Path(__file__).parent.parent.parent
-    template = base_dir / "templates" / "twb" / "superstore.twb"
     output_dir = base_dir / "output"
     output_dir.mkdir(exist_ok=True)
     out_file = output_dir / "demo_auto_layout4.twb"
 
-    editor = TWBEditor(template)
+    editor = TWBEditor("")  # uses built-in default template from references/
     
     # KPIs
     editor.add_worksheet("KPI Sales")

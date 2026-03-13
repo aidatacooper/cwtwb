@@ -1,3 +1,13 @@
+"""Demo: Multi-Dashboard Assembly from JSON Layout Files
+
+Step 4 / 5  |  Level: ⭐⭐⭐ Advanced
+Demonstrates: Creating 8 worksheets (KPI text cards + bar charts) and
+assembling 3 dashboards using external JSON layout files loaded from
+examples/layouts/. Shows how to reuse a layout schema across dashboards.
+
+Usage:
+    python examples/scripts/demo_declarative_layout.py
+"""
 import sys
 import os
 import json
@@ -10,15 +20,10 @@ from cwtwb.twb_editor import TWBEditor
 def main():
     print("=== Demo: Declarative JSON Dashboard Layout ===")
 
-    template_path = Path(__file__).parent.parent.parent / "templates" / "twb" / "superstore.twb"
     output_path = Path(__file__).parent.parent.parent / "output" / "demo_declarative_dash.twb"
-    
-    if not template_path.exists():
-        print(f"Error: Template not found at {template_path}")
-        return
 
     print("1. Loading template...")
-    editor = TWBEditor(template_path)
+    editor = TWBEditor("")  # uses built-in default template from references/
     editor.clear_worksheets()
 
     print("2. Generating some mock worksheets...")

@@ -1,9 +1,16 @@
+---
+step: 5
+level: "⭐⭐ Intermediate"
+demonstrates: "8 worksheets (4 bar + 4 KPI text) + load C.2 JSON layout file → single dashboard"
+requires: "examples/layouts/layout_c2.json"
+---
+
 # C.2 Layout Server Prompt
 
 ```text
 Hi, let's build the "C.2 Layout Replica" dashboard using the cwtwb MCP server.
 
-1. Open the template at `examples/templates/twb/superstore.twb`.
+1. Call `create_workbook` with no template path to use the built-in Superstore dataset.
 2. I need exactly 8 charts. Four are regular Bar charts showing Sales automatically broken down by Ship Mode. Please name them:
    - "Sales By Category", "Profit Map", "Discount Trend", "Daily Highlights"
 3. The other four are just Text cards showing their respective totals: SUM(Discount), SUM(Profit), SUM(Quantity), and SUM(Sales). Please name them by adding " - KPI" to the original 4 names above.

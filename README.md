@@ -113,7 +113,7 @@ and dashboards and reconfigure a sheet in place.
 ```python
 from cwtwb.twb_editor import TWBEditor
 
-editor = TWBEditor("templates/twb/superstore.twb")
+editor = TWBEditor("")  # "" uses the built-in Superstore template
 editor.clear_worksheets()
 editor.add_calculated_field("Profit Ratio", "SUM([Profit])/SUM([Sales])")
 
@@ -252,10 +252,10 @@ Custom layouts can be built programmatically using a nested `layout` dictionary 
 
 ## Hyper-backed Example
 
-The advanced example at `examples/hyper_and_new_charts.py` now prefers the
-`Sample - EU Superstore.hyper` extract bundled under the Tableau Advent
-Calendar assets and resolves the physical `Orders_*` table via Tableau Hyper
-API before switching the workbook connection.
+The `examples/hyper_and_new_charts.py` example uses the `Sample - EU Superstore.hyper`
+extract bundled directly in the package (`src/cwtwb/references/`) and resolves the
+physical `Orders_*` table via Tableau Hyper API before switching the workbook connection.
+No repository clone is needed — install with `pip install "cwtwb[examples]"` and run directly.
 
 ## Guided Migration Example
 

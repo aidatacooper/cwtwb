@@ -1,4 +1,10 @@
-Build a sales dashboard for me using `examples/templates/twb/superstore.twb`. Please execute the following sequence:
+---
+step: 1
+level: "⭐ Beginner"
+demonstrates: "2 KPI text cards + 2 bar charts + generate_layout_json + vertical dashboard"
+---
+
+Build a sales dashboard for me. Call `create_workbook` with no template path to use the built-in Superstore dataset. Please execute the following sequence:
 
 1. Create 2 Text worksheets for KPIs: Name them "Total Sales" and "Total Profit". Aggregate their values using SUM.
 2. Create 2 Bar chart worksheets: Name them "Sales By Ship Mode" and "Sales By Category". Put the dimension on Rows and SUM(Sales) on Columns.

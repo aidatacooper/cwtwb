@@ -5,6 +5,17 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.12.0] - 2026-03-13
+
+### Added
+- **Bundled Hyper Extracts**: `Sample - EU Superstore.hyper` and `Sample _ Superstore.hyper` are now included in `src/cwtwb/references/` and distributed with the wheel. `hyper_and_new_charts.py` and `build_exec_overview.py` no longer require a cloned repository.
+- **Progressive Examples**: All scripts in `examples/scripts/` (5 steps, Beginner → Advanced) and prompts in `examples/prompts/` (10 steps, Beginner → Advanced) now carry explicit step numbers and difficulty labels. `examples/README.md` rewritten with a Quick Start section and full progression tables.
+
+### Fixed
+- **Packaging**: Removed redundant `artifacts` declarations from `pyproject.toml`. All non-Python files under `src/cwtwb/` are git-tracked and included in the wheel automatically via `packages = ["src/cwtwb"]`.
+- **`.gitignore`**: Added `!src/cwtwb/references/*.hyper` exception so bundled Hyper files are tracked by git and always present at wheel build time.
+- **Examples — zero external dependencies**: All scripts in `examples/scripts/` and prompts in `examples/prompts/` updated to use `TWBEditor("")` / `create_workbook("")` (built-in default template) instead of hard-coded paths to `templates/twb/superstore.twb`. All work after a plain `pip install cwtwb`.
+
 ## [0.11.0] - 2026-03-13
 
 ### Added

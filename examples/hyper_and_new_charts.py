@@ -13,34 +13,11 @@ sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 from tableauhyperapi import Connection, HyperException, HyperProcess, Telemetry
 
 from cwtwb import TWBEditor
+from cwtwb.config import REFERENCES_DIR
 
 
-ADVENT_BUNDLE_DIR = (
-    Path("templates")
-    / "viz"
-    / "Tableau Advent Calendar.twb \u4e2a\u6587\u4ef6"
-    / "Data"
-    / "Tableau Advent Calendar"
-)
-PREFERRED_HYPER_FILE = "Sample - EU Superstore.hyper"
+HYPER_FILE = REFERENCES_DIR / "Sample - EU Superstore.hyper"
 PREFERRED_ORDERS_TABLE = "Orders_4A2273C4362E41DEA7258D5051022F80"
-
-
-def _find_sample_hyper(project_root: Path) -> tuple[Path, str] | None:
-    """Prefer the Advent Calendar Superstore extract over unrelated bundle files."""
-    bundle_dir = project_root / ADVENT_BUNDLE_DIR
-    if not bundle_dir.exists():
-        return None
-
-    preferred = bundle_dir / PREFERRED_HYPER_FILE
-    if preferred.exists():
-        return preferred, _resolve_orders_table_name(preferred)
-
-    candidates = sorted(bundle_dir.glob("*.hyper"))
-    if not candidates:
-        return None
-    fallback = candidates[0]
-    return fallback, _resolve_orders_table_name(fallback)
 
 
 def _resolve_orders_table_name(hyper_path: Path) -> str:
@@ -61,18 +38,15 @@ def _resolve_orders_table_name(hyper_path: Path) -> str:
 
 
 def main():
-    project_root = Path(__file__).parent.parent
-    template_path = project_root / "templates" / "twb" / "superstore.twb"
-    output_path = project_root / "output" / "hyper_and_new_charts.twb"
+    output_path = Path(__file__).parent.parent / "output" / "hyper_and_new_charts.twb"
 
     print("Initializing Editor...")
-    editor = TWBEditor(str(template_path) if template_path.exists() else None)
+    editor = TWBEditor("")  # uses built-in default template from references/
 
-    hyper_info = _find_sample_hyper(project_root)
-    if hyper_info is not None:
-        hyper_path, table_name = hyper_info
-        print(f"Switching to Hyper extract: {hyper_path.name}")
-        editor.set_hyper_connection(str(hyper_path), table_name=table_name)
+    if HYPER_FILE.exists():
+        table_name = _resolve_orders_table_name(HYPER_FILE)
+        print(f"Switching to Hyper extract: {HYPER_FILE.name}")
+        editor.set_hyper_connection(str(HYPER_FILE), table_name=table_name)
     else:
         print("Hyper extract not found. Continuing with the template datasource.")
 

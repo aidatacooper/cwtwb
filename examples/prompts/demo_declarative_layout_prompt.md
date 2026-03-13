@@ -1,3 +1,10 @@
+---
+step: 6
+level: "⭐⭐ Intermediate"
+demonstrates: "8 worksheets (4 bar + 4 KPI text) + 2 dashboards assembled from JSON layout files"
+requires: "examples/layouts/layout_executive.json, examples/layouts/layout_c2.json"
+---
+
 # Declarative JSON Dashboard Layout - Natural language MCP Prompt
 
 You can use the following conversational prompt with any LLM connected to the `cwtwb` MCP server to achieve the same results without hardcoding long JSON payloads.

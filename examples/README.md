@@ -1,66 +1,68 @@
 # cwtwb SDK Examples
 
-This directory contains Python scripts and prompt examples for the `cwtwb` SDK and MCP server.
+All scripts in `examples/scripts/` and prompts in `examples/prompts/` work
+out of the box after a standard `pip install`. No cloned repository or external
+data files are needed — the built-in Superstore dataset is bundled with the package.
 
-The examples are intentionally split by support tier so the project does not accidentally present recipe-level charts as first-class product promises.
+```bash
+pip install cwtwb
 
-## Example tiers
+# Run your first example
+python examples/scripts/demo_connections.py
+```
 
-### Core-fit examples
+> **Note for `hyper_and_new_charts.py`**: also requires the optional Hyper
+> dependency — install with `pip install "cwtwb[examples]"`.
 
-These stay inside the stable surface area and are the best reference points for users starting with the SDK.
+---
 
-| Example | What it shows | How to run |
-|---|---|---|
-| `scripts/demo_e2e_mcp_workflow.py` | End-to-end workbook creation from MCP-style tool calls using core chart and dashboard primitives | `python examples/scripts/demo_e2e_mcp_workflow.py` |
-| `scripts/demo_connections.py` | Supported datasource switching workflows | `python examples/scripts/demo_connections.py` |
-| `prompts/demo_simple.md` | Small core dashboard prompt using KPI and bar-chart primitives | Copy into an MCP-enabled assistant |
+## Scripts — Step by Step
 
-### Advanced-fit examples
+Run these directly to explore the SDK from simple to complex.
 
-These are supported, but they rely on advanced dashboard composition or interaction features.
+| Step | Script | Level | What it demonstrates |
+|------|--------|-------|----------------------|
+| 1 | `scripts/demo_connections.py` | ⭐ Beginner | Switch a workbook's datasource to MySQL or Tableau Server. No charts required. |
+| 2 | `scripts/demo_e2e_mcp_workflow.py` | ⭐ Beginner | Full MCP sequence: create workbook → calculated field → Bar + Pie charts → dashboard → save. The canonical "hello world". |
+| 3 | `scripts/demo_auto_layout4.py` | ⭐⭐ Intermediate | KPI text cards + bar charts + 3-row declarative layout (header / KPI band / charts) with `fixed_size`. |
+| 4 | `scripts/demo_declarative_layout.py` | ⭐⭐ Intermediate | 8 worksheets (KPI text + bar charts) assembled into 3 dashboards from external JSON layout files. |
+| 5 | `scripts/demo_all_supported_charts_mcp.py` | ⭐⭐⭐ Advanced | All 15 chart types via MCP tools: 11 core charts + 4 recipe charts (Lollipop, Donut, Butterfly, Calendar). |
 
-| Example | What it shows | How to run |
-|---|---|---|
-| `scripts/demo_declarative_layout.py` | Declarative JSON dashboard layouts, KPI composition, and more complex layout structures | `python examples/scripts/demo_declarative_layout.py` |
-| `scripts/demo_auto_layout4.py` | Advanced nested layout composition with fixed-size header and KPI band | `python examples/scripts/demo_auto_layout4.py` |
-| `hyper_and_new_charts.py` | Advanced chart patterns such as Scatterplot, Heatmap, Tree Map, and Bubble Chart, using the Tableau Advent Calendar `Sample - EU Superstore.hyper` extract and resolving the physical `Orders_*` table via Tableau Hyper API | `python examples/hyper_and_new_charts.py` |
-| `superstore_recreated/build_exec_overview.py` | Full dashboard recreation of the Tableau Superstore "Exec Overview" — demonstrates table calculations (RANK_DENSE), KPI difference badges (MIN(1) dummy axis + fixed range + color_map + customized_label), donut chart via `extra_axes`, non-traditional Pie for rank display, multi-field label, Top N filters, and row dimension header suppression (`hide_row_label`) | `python examples/superstore_recreated/build_exec_overview.py` |
-| `prompts/demo_auto_layout_prompt.md` | Short natural-language request that stays near the core and advanced happy path | Copy into an MCP-enabled assistant |
-| `prompts/demo_auto_layout4_prompt.md` | Prompt for advanced declarative layout composition | Copy into an MCP-enabled assistant |
-| `prompts/demo_c2_layout_prompt.md` | Prompt for reading a saved JSON layout into a dashboard workflow | Copy into an MCP-enabled assistant |
-| `prompts/demo_declarative_layout_prompt.md` | Prompt for a larger advanced dashboard assembly flow | Copy into an MCP-enabled assistant |
-| `prompts/overview_business_demo.md` | Interactive dashboard prompt with filters, parameters, and business framing | Copy into an MCP-enabled assistant |
-| `prompts/overview_natural_en.md` | Detailed English prompt for a more complex overview dashboard | Copy into an MCP-enabled assistant |
-| `prompts/overview_natural zh_cn.md` | Chinese version of the advanced overview prompt | Copy into an MCP-enabled assistant |
+---
 
-### Recipe-heavy examples
+## Prompts — Step by Step
 
-These are useful for exploration and showcase purposes, but they should not be treated as the default supported surface area for the SDK.
+Copy these into any LLM client with the `cwtwb` MCP server configured.
 
-| Example | What it shows | How to run |
-|---|---|---|
-| `all_supported_charts.py` | Mixed workbook including core, advanced, and recipe-level chart patterns such as Lollipop, Donut, Butterfly, and Calendar | `python examples/all_supported_charts.py` |
-| `scripts/demo_all_supported_charts_mcp.py` | The same mixed workbook recreated strictly through the exported MCP tool functions, using the single `configure_chart_recipe` recipe entrypoint for Lollipop, Donut, Butterfly, and Calendar | `python examples/scripts/demo_all_supported_charts_mcp.py` |
-| `prompts/all_supported_charts_showcase_en.md` | English MCP prompt for rebuilding the full worksheet showcase workbook with the unified `configure_chart_recipe` tool | Copy into an MCP-enabled assistant |
-| `prompts/test_parameter_prefix_bug.md` | Narrow debugging prompt rather than a clean product-path example | Copy into an MCP-enabled assistant |
+| Step | Prompt file | Level | What it demonstrates |
+|------|-------------|-------|----------------------|
+| 1 | `prompts/demo_simple.md` | ⭐ Beginner | 2 KPI cards + 2 bar charts, with `generate_layout_json` + vertical dashboard layout. |
+| 2 | `prompts/demo_auto_layout_prompt.md` | ⭐ Beginner | 3 bar charts described in plain language → horizontal split dashboard inferred by the LLM. |
+| 3 | `prompts/test_parameter_prefix_bug.md` | ⭐ Beginner | Parameter creation + calculated fields with and without `[Parameters].` prefix. Good for verifying parameter syntax. |
+| 4 | `prompts/demo_auto_layout4_prompt.md` | ⭐⭐ Intermediate | KPI cards + bar charts + 3-row layout with fixed header and KPI band. |
+| 5 | `prompts/demo_c2_layout_prompt.md` | ⭐⭐ Intermediate | 8 worksheets (4 bar + 4 KPI text) assembled with a C.2 JSON layout file. Requires `examples/layouts/layout_c2.json`. |
+| 6 | `prompts/demo_declarative_layout_prompt.md` | ⭐⭐ Intermediate | 8 worksheets assembled into 2 dashboards from two JSON layout files. Requires `examples/layouts/`. |
+| 7 | `prompts/all_supported_charts_showcase_en.md` | ⭐⭐⭐ Advanced | Full chart catalog: 15 chart types including all core primitives and recipe-level charts. |
+| 8 | `prompts/overview_business_demo.md` | ⭐⭐⭐ Advanced | Parameters + LOD fields + Map + Area charts + filter sidebar + dashboard actions. Business executive demo (English). |
+| 9 | `prompts/overview_natural_en.md` | ⭐⭐⭐ Advanced | Structured replication of the full Overview dashboard. Parameters, 6 calculated fields, 4 charts, filter sidebar, 3 actions. |
+| 10 | `prompts/overview_natural zh_cn.md` | ⭐⭐⭐ Advanced | Same as step 9 in Chinese — pure natural language description. |
 
-## Prompt examples for MCP clients
+---
 
-If you are using an LLM tool with an MCP client, you can copy the prompts in `examples/prompts/` into the chat.
+## Other Examples (Separate Subfolders)
 
-Recommended starting points:
+These live in their own subfolders and may have additional dependencies.
 
-- `prompts/demo_simple.md`
-- `prompts/demo_auto_layout_prompt.md`
-- `prompts/demo_declarative_layout_prompt.md`
+| Example | What it shows | Notes |
+|---------|---------------|-------|
+| `hyper_and_new_charts.py` | Scatterplot, Heatmap, Tree Map, Bubble Chart against the bundled EU Superstore Hyper extract | Needs `pip install "cwtwb[examples]"` for `tableauhyperapi` |
+| `all_supported_charts.py` | Same 15-chart showcase as step 5, using the direct `TWBEditor` API instead of MCP tools | Works after plain `pip install cwtwb` |
+| `superstore_recreated/build_exec_overview.py` | Full recreation of the Tableau Superstore "Exec Overview" — table calculations, KPI badges, donut via `extra_axes`, Top N filters | Works after plain `pip install cwtwb` |
+| `migrate_workflow/` | Migrate an existing `.twb` workbook to a new datasource with field mapping | Requires the `.twb` and `.xls` files bundled in that folder |
+
+---
 
 ## Output
 
-By default, examples write generated `.twb` files into the project-level `output/` directory.
-
-The `hyper_and_new_charts.py` example needs the optional `tableauhyperapi`
-dependency. Install it with `pip install "cwtwb[examples]"` if you want to run
-that example from a package install.
-
-If you are not sure whether a generated workbook still sits inside the intended product boundary, run `analyze_twb` or `diff_template_gap` on the output file before promoting the example into docs.
+All examples write generated `.twb` files to the project-level `output/` directory,
+which is created automatically if it does not exist.

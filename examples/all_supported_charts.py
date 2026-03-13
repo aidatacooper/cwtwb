@@ -18,16 +18,15 @@ from cwtwb.twb_editor import TWBEditor
 
 def generate_all_charts():
     # Setup Paths
-    template_path = project_root / "templates" / "twb" / "superstore.twb"
     output_path = project_root / "output" / "all_supported_charts.twb"
 
     # Ensure output dir exists
     output_path.parent.mkdir(parents=True, exist_ok=True)
 
     print("Initializing Editor...")
-    editor = TWBEditor(str(template_path))
+    editor = TWBEditor("")  # uses built-in default template from references/
 
-    print("Using built-in Excel connection from template...")
+    print("Using built-in Superstore connection from references/...")
 
     # 1. Bar Chart
     print("Configuring: Bar Chart")

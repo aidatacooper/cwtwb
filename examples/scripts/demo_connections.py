@@ -1,10 +1,11 @@
 """Demo: Configure Database Connections
 
-This script demonstrates how to configure a Tableau Workbook to connect to 
-various database sources (MySQL, Tableau Server) using the cwtwb SDK.
+Step 1 / 5  |  Level: ⭐ Beginner
+Demonstrates: Switching a workbook's datasource to MySQL or Tableau Server.
+No chart knowledge required — just connection configuration.
 
 Usage:
-    python examples/demo_connections.py
+    python examples/scripts/demo_connections.py
 """
 
 import sys
@@ -17,17 +18,16 @@ from cwtwb.twb_editor import TWBEditor
 
 def main():
     print("=== Demo: Database Connections ===")
-    
+
     project_root = Path(__file__).parent.parent.parent
-    template_path = project_root / "templates" / "twb" / "superstore.twb"
     output_dir = project_root / "output"
     output_dir.mkdir(exist_ok=True)
-    
+
     print("1. Loading template...")
     # ---------------------------------------------------------
     # Example 1: MySQL Connection
     # ---------------------------------------------------------
-    editor_mysql = TWBEditor(template_path)
+    editor_mysql = TWBEditor("")  # uses built-in default template from references/
     
     msg = editor_mysql.set_mysql_connection(
         server="127.0.0.1",
@@ -45,7 +45,7 @@ def main():
     # ---------------------------------------------------------
     # Example 2: Tableau Server Connection (Published Datasource)
     # ---------------------------------------------------------
-    editor_tbs = TWBEditor(template_path)
+    editor_tbs = TWBEditor("")  # uses built-in default template from references/
     
     msg = editor_tbs.set_tableauserver_connection(
         server="xxx.com",

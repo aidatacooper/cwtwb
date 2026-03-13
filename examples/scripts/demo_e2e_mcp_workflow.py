@@ -1,11 +1,12 @@
 """Demo: End-to-End MCP Server Workflow
 
-This script demonstrates how to use the exact same functions that the MCP server exposes 
-to build a complete dashboard workflow: from loading a template to adding fields, 
-creating charts, and building a layout.
+Step 2 / 5  |  Level: ⭐ Beginner
+Demonstrates: Full MCP tool call sequence — create workbook, add a calculated
+field, configure 2 charts (Bar + Pie), assemble into a dashboard, and save.
+This is the canonical "hello world" for the cwtwb SDK.
 
 Usage:
-    python examples/demo_e2e_mcp_workflow.py
+    python examples/scripts/demo_e2e_mcp_workflow.py
 """
 
 import sys
@@ -27,14 +28,13 @@ from cwtwb.server import (
 
 def main():
     project_root = Path(__file__).parent.parent.parent
-    template = str(project_root / "templates" / "twb" / "superstore.twb")
     output = str(project_root / "output" / "demo_e2e_mcp_workflow.twb")
 
     print("=== Demo: End-to-End MCP Workflow ===")
 
-    # 1. Initialize the global workbook state
+    # 1. Initialize the global workbook state (empty string = built-in default template)
     print("\n1. Calling `create_workbook`...")
-    result = create_workbook(template, "Sales Overview")
+    result = create_workbook("", "Sales Overview")
     print(f"   -> Read {len(result.splitlines())} lines of field metadata.")
 
     # 2. Add a calculated field using Tableau syntax

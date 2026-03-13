@@ -1,4 +1,7 @@
 ---
+step: 8
+level: "⭐⭐⭐ Advanced"
+demonstrates: "Parameters + LOD calculated fields + Map + Area charts + filters + dashboard actions — business executive demo"
 description: Natural Language Prompt (Business Executive Demo) — Superstore Overview
 ---
 

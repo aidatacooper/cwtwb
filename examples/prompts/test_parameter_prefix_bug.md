@@ -1,3 +1,9 @@
+---
+step: 3
+level: "⭐ Beginner"
+demonstrates: "Parameter creation + calculated fields with/without [Parameters]. prefix + KPI text card"
+---
+
 # Test Parameter Prefix Bug
 
 Please use the `cwtwb` mcp server to create a simple Tableau workbook to verify parameter creation and references.

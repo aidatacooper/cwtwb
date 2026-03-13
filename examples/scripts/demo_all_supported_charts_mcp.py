@@ -1,4 +1,14 @@
-"""Recreate the all_supported_charts showcase through the exported MCP tools."""
+"""Demo: Full Chart Catalog via MCP Tools
+
+Step 5 / 5  |  Level: ⭐⭐⭐ Advanced
+Demonstrates: All 15 supported chart types using only the exported MCP tool
+functions. Core charts (Bar, Line, Pie, Map, Scatterplot, Heatmap, Tree Map,
+Bubble, Area, Text, Dual Combo) via configure_chart/configure_dual_axis;
+recipe charts (Lollipop, Donut, Butterfly, Calendar) via configure_chart_recipe.
+
+Usage:
+    python examples/scripts/demo_all_supported_charts_mcp.py
+"""
 
 from __future__ import annotations
 
@@ -19,11 +29,10 @@ from cwtwb.server import (  # noqa: E402
 
 def main() -> None:
     project_root = Path(__file__).resolve().parents[2]
-    template = project_root / "templates" / "twb" / "superstore.twb"
     output = project_root / "output" / "all_supported_charts_from_mcp.twb"
     output.parent.mkdir(parents=True, exist_ok=True)
 
-    create_workbook(str(template), "All Supported Charts From MCP")
+    create_workbook("", "All Supported Charts From MCP")  # "" = built-in default template
 
     for name in [
         "Bar Chart",

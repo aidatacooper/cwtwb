@@ -1,3 +1,9 @@
+---
+step: 7
+level: "⭐⭐⭐ Advanced"
+demonstrates: "Full chart catalog — 15 chart types including core (Bar/Line/Pie/Map/Scatterplot/Heatmap/Tree Map/Bubble/Area/Text/Dual Combo) and recipes (Lollipop/Donut/Butterfly/Calendar)"
+---
+
 Use the cwtwb MCP tools to recreate the `all_supported_charts` worksheet showcase from the Superstore template.
 
 First read `cwtwb://skills/chart_builder`.
