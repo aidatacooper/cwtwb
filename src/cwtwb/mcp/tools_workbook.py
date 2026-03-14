@@ -233,6 +233,7 @@ def configure_dual_axis(
     size_value_2: Optional[str] = None,
     mark_color_2: Optional[str] = None,
     reverse_axis_1: bool = False,
+    color_map_1: Optional[dict[str, str]] = None,
 ) -> str:
     """Configure a dual-axis chart composition."""
 
@@ -265,6 +266,7 @@ def configure_dual_axis(
         size_value_2=size_value_2,
         mark_color_2=mark_color_2,
         reverse_axis_1=reverse_axis_1,
+        color_map_1=color_map_1,
     )
 
 

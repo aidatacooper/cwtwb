@@ -106,6 +106,7 @@ class ChartsMixin:
         mark_color_2: Optional[str] = None,
         reverse_axis_1: bool = False,
         extra_axes: Optional[list[dict]] = None,
+        color_map_1: Optional[dict[str, str]] = None,
     ) -> str:
         """Route dual axis configuration to the specific builder."""
 
@@ -139,6 +140,7 @@ class ChartsMixin:
             mark_color_2=mark_color_2,
             reverse_axis_1=reverse_axis_1,
             extra_axes=extra_axes,
+            color_map_1=color_map_1,
         )
 
     def configure_worksheet_style(

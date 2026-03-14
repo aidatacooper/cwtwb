@@ -62,7 +62,7 @@ def create_workbook() -> TWBEditor:
 # ============================================================
 def add_parameters(editor: TWBEditor) -> None:
     editor.add_parameter(
-        name="Current Year", datatype="integer", default_value="2021",
+        name="Current Year", datatype="integer", default_value="2023",
         domain_type="list", allowed_values=["2021", "2022", "2023"],
     )
     editor.add_parameter(
@@ -210,6 +210,7 @@ def create_worksheets(editor: TWBEditor) -> None:
         columns=["MONTH(Order Date)"],
         rows=["SUM(Current Year Sales)", "SUM(Sales Target)"],
         color_1="Target Reached",
+        color_map_1={"⬤": "#b2e1c1", " ": "#adb1c5"},
         show_labels=False,
         synchronized=True,
         filters=yf,
@@ -252,8 +253,8 @@ def create_worksheets(editor: TWBEditor) -> None:
         rows=["Product Name", "Difference from Target", "Target Reached"],
         dual_axis_shelf="columns",
         color_1="Target Reached",
+        label_1="SUM(Current Year Sales)",
         sort_descending="SUM(Current Year Sales)",
-        show_labels=False,
         synchronized=True,
         filters=yf + [{"column": "Product Name", "top": 5, "by": "SUM(Current Year Sales)"}],
     )
@@ -329,7 +330,6 @@ def create_worksheets(editor: TWBEditor) -> None:
         label_1="Difference from Target",
         sort_descending="SUM(Current Year Sales)",
         synchronized=True,
-        show_labels=False,
         filters=yf + [{"column": "Sub-Category", "top": 5, "by": "SUM(Current Year Sales)"}],
         extra_axes=[
             {
@@ -467,14 +467,18 @@ def apply_styles(editor: TWBEditor) -> None:
         axis_style={
             "tick-color": "#00000000",
             "per_field": [
-                # Hide CY Sales axis display
+                # Hide CY Sales axis (left)
                 {"field": "SUM(Current Year Sales)", "attr": "display",
                  "value": "false", "scope": "rows", "class": "0"},
+                {"field": "SUM(Current Year Sales)", "attr": "title",
+                 "value": "", "scope": "rows", "class": "0"},
                 # Height of date axis
                 {"field": "MONTH(Order Date)", "attr": "height", "value": "35"},
-                # Hide Sales Target axis title
+                # Hide Sales Target axis (right)
                 {"field": "SUM(Sales Target)", "attr": "title",
                  "value": "", "scope": "rows", "class": "0"},
+                {"field": "SUM(Sales Target)", "attr": "display",
+                 "value": "false", "scope": "rows", "class": "0"},
             ],
         },
     )
@@ -531,13 +535,41 @@ def apply_styles(editor: TWBEditor) -> None:
     print("  styled (title): Title (Exec Summary)")
 
     # ------------------------------------------------------------------
-    # Sales by Sub-Category: hide gridlines/borders
+    # Sales by Sub-Category: hide gridlines/borders + number formats
     # ------------------------------------------------------------------
     editor.configure_worksheet_style(
         "Sales by Sub-Category",
         hide_gridlines=True, hide_borders=True, hide_band_color=True,
         hide_droplines=True, hide_reflines=True, hide_zeroline=True,
         hide_table_dividers=True,
+        hide_col_field_labels=True, hide_row_field_labels=True,
+        label_formats=[
+            {"field": "SUM(Current Year Sales)",
+             "text-format": 'c"$"#,##0,K;-"$"#,##0,K',
+             "font-size": "10", "font-family": "Tableau Medium",
+             "color": "#555555"},
+            {"field": "Difference from Target",
+             "text-format": '+"$"#,##0,.0K;-"$"#,##0,.0K',
+             "font-size": "8", "color": "#adb1c5",
+             "font-family": "Tableau Semibold"},
+            {"field": "Pct of Total Sales CY",
+             "text-format": "p0%",
+             "font-size": "8", "font-family": "Tableau Medium",
+             "color": "#555555"},
+        ],
+        axis_style={
+            "tick-color": "#00000000",
+            "per_field": [
+                {"field": "SUM(Current Year Sales)", "attr": "display",
+                 "value": "false", "scope": "cols", "class": "0"},
+                {"field": "SUM(Current Year Sales)", "attr": "title",
+                 "value": "", "scope": "cols", "class": "0"},
+                {"field": "SUM(Sales Target)", "attr": "title",
+                 "value": "", "scope": "cols", "class": "0"},
+                {"field": "SUM(Sales Target)", "attr": "display",
+                 "value": "false", "scope": "cols", "class": "0"},
+            ],
+        },
     )
     print("  styled (chart): Sales by Sub-Category")
 
@@ -550,7 +582,7 @@ def apply_styles(editor: TWBEditor) -> None:
         hide_borders=True, hide_band_color=True,
         hide_droplines=True, hide_reflines=True,
         hide_zeroline=True, hide_gridlines=True, hide_table_dividers=True,
-        hide_col_field_labels=True,
+        hide_col_field_labels=True, hide_row_field_labels=True,
         label_formats=[
             # CY Sales number format
             {"field": "SUM(Current Year Sales)",
@@ -560,10 +592,11 @@ def apply_styles(editor: TWBEditor) -> None:
             # Target Reached: centered, mint green
             {"field": "Target Reached", "text-align": "center",
              "color": "#b2e1c1", "font-size": "10"},
-            # Difference from Target: rotated
-            {"field": "Difference from Target", "font-size": "8",
-             "color": "#adb1c5", "font-family": "Tableau Semibold",
-             "font-weight": "bold"},
+            # Difference from Target
+            {"field": "Difference from Target",
+             "text-format": '+"$"#,##0,.0K;-"$"#,##0,.0K',
+             "font-size": "8", "color": "#adb1c5",
+             "font-family": "Tableau Semibold", "font-weight": "bold"},
             # Product Name color
             {"field": "Product Name", "font-size": "10", "color": "#333333",
              "font-family": "Tableau Medium", "font-weight": "normal"},
@@ -573,8 +606,12 @@ def apply_styles(editor: TWBEditor) -> None:
             "per_field": [
                 {"field": "SUM(Current Year Sales)", "attr": "display",
                  "value": "false", "scope": "cols", "class": "0"},
+                {"field": "SUM(Current Year Sales)", "attr": "title",
+                 "value": "", "scope": "cols", "class": "0"},
                 {"field": "SUM(Sales Target)", "attr": "title",
                  "value": "", "scope": "cols", "class": "0"},
+                {"field": "SUM(Sales Target)", "attr": "display",
+                 "value": "false", "scope": "cols", "class": "0"},
             ],
         },
     )
@@ -615,6 +652,7 @@ def apply_styles(editor: TWBEditor) -> None:
             "has-stroke": "true",
             "stroke-color": "#757fc5",
             "mark-transparency": "29",
+            "size": "0.4",
         },
         pane_datalabel_style={
             "color-mode": "user", "font-family": "Tableau Bold",
@@ -751,7 +789,7 @@ DASHBOARD_LAYOUT: dict = {
              {"type": "container", "direction": "horizontal",
               "children": [
               {"type": "container", "direction": "vertical", "weight": 55, "children": [
-                      {"type": "text", "text": "2021 | Sales vs Targets",
+                      {"type": "text", "text": "2023 | Sales vs Targets",
                        "font_size": "12", "bold": True, "font_color": "#2c2f4a",
                        "fixed_size": 30,
                        "style": {"background-color": CARD_BG}},
@@ -759,9 +797,12 @@ DASHBOARD_LAYOUT: dict = {
                       {"type": "container", "direction": "vertical", "children": [
                           {"type": "worksheet", "name": "CY Sales",
                            "style": {"background-color": CARD_BG}, "fit": "entire"},
-                          {"type": "worksheet", "name": "CY Sales Labels",
-                           "fixed_size": 60,
-                           "style": {"background-color": CARD_BG}, "fit": "entire"},
+                          # Empty spacer (52px) offsets y-axis area so labels align with bars
+                          {"type": "container", "direction": "horizontal", "fixed_size": 60, "children": [
+                              {"type": "empty", "fixed_size": 52},
+                              {"type": "worksheet", "name": "CY Sales Labels",
+                               "style": {"background-color": CARD_BG}, "fit": "entire"},
+                          ]},
                       ]},
                   ],
                   "style": {"border-color": BORDER, "border-style": "solid",

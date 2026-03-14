@@ -36,6 +36,7 @@ class DualAxisChartBuilder(BaseChartBuilder):
                  mark_color_2: Optional[str] = None,
                  reverse_axis_1: bool = False,
                  extra_axes: Optional[list[dict]] = None,
+                 color_map_1: Optional[dict[str, str]] = None,
                  ) -> None:
         super().__init__(editor)
         self.worksheet_name = worksheet_name
@@ -66,6 +67,7 @@ class DualAxisChartBuilder(BaseChartBuilder):
         self.mark_color_2 = mark_color_2
         self.reverse_axis_1 = reverse_axis_1
         self.extra_axes = extra_axes or []
+        self.color_map_1 = color_map_1 or {}
 
     def build(self) -> str:
         if self.dual_axis_shelf == "rows":
@@ -502,6 +504,45 @@ class DualAxisChartBuilder(BaseChartBuilder):
 
         if self.filters:
             self._add_filters(view, instances, self.filters)
+
+        # Color map for primary axis color field (datasource-level palette)
+        if self.color_map_1 and self.color_1:
+            ci = instances.get(self.color_1)
+            if ci:
+                full_ref = self.field_registry.resolve_full_reference(ci.instance_name)
+                ds_style = self._datasource.find("style")
+                if ds_style is None:
+                    ds_style = etree.Element("style")
+                    insert_before = None
+                    for tag in ("semantic-values", "date-options", "default-date-format", "object-graph"):
+                        insert_before = self._datasource.find(tag)
+                        if insert_before is not None:
+                            break
+                    if insert_before is not None:
+                        insert_before.addprevious(ds_style)
+                    else:
+                        self._datasource.append(ds_style)
+                mark_rule = None
+                for sr in ds_style.findall("style-rule"):
+                    if sr.get("element") == "mark":
+                        mark_rule = sr
+                        break
+                if mark_rule is None:
+                    mark_rule = etree.SubElement(ds_style, "style-rule")
+                    mark_rule.set("element", "mark")
+                # Avoid duplicate encodings for the same field
+                for existing_enc in mark_rule.findall("encoding"):
+                    if existing_enc.get("field") == full_ref and existing_enc.get("attr") == "color":
+                        mark_rule.remove(existing_enc)
+                color_enc = etree.SubElement(mark_rule, "encoding")
+                color_enc.set("attr", "color")
+                color_enc.set("field", full_ref)
+                color_enc.set("type", "palette")
+                for bucket_val, hex_color in self.color_map_1.items():
+                    map_el = etree.SubElement(color_enc, "map")
+                    map_el.set("to", hex_color)
+                    bucket_el = etree.SubElement(map_el, "bucket")
+                    bucket_el.text = f'"{bucket_val}"'
 
         return f"Configured worksheet '{self.worksheet_name}' as Dual Axis chart"
 

@@ -171,8 +171,15 @@ def apply_worksheet_style(
         fmt.set("value", background_color)
 
     if hide_axes:
-        rule = etree.SubElement(table_style, "style-rule")
-        rule.set("element", "axis")
+        # Find existing axis rule (e.g. from dual-axis builder) or create new
+        rule = None
+        for sr in table_style.findall("style-rule"):
+            if sr.get("element") == "axis":
+                rule = sr
+                break
+        if rule is None:
+            rule = etree.SubElement(table_style, "style-rule")
+            rule.set("element", "axis")
         fmt = etree.SubElement(rule, "format")
         fmt.set("attr", "display")
         fmt.set("value", "false")
@@ -326,9 +333,16 @@ def apply_worksheet_style(
                 fmt.set("value", str(val))
 
     # Axis style: any field-less formats + per-field formats
+    # Find existing axis rule (e.g. from dual-axis builder) or create new one
     if resolved_axis_style:
-        axis_rule = etree.SubElement(table_style, "style-rule")
-        axis_rule.set("element", "axis")
+        axis_rule = None
+        for sr in table_style.findall("style-rule"):
+            if sr.get("element") == "axis":
+                axis_rule = sr
+                break
+        if axis_rule is None:
+            axis_rule = etree.SubElement(table_style, "style-rule")
+            axis_rule.set("element", "axis")
         for key, val in resolved_axis_style.items():
             if key == "per_field":
                 continue
@@ -386,6 +400,10 @@ def apply_worksheet_style(
                     mark_rule = etree.SubElement(pane_style_el, "style-rule")
                     mark_rule.set("element", "mark")
                 for attr, val in pane_mark_style.items():
+                    # Replace existing format with same attr to avoid duplicates
+                    for existing_fmt in list(mark_rule.findall("format")):
+                        if existing_fmt.get("attr") == attr:
+                            mark_rule.remove(existing_fmt)
                     fmt = etree.SubElement(mark_rule, "format")
                     fmt.set("attr", attr)
                     fmt.set("value", str(val))
