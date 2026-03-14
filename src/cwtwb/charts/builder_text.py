@@ -29,6 +29,7 @@ class TextChartBuilder(BaseChartBuilder):
         tooltip: Optional[Union[str, list[str]]] = None,
         filters: Optional[list[dict]] = None,
         measure_values: Optional[list[str]] = None,
+        label_runs: Optional[list[dict]] = None,
     ) -> None:
         super().__init__(editor)
         self.worksheet_name = worksheet_name
@@ -43,6 +44,7 @@ class TextChartBuilder(BaseChartBuilder):
         self.tooltip = tooltip
         self.filters = filters
         self.measure_values = measure_values or []
+        self.label_runs = label_runs or []
 
     def build(self) -> str:
         ws = self.editor._find_worksheet(self.worksheet_name)
@@ -88,6 +90,10 @@ class TextChartBuilder(BaseChartBuilder):
             None,
             ds_name,
         )
+
+        # Rich-text label runs
+        if self.label_runs:
+            self._build_rich_label(pane, instances, self.label_runs)
 
         if self.measure_values:
             self.editor._apply_measure_values(

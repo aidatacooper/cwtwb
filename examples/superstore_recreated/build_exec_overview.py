@@ -6,8 +6,10 @@ Data Source: templates/dashboard/Sample _ Superstore.hyper
 Output: examples/superstore_recreated/Exec Overview Recreated.twb
 
 Capability Assessment (compared to original TWB):
-  ✅ Fully Supported: KPI text cards, Sparklines (Dual axis Area+Line), Bar charts, Horizontal bars,
-                       Maps, Pie charts, Parameter controls, LOD expressions, Worksheet styles, Dashboard layout
+  ✅ Fully Supported: KPI text cards (rich-text label_runs), Sparklines (Dual axis Area+Line),
+                       Bar charts, Horizontal bars, Maps, Pie charts, Parameter controls,
+                       LOD expressions, Worksheet styles, Dashboard layout,
+                       CY Sales Labels (column label table), Title (Exec Summary) (dynamic title)
   ⚠️ Simplified: KPI Difference badges (Original GanttBar -> changed to Bar),
                    Year buttons (Original GanttBar+Shape -> changed to ParamCtrl),
                    Conditional indicators (Original Shape mark green dot -> omitted)
@@ -144,15 +146,25 @@ def add_calculated_fields(editor: TWBEditor) -> None:
 def create_worksheets(editor: TWBEditor) -> None:
     yf = [{"field": "Year Filter", "values": ["true"]}]
 
-    # ----- KPI Text Cards (Text) -----
-    for name, measure in [
-        ("Sales KPI",    "Current Year Sales"),
-        ("Profit KPI",   "Current Year Profit"),
-        ("Returns KPI",  "Current Year Returns"),
-        ("Quantity KPI", "Current Year Quantity"),
+    # ----- KPI Text Cards (rich-text: label name + value) -----
+    for name, measure, label_name in [
+        ("Sales KPI",    "Current Year Sales",    "Sales"),
+        ("Profit KPI",   "Current Year Profit",   "Profit"),
+        ("Returns KPI",  "Current Year Returns",  "Returns"),
+        ("Quantity KPI", "Current Year Quantity", "Quantity"),
     ]:
         editor.add_worksheet(name)
-        editor.configure_chart(name, mark_type="Text", label=f"SUM({measure})", filters=yf)
+        editor.configure_chart(
+            name, mark_type="Text",
+            label=f"SUM({measure})",
+            filters=yf,
+            label_runs=[
+                {"text": label_name, "fontname": "Tableau Regular", "fontsize": 10, "fontalignment": "2"},
+                {"text": "\n"},
+                {"field": f"SUM({measure})", "fontname": "Tableau Bold", "fontsize": 12,
+                 "fontcolor": "#555555", "bold": True, "fontalignment": "2"},
+            ],
+        )
 
     # ----- KPI Difference Badges (Bar - simplified from GanttBar) -----
     for name, diff, color, kpi_bar in [
@@ -201,6 +213,34 @@ def create_worksheets(editor: TWBEditor) -> None:
         show_labels=False,
         synchronized=True,
         filters=yf,
+    )
+
+    # ----- CY Sales Labels (column-header label table for CY Sales chart) -----
+    # Shows MONTH(Order Date) + Target Reached + Difference from Target as column headers
+    # Matches original XML: cols shelf = (MONTH / (Target Reached / Diff from Target))
+    editor.add_worksheet("CY Sales Labels")
+    editor.configure_chart(
+        "CY Sales Labels",
+        mark_type="Text",
+        columns=["MONTH(Order Date)", "Target Reached", "Difference from Target"],
+        label="MONTH(Order Date)",
+        filters=yf,
+    )
+
+    # ----- Title (Exec Summary) — dynamic title worksheet -----
+    # Shows "EXECUTIVE SALES OVERVIEW | <year>" with rich text formatting
+    editor.add_worksheet("Title (Exec Summary)")
+    editor.configure_chart(
+        "Title (Exec Summary)",
+        mark_type="Text",
+        label="SUM(Current Year Value)",
+        label_runs=[
+            {"text": "EXECUTIVE SALES OVERVIEW ", "fontname": "Tableau Medium", "fontsize": 22},
+            {"text": "|", "fontname": "Tableau Medium", "fontsize": 22,
+             "bold": True, "fontcolor": "#5a6dff"},
+            {"field": "SUM(Current Year Value)", "fontname": "Tableau Medium", "fontsize": 22,
+             "prefix": " "},
+        ],
     )
 
     # ----- Top 5 Manufacturers (Horizontal Bar) -----
@@ -317,7 +357,9 @@ KPI_WORKSHEETS = [
 ]
 
 ALL_WORKSHEETS = KPI_WORKSHEETS + [
-    "CY Sales", "Sales by Top Manufacturers",
+    "CY Sales", "CY Sales Labels",
+    "Title (Exec Summary)",
+    "Sales by Top Manufacturers",
     "Sales by Location", "Top 5 Locations", "Top 5 Locations text",
     "Sales by Sub-Category",
 ]
@@ -346,6 +388,33 @@ def apply_styles(editor: TWBEditor) -> None:
             hide_band_color=True,
         )
         print(f"  styled (chart): {ws}")
+
+    # CY Sales Labels: transparent, hide all chrome, hide col field labels
+    editor.configure_worksheet_style(
+        "CY Sales Labels",
+        background_color="#00000000",
+        hide_axes=True,
+        hide_gridlines=True,
+        hide_zeroline=True,
+        hide_borders=True,
+        hide_band_color=True,
+        hide_col_field_labels=True,
+        hide_droplines=True,
+        hide_table_dividers=True,
+    )
+    print("  styled (labels): CY Sales Labels")
+
+    # Title (Exec Summary): transparent background
+    editor.configure_worksheet_style(
+        "Title (Exec Summary)",
+        background_color="#00000000",
+        hide_axes=True,
+        hide_gridlines=True,
+        hide_zeroline=True,
+        hide_borders=True,
+        hide_band_color=True,
+    )
+    print("  styled (title): Title (Exec Summary)")
 
     # Maps and Text: Fully transparent
     editor.configure_worksheet_style(
@@ -424,11 +493,10 @@ DASHBOARD_LAYOUT: dict = {
         # ===== Main Content Area =====
         {"type": "container", "direction": "vertical",
          "children": [
-             # --- Title Bar ---
-             {"type": "text", "text": "EXECUTIVE SALES OVERVIEW | 2021",
-              "font_size": "20", "bold": True, "font_color": "#2c2f4a",
+             # --- Title Bar — dynamic Title (Exec Summary) worksheet ---
+             {"type": "worksheet", "name": "Title (Exec Summary)",
               "fixed_size": 60,
-              "style": {"background-color": CARD_BG}},
+              "style": {"background-color": CARD_BG}, "fit": "entire"},
 
              # --- KPI Cards Section (4 groups: Value+Diff | Sparkline) ---
              {"type": "container", "direction": "horizontal", "fixed_size": 110,
@@ -488,8 +556,14 @@ DASHBOARD_LAYOUT: dict = {
                        "font_size": "12", "bold": True, "font_color": "#2c2f4a",
                        "fixed_size": 30,
                        "style": {"background-color": CARD_BG}},
-                      {"type": "worksheet", "name": "CY Sales",
-                       "style": {"background-color": CARD_BG}, "fit": "entire"},
+                      # CY Sales + CY Sales Labels stacked vertically
+                      {"type": "container", "direction": "vertical", "children": [
+                          {"type": "worksheet", "name": "CY Sales",
+                           "style": {"background-color": CARD_BG}, "fit": "entire"},
+                          {"type": "worksheet", "name": "CY Sales Labels",
+                           "fixed_size": 60,
+                           "style": {"background-color": CARD_BG}, "fit": "entire"},
+                      ]},
                   ],
                   "style": {"border-color": BORDER, "border-style": "solid",
                             "border-width": "1", "margin": "4"}},

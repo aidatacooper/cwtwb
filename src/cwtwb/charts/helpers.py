@@ -137,6 +137,9 @@ def apply_worksheet_style(
     hide_borders: bool = False,
     hide_band_color: bool = False,
     hide_row_label_ref: str | None = None,
+    hide_col_field_labels: bool = False,
+    hide_droplines: bool = False,
+    hide_table_dividers: bool = False,
 ) -> None:
     """Apply worksheet-level styling: background, axis/grid/border visibility."""
     table_style = _get_or_create_table_style(table)
@@ -197,6 +200,32 @@ def apply_worksheet_style(
         fmt.set("attr", "display")
         fmt.set("field", hide_row_label_ref)
         fmt.set("value", "false")
+
+    if hide_col_field_labels:
+        rule = etree.SubElement(table_style, "style-rule")
+        rule.set("element", "worksheet")
+        fmt = etree.SubElement(rule, "format")
+        fmt.set("attr", "display-field-labels")
+        fmt.set("scope", "cols")
+        fmt.set("value", "false")
+
+    if hide_droplines:
+        rule = etree.SubElement(table_style, "style-rule")
+        rule.set("element", "dropline")
+        for attr, val in [("stroke-size", "0"), ("line-visibility", "off")]:
+            fmt = etree.SubElement(rule, "format")
+            fmt.set("attr", attr)
+            fmt.set("value", val)
+
+    if hide_table_dividers:
+        rule = etree.SubElement(table_style, "style-rule")
+        rule.set("element", "table-div")
+        for scope in ("rows", "cols"):
+            for attr, val in [("stroke-size", "0"), ("line-visibility", "off")]:
+                fmt = etree.SubElement(rule, "format")
+                fmt.set("attr", attr)
+                fmt.set("scope", scope)
+                fmt.set("value", val)
 
 
 def apply_measure_values(

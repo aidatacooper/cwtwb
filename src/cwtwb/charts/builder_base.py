@@ -208,6 +208,73 @@ class BaseChartBuilder:
         pane = etree.SubElement(table, "pane")
         return pane
 
+    def _build_rich_label(
+        self,
+        pane: etree._Element,
+        instances: dict[str, "ColumnInstance"],
+        label_runs: list[dict],
+    ) -> None:
+        """Build a <customized-label> element from rich-text run specs.
+
+        Each run dict may contain:
+          text      – literal text (mutually exclusive with field)
+          field     – field expression; resolves to full reference, wrapped in CDATA <ref>
+          prefix    – literal prefix prepended before the CDATA field reference (default "")
+          fontname  – font family string
+          fontsize  – font size (int or str)
+          fontcolor – hex color string, e.g. "#5a6dff"
+          bold      – bool
+          fontalignment – Tableau fontalignment value (default "2")
+        """
+        if not label_runs:
+            return
+
+        old_cl = pane.find("customized-label")
+        if old_cl is not None:
+            pane.remove(old_cl)
+
+        cl = etree.Element("customized-label")
+        pane_style = pane.find("style")
+        if pane_style is not None:
+            pane_style.addprevious(cl)
+        else:
+            pane.append(cl)
+
+        ft = etree.SubElement(cl, "formatted-text")
+
+        for run_spec in label_runs:
+            r = etree.SubElement(ft, "run")
+
+            # Font attributes
+            fontalignment = run_spec.get("fontalignment", "2")
+            r.set("fontalignment", str(fontalignment))
+            if run_spec.get("bold"):
+                r.set("bold", "true")
+            if run_spec.get("fontcolor"):
+                r.set("fontcolor", run_spec["fontcolor"])
+            if run_spec.get("fontname"):
+                r.set("fontname", run_spec["fontname"])
+            if run_spec.get("fontsize") is not None:
+                r.set("fontsize", str(run_spec["fontsize"]))
+
+            # Text content
+            if "field" in run_spec:
+                field_expr = run_spec["field"]
+                ci = instances.get(field_expr)
+                if ci:
+                    full_ref = self.field_registry.resolve_full_reference(ci.instance_name)
+                    prefix = run_spec.get("prefix", "")
+                    r.text = etree.CDATA(f"{prefix}<{full_ref}>")
+                else:
+                    r.text = run_spec.get("text", "")
+            elif "text" in run_spec:
+                text = run_spec["text"]
+                if text == "\n":
+                    # Tableau paragraph separator (Æ + newline)
+                    r.text = "\u00c6\n"
+                else:
+                    r.text = text
+
     def _ensure_mark_style(self, pane_style: etree._Element, mark_type: str, original_mark_type: str = None) -> None:
         for sr in pane_style.findall("style-rule"):
             if sr.get("element") == "mark":

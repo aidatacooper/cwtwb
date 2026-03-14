@@ -45,6 +45,7 @@ class ChartsMixin:
         text_format: Optional[dict[str, str]] = None,
         map_layers: Optional[list[dict]] = None,
         label_extra: Optional[list[str]] = None,
+        label_runs: Optional[list[dict]] = None,
     ) -> str:
         """Route chart configuration to the correct builder."""
 
@@ -72,6 +73,7 @@ class ChartsMixin:
             text_format=text_format,
             map_layers=map_layers,
             label_extra=label_extra,
+            label_runs=label_runs,
         )
 
     def configure_dual_axis(
@@ -149,6 +151,9 @@ class ChartsMixin:
         hide_borders: bool = False,
         hide_band_color: bool = False,
         hide_row_label: Optional[str] = None,
+        hide_col_field_labels: bool = False,
+        hide_droplines: bool = False,
+        hide_table_dividers: bool = False,
     ) -> str:
         """Apply worksheet-level styling after chart configuration."""
         ws = self._find_worksheet(worksheet_name)
@@ -168,13 +173,17 @@ class ChartsMixin:
             hide_borders=hide_borders,
             hide_band_color=hide_band_color,
             hide_row_label_ref=hide_row_label_ref,
+            hide_col_field_labels=hide_col_field_labels,
+            hide_droplines=hide_droplines,
+            hide_table_dividers=hide_table_dividers,
         )
         parts = []
         if background_color:
             parts.append(f"background={background_color}")
         for flag_name, flag_val in [("hide_axes", hide_axes), ("hide_gridlines", hide_gridlines),
                                      ("hide_zeroline", hide_zeroline), ("hide_borders", hide_borders),
-                                     ("hide_band_color", hide_band_color)]:
+                                     ("hide_band_color", hide_band_color), ("hide_col_field_labels", hide_col_field_labels),
+                                     ("hide_droplines", hide_droplines), ("hide_table_dividers", hide_table_dividers)]:
             if flag_val:
                 parts.append(flag_name)
         return f"Styled worksheet '{worksheet_name}': {', '.join(parts)}"

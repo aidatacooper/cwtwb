@@ -25,7 +25,8 @@ class BasicChartBuilder(BaseChartBuilder):
                  customized_label: Optional[str] = None,
                  color_map: Optional[dict[str, str]] = None,
                  text_format: Optional[dict[str, str]] = None,
-                 label_extra: Optional[list[str]] = None) -> None:
+                 label_extra: Optional[list[str]] = None,
+                 label_runs: Optional[list[dict]] = None) -> None:
         super().__init__(editor)
         self.worksheet_name = worksheet_name
         self.mark_type = mark_type
@@ -44,6 +45,7 @@ class BasicChartBuilder(BaseChartBuilder):
         self.color_map = color_map
         self.text_format = text_format
         self.label_extra = label_extra or []
+        self.label_runs = label_runs or []
 
     def build(self) -> str:
         # Macro processing
@@ -148,6 +150,10 @@ class BasicChartBuilder(BaseChartBuilder):
                     pending_prefix += segment
             if pending_prefix:
                 _add_run(pending_prefix)
+
+        # Rich-text label runs (takes precedence over customized_label if both set)
+        if self.label_runs:
+            self._build_rich_label(pane, instances, self.label_runs)
 
         rows_el = table.find("rows")
         if rows_el is not None:

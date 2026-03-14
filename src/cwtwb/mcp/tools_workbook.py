@@ -173,6 +173,7 @@ def configure_chart(
     color_map: dict[str, str] | None = None,
     text_format: dict[str, str] | None = None,
     map_layers: list[dict] | None = None,
+    label_runs: list[dict] | None = None,
 ) -> str:
     """Configure chart type and field mappings for a worksheet."""
 
@@ -199,6 +200,7 @@ def configure_chart(
         color_map=color_map,
         text_format=text_format,
         map_layers=map_layers,
+        label_runs=label_runs,
     )
 
 
@@ -275,6 +277,9 @@ def configure_worksheet_style(
     hide_zeroline: bool = False,
     hide_borders: bool = False,
     hide_band_color: bool = False,
+    hide_col_field_labels: bool = False,
+    hide_droplines: bool = False,
+    hide_table_dividers: bool = False,
 ) -> str:
     """Apply worksheet-level styling: background color, axis/grid/border visibility."""
 
@@ -287,6 +292,9 @@ def configure_worksheet_style(
         hide_zeroline=hide_zeroline,
         hide_borders=hide_borders,
         hide_band_color=hide_band_color,
+        hide_col_field_labels=hide_col_field_labels,
+        hide_droplines=hide_droplines,
+        hide_table_dividers=hide_table_dividers,
     )
 
 
