@@ -93,6 +93,7 @@ def add_calculated_field(
     datatype: str = "real",
     role: str = "",
     field_type: str = "",
+    default_format: str = "",
 ) -> str:
     """Add a calculated field to the datasource."""
 
@@ -103,6 +104,7 @@ def add_calculated_field(
         datatype,
         role=role or None,
         field_type=field_type or None,
+        default_format=default_format,
     )
 
 
@@ -232,6 +234,7 @@ def configure_dual_axis(
     size_value_1: Optional[str] = None,
     size_value_2: Optional[str] = None,
     mark_color_2: Optional[str] = None,
+    mark_color_1: Optional[str] = None,
     reverse_axis_1: bool = False,
     color_map_1: Optional[dict[str, str]] = None,
 ) -> str:
@@ -265,6 +268,7 @@ def configure_dual_axis(
         size_value_1=size_value_1,
         size_value_2=size_value_2,
         mark_color_2=mark_color_2,
+        mark_color_1=mark_color_1,
         reverse_axis_1=reverse_axis_1,
         color_map_1=color_map_1,
     )

@@ -81,7 +81,7 @@ def add_parameters(editor: TWBEditor) -> None:
 # ============================================================
 CALC_FIELDS: list[dict] = [
     # --- Current/Previous Year Measures ---
-    {"name": "Current Year Sales",    "formula": "IF YEAR([Order Date]) = [Parameters].[Current Year] THEN [Sales] END",    "datatype": "real"},
+    {"name": "Current Year Sales",    "formula": "IF YEAR([Order Date]) = [Parameters].[Current Year] THEN [Sales] END",    "datatype": "real", "default_format": 'c"$"#,##0,K;-"$"#,##0,K'},
     {"name": "Previous Year Sales",   "formula": "IF YEAR([Order Date]) = [Parameters].[Current Year]-1 THEN [Sales] END", "datatype": "real"},
     {"name": "Current Year Profit",   "formula": "IF YEAR([Order Date]) = [Parameters].[Current Year] THEN [Profit] END",  "datatype": "real"},
     {"name": "Previous Year Profit",  "formula": "IF YEAR([Order Date]) = [Parameters].[Current Year]-1 THEN [Profit] END","datatype": "real"},
@@ -105,11 +105,11 @@ CALC_FIELDS: list[dict] = [
 
     # --- Year Helpers ---
     {"name": "Year Filter",        "formula": "YEAR([Order Date]) = [Parameters].[Current Year]", "datatype": "boolean", "role": "dimension"},
-    {"name": "Current Year Value", "formula": "[Parameters].[Current Year]",                       "datatype": "integer"},
+    {"name": "Current Year Value", "formula": "[Parameters].[Current Year]",                       "datatype": "integer", "default_format": "0"},
 
     # --- Target Related ---
     {"name": "Sales Target",          "formula": "[Previous Year Sales]*[Parameters].[Sales Target (PY + X%)]", "datatype": "real"},
-    {"name": "Difference from Target", "formula": "(SUM([Current Year Sales]) - SUM([Sales Target]))",           "datatype": "real", "role": "measure", "field_type": "ordinal"},
+    {"name": "Difference from Target", "formula": "(SUM([Current Year Sales]) - SUM([Sales Target]))",           "datatype": "real", "role": "measure", "field_type": "ordinal", "default_format": '*+"£"#,##0,.0K;-"£"#,##0,.0K'},
     {"name": "Target Reached",        "formula": "IF SUM([Current Year Sales]) >= SUM([Sales Target]) THEN '⬤' ELSE ' ' END", "datatype": "string", "role": "measure"},
 
     # --- LOD: Ratio Calculation (for Sub-Categories) ---
@@ -136,6 +136,7 @@ def add_calculated_fields(editor: TWBEditor) -> None:
             f["name"], f["formula"], f["datatype"],
             role=f.get("role"), field_type=f.get("field_type"),
             table_calc=f.get("table_calc"),
+            default_format=f.get("default_format", ""),
         )
         print(f"  + {f['name']}")
 
@@ -209,8 +210,8 @@ def create_worksheets(editor: TWBEditor) -> None:
         mark_type_1="Bar", mark_type_2="GanttBar",
         columns=["MONTH(Order Date)"],
         rows=["SUM(Current Year Sales)", "SUM(Sales Target)"],
-        color_1="Target Reached",
-        color_map_1={"⬤": "#b2e1c1", " ": "#adb1c5"},
+        mark_color_1="#adb1c5",
+        mark_color_2="#4e79a7",
         show_labels=False,
         synchronized=True,
         filters=yf,
@@ -236,11 +237,12 @@ def create_worksheets(editor: TWBEditor) -> None:
         mark_type="Text",
         label="SUM(Current Year Value)",
         label_runs=[
-            {"text": "EXECUTIVE SALES OVERVIEW ", "fontname": "Tableau Medium", "fontsize": 22},
+            {"text": "EXECUTIVE SALES OVERVIEW ", "fontname": "Tableau Medium", "fontsize": 22,
+             "fontalignment": None},
             {"text": "|", "fontname": "Tableau Medium", "fontsize": 22,
-             "bold": True, "fontcolor": "#5a6dff"},
+             "bold": True, "fontcolor": "#5a6dff", "fontalignment": None},
             {"field": "SUM(Current Year Value)", "fontname": "Tableau Medium", "fontsize": 22,
-             "prefix": " "},
+             "prefix": " ", "fontalignment": None},
         ],
     )
 
@@ -252,8 +254,8 @@ def create_worksheets(editor: TWBEditor) -> None:
         columns=["SUM(Current Year Sales)", "SUM(Sales Target)"],
         rows=["Product Name", "Difference from Target", "Target Reached"],
         dual_axis_shelf="columns",
-        color_1="Target Reached",
-        label_1="SUM(Current Year Sales)",
+        mark_color_1="#adb1c5",
+        show_labels=False,
         sort_descending="SUM(Current Year Sales)",
         synchronized=True,
         filters=yf + [{"column": "Product Name", "top": 5, "by": "SUM(Current Year Sales)"}],
@@ -323,11 +325,12 @@ def create_worksheets(editor: TWBEditor) -> None:
     editor.configure_dual_axis(
         "Sales by Sub-Category",
         mark_type_1="Bar", mark_type_2="GanttBar",
-        rows=["Sub-Category", "Difference from Target"],
+        rows=["Sub-Category", "Difference from Target", "Target Reached"],
         columns=["SUM(Current Year Sales)", "SUM(Sales Target)"],
         dual_axis_shelf="cols",
-        color_1="Target Reached",
-        label_1="Difference from Target",
+        mark_color_1="#adb1c5",
+        mark_color_2="#4e79a7",
+        show_labels=False,
         sort_descending="SUM(Current Year Sales)",
         synchronized=True,
         filters=yf + [{"column": "Sub-Category", "top": 5, "by": "SUM(Current Year Sales)"}],
@@ -337,6 +340,7 @@ def create_worksheets(editor: TWBEditor) -> None:
                 "mark_type": "Pie",
                 "color": ":Measure Names",
                 "measure_values": ["Pct of Total Sales CY", "Other % of total"],
+                "color_map": {"Pct of Total Sales CY": "#5a6dff", "Other % of total": "#d2d3df"},
             },
             {
                 "measure": "KPI Bar Sales",
@@ -467,9 +471,9 @@ def apply_styles(editor: TWBEditor) -> None:
         axis_style={
             "tick-color": "#00000000",
             "per_field": [
-                # Hide CY Sales axis (left)
+                # Show CY Sales axis (left)
                 {"field": "SUM(Current Year Sales)", "attr": "display",
-                 "value": "false", "scope": "rows", "class": "0"},
+                 "value": "true", "scope": "rows", "class": "0"},
                 {"field": "SUM(Current Year Sales)", "attr": "title",
                  "value": "", "scope": "rows", "class": "0"},
                 # Height of date axis
@@ -549,13 +553,14 @@ def apply_styles(editor: TWBEditor) -> None:
              "font-size": "10", "font-family": "Tableau Medium",
              "color": "#555555"},
             {"field": "Difference from Target",
-             "text-format": '+"$"#,##0,.0K;-"$"#,##0,.0K',
+             "text-format": '*+"£"#,##0,.0K;-"£"#,##0,.0K',
              "font-size": "8", "color": "#adb1c5",
              "font-family": "Tableau Semibold"},
             {"field": "Pct of Total Sales CY",
              "text-format": "p0%",
              "font-size": "8", "font-family": "Tableau Medium",
              "color": "#555555"},
+            {"field": "Target Reached", "color": "#8cd17d"},
         ],
         axis_style={
             "tick-color": "#00000000",
@@ -568,6 +573,8 @@ def apply_styles(editor: TWBEditor) -> None:
                  "value": "", "scope": "cols", "class": "0"},
                 {"field": "SUM(Sales Target)", "attr": "display",
                  "value": "false", "scope": "cols", "class": "0"},
+                {"field": "KPI Bar Sales", "attr": "display",
+                 "value": "false", "scope": "cols", "class": "1"},
             ],
         },
     )
@@ -594,7 +601,7 @@ def apply_styles(editor: TWBEditor) -> None:
              "color": "#b2e1c1", "font-size": "10"},
             # Difference from Target
             {"field": "Difference from Target",
-             "text-format": '+"$"#,##0,.0K;-"$"#,##0,.0K',
+             "text-format": '*+"£"#,##0,.0K;-"£"#,##0,.0K',
              "font-size": "8", "color": "#adb1c5",
              "font-family": "Tableau Semibold", "font-weight": "bold"},
             # Product Name color
@@ -652,7 +659,7 @@ def apply_styles(editor: TWBEditor) -> None:
             "has-stroke": "true",
             "stroke-color": "#757fc5",
             "mark-transparency": "29",
-            "size": "0.4",
+            "size": "1.0214917659759521",
         },
         pane_datalabel_style={
             "color-mode": "user", "font-family": "Tableau Bold",
@@ -849,7 +856,7 @@ DASHBOARD_LAYOUT: dict = {
                       {"type": "text", "text": "Top 5 Sub-Categories | Sales vs Targets",
                        "font_size": "12", "bold": True, "font_color": "#2c2f4a",
                        "fixed_size": 30},
-                      {"type": "worksheet", "name": "Sales by Sub-Category", "fit": "entire"},
+                      {"type": "worksheet", "name": "Sales by Sub-Category", "fit": "entire", "show_title": False},
                   ]},
               ]},
          ]},

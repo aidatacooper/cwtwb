@@ -247,7 +247,8 @@ class BaseChartBuilder:
 
             # Font attributes
             fontalignment = run_spec.get("fontalignment", "2")
-            r.set("fontalignment", str(fontalignment))
+            if fontalignment is not None:
+                r.set("fontalignment", str(fontalignment))
             if run_spec.get("bold"):
                 r.set("bold", "true")
             if run_spec.get("fontcolor"):

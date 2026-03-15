@@ -146,6 +146,7 @@ def configure_dual_axis(
     size_value_1: Optional[str] = None,
     size_value_2: Optional[str] = None,
     mark_color_2: Optional[str] = None,
+    mark_color_1: Optional[str] = None,
     reverse_axis_1: bool = False,
     extra_axes: Optional[list[dict]] = None,
     color_map_1: Optional[dict[str, str]] = None,
@@ -181,7 +182,8 @@ def configure_dual_axis(
         size_value_1,
         size_value_2,
         mark_color_2,
-        reverse_axis_1,
+        mark_color_1=mark_color_1,
+        reverse_axis_1=reverse_axis_1,
         extra_axes=extra_axes,
         color_map_1=color_map_1,
     )

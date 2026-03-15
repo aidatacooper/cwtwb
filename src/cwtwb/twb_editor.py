@@ -279,6 +279,7 @@ class TWBEditor(ParametersMixin, ConnectionsMixin, ChartsMixin, DashboardsMixin)
         role: Optional[str] = None,
         field_type: Optional[str] = None,
         table_calc: Optional[str] = None,
+        default_format: str = "",
     ) -> str:
         """Add a calculated field to the datasource.
 
@@ -288,6 +289,7 @@ class TWBEditor(ParametersMixin, ConnectionsMixin, ChartsMixin, DashboardsMixin)
             datatype: Data type: real/string/integer/date/boolean
             role: Optional explicit Tableau role override (dimension/measure)
             field_type: Optional explicit Tableau field type override
+            default_format: Optional Tableau number format string, e.g. 'c"$"#,##0,K'
 
         Returns:
             Confirmation message.
@@ -336,6 +338,8 @@ class TWBEditor(ParametersMixin, ConnectionsMixin, ChartsMixin, DashboardsMixin)
         col.set("name", internal_name)
         col.set("role", role)
         col.set("type", field_type)
+        if default_format:
+            col.set("default-format", default_format)
 
         calc = etree.SubElement(col, "calculation")
         calc.set("class", "tableau")

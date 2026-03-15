@@ -34,6 +34,7 @@ class DualAxisChartBuilder(BaseChartBuilder):
                  size_value_1: Optional[str] = None,
                  size_value_2: Optional[str] = None,
                  mark_color_2: Optional[str] = None,
+                 mark_color_1: Optional[str] = None,
                  reverse_axis_1: bool = False,
                  extra_axes: Optional[list[dict]] = None,
                  color_map_1: Optional[dict[str, str]] = None,
@@ -65,6 +66,7 @@ class DualAxisChartBuilder(BaseChartBuilder):
         self.size_value_1 = size_value_1
         self.size_value_2 = size_value_2
         self.mark_color_2 = mark_color_2
+        self.mark_color_1 = mark_color_1
         self.reverse_axis_1 = reverse_axis_1
         self.extra_axes = extra_axes or []
         self.color_map_1 = color_map_1 or {}
@@ -181,8 +183,8 @@ class DualAxisChartBuilder(BaseChartBuilder):
             self._insert_mark_sizing(pane_1)
         
         # Override pane 1 style if needed
-        if not self.show_labels or self.size_value_1:
-            self._override_pane_style(pane_1, show_labels=self.show_labels, size_value=self.size_value_1)
+        if not self.show_labels or self.size_value_1 or self.mark_color_1:
+            self._override_pane_style(pane_1, show_labels=self.show_labels, size_value=self.size_value_1, mark_color=self.mark_color_1)
         
         # Pane 2: Secondary Axis Mark
         if measure_1 == measure_2:
@@ -504,6 +506,48 @@ class DualAxisChartBuilder(BaseChartBuilder):
 
         if self.filters:
             self._add_filters(view, instances, self.filters)
+
+        # Color map for extra_axes using :Measure Names palette (datasource-level)
+        for ea in self.extra_axes:
+            ea_color_map = ea.get("color_map")
+            if ea_color_map and ea.get("color") == ":Measure Names":
+                ds_style = self._datasource.find("style")
+                if ds_style is None:
+                    ds_style = etree.Element("style")
+                    insert_before = None
+                    for tag in ("semantic-values", "date-options", "default-date-format", "object-graph"):
+                        insert_before = self._datasource.find(tag)
+                        if insert_before is not None:
+                            break
+                    if insert_before is not None:
+                        insert_before.addprevious(ds_style)
+                    else:
+                        self._datasource.append(ds_style)
+                mark_rule = None
+                for sr in ds_style.findall("style-rule"):
+                    if sr.get("element") == "mark":
+                        mark_rule = sr
+                        break
+                if mark_rule is None:
+                    mark_rule = etree.SubElement(ds_style, "style-rule")
+                    mark_rule.set("element", "mark")
+                mn_field = f"[{ds_name}].[:Measure Names]"
+                # Remove existing duplicate encoding for :Measure Names
+                for existing_enc in mark_rule.findall("encoding"):
+                    if existing_enc.get("field") == mn_field and existing_enc.get("attr") == "color":
+                        mark_rule.remove(existing_enc)
+                color_enc = etree.SubElement(mark_rule, "encoding")
+                color_enc.set("attr", "color")
+                color_enc.set("field", mn_field)
+                color_enc.set("type", "palette")
+                for measure_name, hex_color in ea_color_map.items():
+                    mv_ci = instances.get(measure_name)
+                    if mv_ci:
+                        mv_ref = self.field_registry.resolve_full_reference(mv_ci.instance_name)
+                        map_el = etree.SubElement(color_enc, "map")
+                        map_el.set("to", hex_color)
+                        bucket_el = etree.SubElement(map_el, "bucket")
+                        bucket_el.text = f'"{mv_ref}"'
 
         # Color map for primary axis color field (datasource-level palette)
         if self.color_map_1 and self.color_1:
