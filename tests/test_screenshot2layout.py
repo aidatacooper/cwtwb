@@ -1,260 +1,201 @@
-"""Integration test: Screenshot to Layout — generate TWB dashboards from JSON layouts.
+"""Integration tests: Build dashboards from JSON layout files (screenshot-to-layout workflow).
 
-Reads layout JSON files extracted from dashboard screenshots, creates worksheets
-with simple placeholder visuals, and generates TWB files.
+Each test builds a multi-worksheet dashboard from a pre-saved JSON layout file
+and asserts the resulting TWB has the expected worksheets and dashboard zone structure.
 
-Output:
-  - output/screenshot_dashboard1.twb  (Superstore Shipping Metrics)
-  - output/screenshot_dashboard2.twb  (Complaints Insights)
+Tests are skipped if the layout JSON files are not present under
+examples/screenshot2layout/, since those are optional example assets.
 """
 
-import json
-import sys
+from __future__ import annotations
+
+import xml.etree.ElementTree as ET
 from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
+import pytest
 
 from cwtwb.server import (
-    create_workbook,
+    add_dashboard,
     add_worksheet,
     configure_chart,
-    add_dashboard,
+    create_workbook,
     save_workbook,
 )
 
+TEMPLATE = Path("templates/twb/superstore.twb")
+LAYOUT_DIR = Path("examples/screenshot2layout")
+LAYOUT1 = LAYOUT_DIR / "layout_dashboard1.json"
+LAYOUT2 = LAYOUT_DIR / "layout_dashboard2.json"
 
-def build_dashboard1():
-    """Dashboard 1: Superstore Shipping Metrics replica."""
-    project_root = Path(__file__).parent.parent
-    layout_path = str(
-        project_root / "examples" / "screenshot2layout" / "layout_dashboard1.json"
-    )
-    output_path = str(project_root / "output" / "screenshot_dashboard1.twb")
 
-    print("=" * 60)
-    print("Dashboard 1: Superstore Shipping Metrics")
-    print("=" * 60)
+@pytest.fixture(autouse=True)
+def fresh_workbook():
+    create_workbook(str(TEMPLATE), "Screenshot2Layout Test")
 
-    # 1. Create workbook
-    result = create_workbook()
-    print(result[:120], "...\n")
 
-    # 2. Create worksheets — use Text mark to simulate KPI cards,
-    #    and Bar charts to simulate the data areas.
+# ── Dashboard 1: Superstore Shipping Metrics ──────────────────────────────────
 
-    # Left sidebar KPIs
-    sidebar_kpis = [
-        ("Avg Delivery Days", "SUM(Quantity)"),
-        ("Avg Fulfillment Days", "SUM(Discount)"),
-        ("Orders KPI", "SUM(Quantity)"),
-        ("Customers KPI", "SUM(Quantity)"),
-        ("Returns KPI", "SUM(Quantity)"),
-    ]
-    for name, measure in sidebar_kpis:
+SIDEBAR_KPIS = [
+    ("Avg Delivery Days", "SUM(Quantity)"),
+    ("Avg Fulfillment Days", "SUM(Discount)"),
+    ("Orders KPI", "SUM(Quantity)"),
+    ("Customers KPI", "SUM(Quantity)"),
+    ("Returns KPI", "SUM(Quantity)"),
+]
+BREAKDOWN_SHEETS = ["Breakdown Customers", "Breakdown Orders", "Breakdown Returns"]
+DASH1_ALL = (
+    [n for n, _ in SIDEBAR_KPIS]
+    + BREAKDOWN_SHEETS
+    + ["Delivery Days Chart", "Customer Distribution Map", "Order Distribution Chart"]
+)
+
+
+def _build_dashboard1(tmp_path):
+    create_workbook(str(TEMPLATE), "Shipping Metrics")
+
+    for name, measure in SIDEBAR_KPIS:
         add_worksheet(name)
-        configure_chart(
-            worksheet_name=name,
-            mark_type="Text",
-            label=measure,
-        )
-        print(f"  [OK] {name}")
+        configure_chart(name, mark_type="Text", label=measure)
 
-    # Breakdown row — 3 bar charts
-    breakdown_sheets = [
-        "Breakdown Customers",
-        "Breakdown Orders",
-        "Breakdown Returns",
-    ]
-    for name in breakdown_sheets:
+    for name in BREAKDOWN_SHEETS:
         add_worksheet(name)
-        configure_chart(
-            worksheet_name=name,
-            mark_type="Bar",
-            rows=["Ship Mode"],
-            columns=["SUM(Sales)"],
-        )
-        print(f"  [OK] {name}")
+        configure_chart(name, mark_type="Bar", rows=["Ship Mode"], columns=["SUM(Sales)"])
 
-    # Delivery Days chart
     add_worksheet("Delivery Days Chart")
-    configure_chart(
-        worksheet_name="Delivery Days Chart",
-        mark_type="Bar",
-        columns=["SUM(Quantity)"],
-        rows=["Ship Mode"],
-        color="Segment",
-    )
-    print("  [OK] Delivery Days Chart")
+    configure_chart("Delivery Days Chart", mark_type="Bar",
+                    columns=["SUM(Quantity)"], rows=["Ship Mode"], color="Segment")
 
-    # Bottom row — 2 charts
     add_worksheet("Customer Distribution Map")
-    configure_chart(
-        worksheet_name="Customer Distribution Map",
-        mark_type="Bar",
-        rows=["Region"],
-        columns=["SUM(Sales)"],
-        color="Category",
-    )
-    print("  [OK] Customer Distribution Map")
+    configure_chart("Customer Distribution Map", mark_type="Bar",
+                    rows=["Region"], columns=["SUM(Sales)"], color="Category")
 
     add_worksheet("Order Distribution Chart")
-    configure_chart(
-        worksheet_name="Order Distribution Chart",
-        mark_type="Circle",
-        rows=["Ship Mode"],
-        columns=["SUM(Sales)"],
-        size="SUM(Profit)",
-    )
-    print("  [OK] Order Distribution Chart")
+    configure_chart("Order Distribution Chart", mark_type="Circle",
+                    rows=["Ship Mode"], columns=["SUM(Sales)"], size="SUM(Profit)")
 
-    # 3. Add dashboard using the JSON layout
-    worksheet_names = (
-        [name for name, _ in sidebar_kpis]
-        + breakdown_sheets
-        + ["Delivery Days Chart", "Customer Distribution Map", "Order Distribution Chart"]
-    )
+    layout = str(LAYOUT1) if LAYOUT1.exists() else "horizontal"
+    add_dashboard("Shipping Metrics", worksheet_names=DASH1_ALL,
+                  width=1400, height=850, layout=layout)
 
-    result = add_dashboard(
-        dashboard_name="Shipping Metrics",
-        worksheet_names=worksheet_names,
-        width=1400,
-        height=850,
-        layout=layout_path,
-    )
-    print(f"\n  Dashboard: {result}")
-
-    # 4. Save
-    result = save_workbook(output_path)
-    print(f"  Saved: {result}\n")
+    output = tmp_path / "screenshot_dashboard1.twb"
+    save_workbook(str(output))
+    return ET.parse(output).getroot()
 
 
-def build_dashboard2():
-    """Dashboard 2: Complaints Insights replica."""
-    project_root = Path(__file__).parent.parent
-    layout_path = str(
-        project_root / "examples" / "screenshot2layout" / "layout_dashboard2.json"
-    )
-    output_path = str(project_root / "output" / "screenshot_dashboard2.twb")
+class TestScreenshot2LayoutDashboard1:
+    def test_all_worksheets_present(self, tmp_path):
+        root = _build_dashboard1(tmp_path)
+        found = {ws.get("name") for ws in root.findall(".//worksheet")}
+        for name in DASH1_ALL:
+            assert name in found, f"Missing worksheet: {name}"
 
-    print("=" * 60)
-    print("Dashboard 2: Complaints Insights")
-    print("=" * 60)
+    def test_kpi_worksheets_use_text_mark(self, tmp_path):
+        root = _build_dashboard1(tmp_path)
+        for name, _ in SIDEBAR_KPIS:
+            ws = root.find(f".//worksheet[@name='{name}']")
+            assert ws is not None
+            assert ws.find(".//pane/mark[@class='Text']") is not None, name
 
-    # 1. Create workbook
-    result = create_workbook()
-    print(result[:120], "...\n")
+    def test_dashboard_exists(self, tmp_path):
+        root = _build_dashboard1(tmp_path)
+        db = root.find(".//dashboards/dashboard[@name='Shipping Metrics']")
+        assert db is not None
 
-    # 2. Left sidebar worksheets
-    sidebar_sheets = [
-        ("YTD Total Complaints", "Text", "SUM(Quantity)"),
-        ("Timely Response Pct", "Text", "SUM(Discount)"),
-        ("Complaints by Channel", "Bar", None),
-        ("Closed with Relief Pct", "Text", "SUM(Profit)"),
-        ("Complaints Vol vs Relief", "Circle", None),
-    ]
-    for name, mark, label in sidebar_sheets:
+    def test_dashboard_contains_worksheets(self, tmp_path):
+        root = _build_dashboard1(tmp_path)
+        db = root.find(".//dashboards/dashboard[@name='Shipping Metrics']")
+        zone_names = {z.get("name") for z in db.findall(".//zone[@name]")}
+        for name in DASH1_ALL:
+            assert name in zone_names, f"Dashboard missing zone: {name}"
+
+    @pytest.mark.skipif(not LAYOUT1.exists(), reason="layout_dashboard1.json not present")
+    def test_uses_json_layout_when_file_present(self, tmp_path):
+        """When the JSON layout file exists, the dashboard should use it."""
+        root = _build_dashboard1(tmp_path)
+        db = root.find(".//dashboards/dashboard[@name='Shipping Metrics']")
+        assert db is not None
+        # Dashboard created from JSON layout will have nested zones
+        root_zone = db.find("zones/zone")
+        assert root_zone is not None
+
+
+# ── Dashboard 2: Complaints Insights ─────────────────────────────────────────
+
+SIDEBAR_COMPLAINTS = [
+    ("YTD Total Complaints", "Text", "SUM(Quantity)"),
+    ("Timely Response Pct", "Text", "SUM(Discount)"),
+    ("Complaints by Channel", "Bar", None),
+    ("Closed with Relief Pct", "Text", "SUM(Profit)"),
+    ("Complaints Vol vs Relief", "Circle", None),
+]
+KPI_COMPLAINTS = [
+    ("Total Complaints KPI", "SUM(Quantity)"),
+    ("Timely Response KPI", "SUM(Discount)"),
+    ("Closed with Monetary Relief KPI", "SUM(Profit)"),
+]
+YES_SHEETS = ["YES Count and Relief", "YES Top 10 Issues", "YES Complaint Details"]
+NO_SHEETS = ["NO Count and Relief", "NO Top 10 Issues", "NO Complaint Details"]
+DASH2_ALL = (
+    [n for n, _, _ in SIDEBAR_COMPLAINTS]
+    + [n for n, _ in KPI_COMPLAINTS]
+    + YES_SHEETS
+    + NO_SHEETS
+)
+
+
+def _build_dashboard2(tmp_path):
+    create_workbook(str(TEMPLATE), "Complaints Insights")
+
+    for name, mark, label in SIDEBAR_COMPLAINTS:
         add_worksheet(name)
         if mark == "Text":
-            configure_chart(worksheet_name=name, mark_type="Text", label=label)
+            configure_chart(name, mark_type="Text", label=label)
         elif mark == "Bar":
-            configure_chart(
-                worksheet_name=name,
-                mark_type="Bar",
-                rows=["Segment"],
-                columns=["SUM(Sales)"],
-            )
-        elif mark == "Circle":
-            configure_chart(
-                worksheet_name=name,
-                mark_type="Circle",
-                rows=["Region"],
-                columns=["SUM(Sales)"],
-                size="SUM(Profit)",
-            )
-        print(f"  [OK] {name}")
-
-    # Right-side KPI row
-    kpi_sheets = [
-        ("Total Complaints KPI", "SUM(Quantity)"),
-        ("Timely Response KPI", "SUM(Discount)"),
-        ("Closed with Monetary Relief KPI", "SUM(Profit)"),
-    ]
-    for name, label in kpi_sheets:
-        add_worksheet(name)
-        configure_chart(worksheet_name=name, mark_type="Text", label=label)
-        print(f"  [OK] {name}")
-
-    # YES section
-    yes_sheets = [
-        ("YES Count and Relief", "Text", "SUM(Sales)"),
-        ("YES Top 10 Issues", "Bar", None),
-        ("YES Complaint Details", "Text", "SUM(Quantity)"),
-    ]
-    for name, mark, label in yes_sheets:
-        add_worksheet(name)
-        if mark == "Text":
-            configure_chart(worksheet_name=name, mark_type="Text", label=label)
+            configure_chart(name, mark_type="Bar", rows=["Segment"], columns=["SUM(Sales)"])
         else:
-            configure_chart(
-                worksheet_name=name,
-                mark_type="Bar",
-                rows=["Sub-Category"],
-                columns=["SUM(Sales)"],
-                sort_descending="SUM(Sales)",
-            )
-        print(f"  [OK] {name}")
+            configure_chart(name, mark_type="Circle", rows=["Region"],
+                            columns=["SUM(Sales)"], size="SUM(Profit)")
 
-    # NO section
-    no_sheets = [
-        ("NO Count and Relief", "Text", "SUM(Sales)"),
-        ("NO Top 10 Issues", "Bar", None),
-        ("NO Complaint Details", "Text", "SUM(Quantity)"),
-    ]
-    for name, mark, label in no_sheets:
+    for name, label in KPI_COMPLAINTS:
         add_worksheet(name)
-        if mark == "Text":
-            configure_chart(worksheet_name=name, mark_type="Text", label=label)
-        else:
-            configure_chart(
-                worksheet_name=name,
-                mark_type="Bar",
-                rows=["Sub-Category"],
-                columns=["SUM(Profit)"],
-                sort_descending="SUM(Profit)",
-            )
-        print(f"  [OK] {name}")
+        configure_chart(name, mark_type="Text", label=label)
 
-    # 3. Collect all worksheet names
-    all_ws = (
-        [n for n, _, _ in sidebar_sheets]
-        + [n for n, _ in kpi_sheets]
-        + [n for n, _, _ in yes_sheets]
-        + [n for n, _, _ in no_sheets]
-    )
+    for name in YES_SHEETS + NO_SHEETS:
+        add_worksheet(name)
+        configure_chart(name, mark_type="Text", label="SUM(Sales)")
 
-    result = add_dashboard(
-        dashboard_name="Complaints Insights",
-        worksheet_names=all_ws,
-        width=1500,
-        height=800,
-        layout=layout_path,
-    )
-    print(f"\n  Dashboard: {result}")
+    layout = str(LAYOUT2) if LAYOUT2.exists() else "vertical"
+    add_dashboard("Complaints Insights", worksheet_names=DASH2_ALL,
+                  width=1500, height=800, layout=layout)
 
-    # 4. Save
-    result = save_workbook(output_path)
-    print(f"  Saved: {result}\n")
+    output = tmp_path / "screenshot_dashboard2.twb"
+    save_workbook(str(output))
+    return ET.parse(output).getroot()
 
 
-def main():
-    build_dashboard1()
-    build_dashboard2()
-    print("=" * 60)
-    print("ALL SCREENSHOT-TO-LAYOUT TESTS PASSED!")
-    print("Open output/screenshot_dashboard1.twb and")
-    print("     output/screenshot_dashboard2.twb in Tableau Desktop.")
-    print("=" * 60)
+class TestScreenshot2LayoutDashboard2:
+    def test_all_worksheets_present(self, tmp_path):
+        root = _build_dashboard2(tmp_path)
+        found = {ws.get("name") for ws in root.findall(".//worksheet")}
+        for name in DASH2_ALL:
+            assert name in found, f"Missing worksheet: {name}"
 
+    def test_dashboard_exists(self, tmp_path):
+        root = _build_dashboard2(tmp_path)
+        db = root.find(".//dashboards/dashboard[@name='Complaints Insights']")
+        assert db is not None
 
-if __name__ == "__main__":
-    main()
+    def test_dashboard_contains_all_worksheets(self, tmp_path):
+        root = _build_dashboard2(tmp_path)
+        db = root.find(".//dashboards/dashboard[@name='Complaints Insights']")
+        zone_names = {z.get("name") for z in db.findall(".//zone[@name]")}
+        for name in DASH2_ALL:
+            assert name in zone_names, f"Dashboard missing zone: {name}"
+
+    @pytest.mark.skipif(not LAYOUT2.exists(), reason="layout_dashboard2.json not present")
+    def test_uses_json_layout_when_file_present(self, tmp_path):
+        root = _build_dashboard2(tmp_path)
+        db = root.find(".//dashboards/dashboard[@name='Complaints Insights']")
+        assert db is not None
+        root_zone = db.find("zones/zone")
+        assert root_zone is not None

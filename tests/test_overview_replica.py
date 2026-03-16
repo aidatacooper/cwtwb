@@ -1,37 +1,38 @@
-"""Integration test: generate a TWB replicating the Overview dashboard structure.
+"""Integration test: Overview dashboard with parameters, calculated fields,
+map chart, area charts, filter zones, and paramctrl zone.
 
-Output: output/overview_replica.twb
+Validates that the full pipeline (MCP tools → save → parse) produces the
+expected XML structure without requiring Tableau Desktop.
 """
 
-import sys
+from __future__ import annotations
+
+import xml.etree.ElementTree as ET
 from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
+import pytest
 
 from cwtwb.server import (
-    create_workbook,
-    add_parameter,
     add_calculated_field,
+    add_dashboard,
+    add_parameter,
     add_worksheet,
     configure_chart,
-    add_dashboard,
+    create_workbook,
     save_workbook,
 )
 
+TEMPLATE = Path("templates/twb/superstore.twb")
 
-def main():
-    project_root = Path(__file__).parent.parent
-    template = str(project_root / "templates" / "twb" / "superstore.twb")
-    output = str(project_root / "output" / "overview_replica.twb")
 
-    # 1. Create workbook
-    print("=== 1. Create workbook ===")
-    result = create_workbook(template, "Overview Replica")
-    print(result[:200], "...\n")
+@pytest.fixture(autouse=True)
+def fresh_workbook():
+    create_workbook(str(TEMPLATE), "Overview Replica")
 
-    # 2. Add parameters
-    print("=== 2. Add parameters ===")
-    result = add_parameter(
+
+def _build_overview(tmp_path) -> ET.Element:
+    """Build the full Overview workbook and return the parsed XML root."""
+    add_parameter(
         name="Target Profit",
         datatype="real",
         default_value="10000.0",
@@ -40,9 +41,7 @@ def main():
         max_value="100000.0",
         granularity="10000.0",
     )
-    print(result)
-
-    result = add_parameter(
+    add_parameter(
         name="Churn Rate",
         datatype="real",
         default_value="0.1",
@@ -51,86 +50,37 @@ def main():
         max_value="1.0",
         granularity="0.05",
     )
-    print(result)
-    print()
 
-    # 3. Add calculated fields
-    print("=== 3. Add calculated fields ===")
-    result = add_calculated_field(
-        "Profit Ratio",
-        "SUM([Profit])/SUM([Sales])",
-        "real",
-    )
-    print(result)
-
-    result = add_calculated_field(
+    add_calculated_field("Profit Ratio", "SUM([Profit])/SUM([Sales])", "real")
+    add_calculated_field(
         "Order Profitable?",
         "IF SUM([Profit]) > [Target Profit] THEN 'Profitable' ELSE 'Unprofitable' END",
         "string",
     )
-    print(result)
-    print()
-
-    # 4. Add worksheets
-    print("=== 4. Add worksheets ===")
 
     add_worksheet("SaleMap")
-    print("Added: SaleMap")
-
-    add_worksheet("SalesbyProduct")
-    print("Added: SalesbyProduct")
-
-    add_worksheet("SalesbySegment")
-    print("Added: SalesbySegment")
-
-    add_worksheet("Total Sales")
-    print("Added: Total Sales")
-    print()
-
-    # 5. Configure charts
-    print("=== 5. Configure charts ===")
-
-    # Map chart
-    result = configure_chart(
-        worksheet_name="SaleMap",
-        mark_type="Map",
+    configure_chart(
+        "SaleMap", mark_type="Map",
         geographic_field="State/Province",
         color="Order Profitable?",
         size="SUM(Sales)",
     )
-    print(result)
 
-    # Area chart: Sales by Product
-    result = configure_chart(
-        worksheet_name="SalesbyProduct",
-        mark_type="Area",
-        columns=["MONTH(Order Date)"],
-        rows=["SUM(Sales)"],
-        color="Category",
+    add_worksheet("SalesbyProduct")
+    configure_chart(
+        "SalesbyProduct", mark_type="Area",
+        columns=["MONTH(Order Date)"], rows=["SUM(Sales)"], color="Category",
     )
-    print(result)
 
-    # Area chart: Sales by Segment
-    result = configure_chart(
-        worksheet_name="SalesbySegment",
-        mark_type="Area",
-        columns=["MONTH(Order Date)"],
-        rows=["SUM(Sales)"],
-        color="Segment",
+    add_worksheet("SalesbySegment")
+    configure_chart(
+        "SalesbySegment", mark_type="Area",
+        columns=["MONTH(Order Date)"], rows=["SUM(Sales)"], color="Segment",
     )
-    print(result)
 
-    # KPI: Total Sales (as Text chart)
-    result = configure_chart(
-        worksheet_name="Total Sales",
-        mark_type="Text",
-        label="SUM(Sales)",
-    )
-    print(result)
-    print()
+    add_worksheet("Total Sales")
+    configure_chart("Total Sales", mark_type="Text", label="SUM(Sales)")
 
-    # 6. Add dashboard with filter & paramctrl zones
-    print("=== 6. Add dashboard ===")
     layout = {
         "type": "container",
         "direction": "horizontal",
@@ -146,7 +96,7 @@ def main():
                         "children": [
                             {"type": "worksheet", "name": "SaleMap", "weight": 2},
                             {"type": "worksheet", "name": "Total Sales", "weight": 1},
-                        ]
+                        ],
                     },
                     {
                         "type": "container",
@@ -154,44 +104,97 @@ def main():
                         "children": [
                             {"type": "worksheet", "name": "SalesbyProduct"},
                             {"type": "worksheet", "name": "SalesbySegment"},
-                        ]
+                        ],
                     },
-                ]
+                ],
             },
             {
                 "type": "container",
                 "direction": "vertical",
                 "fixed_size": 180,
                 "children": [
-                    {"type": "filter", "worksheet": "SaleMap",
-                     "field": "Region", "mode": "dropdown", "fixed_size": 60},
-                    {"type": "filter", "worksheet": "SaleMap",
-                     "field": "State/Province", "mode": "checkdropdown", "fixed_size": 60},
+                    {"type": "filter", "worksheet": "SaleMap", "field": "Region",
+                     "mode": "dropdown", "fixed_size": 60},
+                    {"type": "filter", "worksheet": "SaleMap", "field": "State/Province",
+                     "mode": "checkdropdown", "fixed_size": 60},
                     {"type": "paramctrl", "parameter": "Target Profit",
                      "mode": "slider", "fixed_size": 60},
-                ]
-            }
-        ]
+                ],
+            },
+        ],
     }
-    result = add_dashboard(
-        dashboard_name="Overview",
+
+    add_dashboard(
+        "Overview",
         worksheet_names=["SaleMap", "SalesbyProduct", "SalesbySegment", "Total Sales"],
-        width=936,
-        height=650,
-        layout=layout,
+        width=936, height=650, layout=layout,
     )
-    print(result)
-    print()
 
-    # 7. Save
-    print("=== 7. Save ===")
-    result = save_workbook(output)
-    print(result)
-    print()
-
-    print("INTEGRATION TEST PASSED!")
-    print(f"Open {output} in Tableau Desktop to verify.")
+    output = tmp_path / "overview_replica.twb"
+    save_workbook(str(output))
+    return ET.parse(output).getroot()
 
 
-if __name__ == "__main__":
-    main()
+class TestOverviewWorksheets:
+    def test_all_worksheets_present(self, tmp_path):
+        root = _build_overview(tmp_path)
+        expected = {"SaleMap", "SalesbyProduct", "SalesbySegment", "Total Sales"}
+        found = {ws.get("name") for ws in root.findall(".//worksheet")}
+        assert expected.issubset(found)
+
+    def test_map_chart_mark_type(self, tmp_path):
+        root = _build_overview(tmp_path)
+        ws = root.find(".//worksheet[@name='SaleMap']")
+        assert ws.find(".//pane/mark[@class='Multipolygon']") is not None
+
+    def test_area_chart_mark_type(self, tmp_path):
+        root = _build_overview(tmp_path)
+        for ws_name in ("SalesbyProduct", "SalesbySegment"):
+            ws = root.find(f".//worksheet[@name='{ws_name}']")
+            assert ws.find(".//pane/mark[@class='Area']") is not None, ws_name
+
+    def test_kpi_text_mark_type(self, tmp_path):
+        root = _build_overview(tmp_path)
+        ws = root.find(".//worksheet[@name='Total Sales']")
+        assert ws.find(".//pane/mark[@class='Text']") is not None
+
+
+class TestOverviewParameters:
+    def test_target_profit_parameter_present(self, tmp_path):
+        root = _build_overview(tmp_path)
+        params_ds = root.find(".//datasource[@name='Parameters']")
+        assert params_ds is not None
+        col = params_ds.find("column[@caption='Target Profit']")
+        assert col is not None
+
+    def test_two_parameters_present(self, tmp_path):
+        root = _build_overview(tmp_path)
+        params_ds = root.find(".//datasource[@name='Parameters']")
+        assert params_ds is not None
+        assert len(params_ds.findall("column")) == 2
+
+
+class TestOverviewDashboard:
+    def test_dashboard_exists(self, tmp_path):
+        root = _build_overview(tmp_path)
+        db = root.find(".//dashboards/dashboard[@name='Overview']")
+        assert db is not None
+
+    def test_dashboard_contains_all_worksheets(self, tmp_path):
+        root = _build_overview(tmp_path)
+        db = root.find(".//dashboards/dashboard[@name='Overview']")
+        zone_names = {z.get("name") for z in db.findall(".//zone[@name]")}
+        for ws_name in ("SaleMap", "SalesbyProduct", "SalesbySegment", "Total Sales"):
+            assert ws_name in zone_names, f"Missing zone: {ws_name}"
+
+    def test_filter_zones_present(self, tmp_path):
+        root = _build_overview(tmp_path)
+        db = root.find(".//dashboards/dashboard[@name='Overview']")
+        filter_zones = db.findall(".//zone[@type-v2='filter']")
+        assert len(filter_zones) >= 2
+
+    def test_paramctrl_zone_present(self, tmp_path):
+        root = _build_overview(tmp_path)
+        db = root.find(".//dashboards/dashboard[@name='Overview']")
+        paramctrl_zones = db.findall(".//zone[@type-v2='paramctrl']")
+        assert len(paramctrl_zones) >= 1

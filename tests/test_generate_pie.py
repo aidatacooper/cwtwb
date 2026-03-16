@@ -1,63 +1,81 @@
-"""测试脚本：从 template.twb 生成饼图 TWB。
+"""Tests for pie chart generation through the SDK.
 
-用法：python tests/test_generate_pie.py
-生成：output/pie_test.twb
-
-验证方式：用 Tableau Desktop 打开 output/pie_test.twb，
-应显示按 Segment 分色、以 SUM(Sales) 为扇区大小的饼图。
+Verifies that a pie chart worksheet is correctly configured with color and
+wedge-size encodings, and produces valid TWB XML.
 """
 
-import sys
+from __future__ import annotations
+
+import xml.etree.ElementTree as ET
 from pathlib import Path
 
-# 添加 src 到路径
-sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
+import pytest
 
 from cwtwb.twb_editor import TWBEditor
 
-
-def main():
-    project_root = Path(__file__).parent.parent
-    template_path = project_root / "templates" / "twb" / "superstore.twb"
-    output_path = project_root / "output" / "pie_test.twb"
-
-    print(f"template: {template_path}")
-    print(f"output:   {output_path}")
-    print()
-
-    # 1. 从模板创建编辑器
-    editor = TWBEditor(template_path)
-    print("[OK] loaded template")
-
-    # 2. 列出字段
-    fields_info = editor.list_fields()
-    print(fields_info)
-    print()
-
-    # 3. 清空模板中的工作表
-    editor.clear_worksheets()
-    print("[OK] cleared worksheets")
-
-    # 4. 添加饼图工作表
-    result = editor.add_worksheet("pie_test")
-    print(f"[OK] {result}")
-
-    # 5. 配置饼图
-    result = editor.configure_chart(
-        worksheet_name="pie_test",
-        mark_type="Pie",
-        color="Segment",
-        wedge_size="SUM(Sales)",
-    )
-    print(f"[OK] {result}")
-
-    # 6. 保存
-    result = editor.save(output_path)
-    print(f"[OK] {result}")
-
-    print()
-    print("DONE! Open output/pie_test.twb with Tableau Desktop to verify.")
+TEMPLATE = Path(__file__).parent.parent / "templates" / "twb" / "superstore.twb"
 
 
-if __name__ == "__main__":
-    main()
+@pytest.fixture
+def pie_editor():
+    ed = TWBEditor(TEMPLATE)
+    ed.clear_worksheets()
+    return ed
+
+
+class TestPieChartGeneration:
+    def test_pie_chart_mark_type(self, pie_editor):
+        pie_editor.add_worksheet("pie_test")
+        pie_editor.configure_chart(
+            "pie_test",
+            mark_type="Pie",
+            color="Segment",
+            wedge_size="SUM(Sales)",
+        )
+        ws = pie_editor._find_worksheet("pie_test")
+        mark = ws.find(".//pane/mark")
+        assert mark is not None
+        assert mark.get("class") == "Pie"
+
+    def test_pie_chart_color_encoding(self, pie_editor):
+        pie_editor.add_worksheet("pie_test")
+        pie_editor.configure_chart(
+            "pie_test", mark_type="Pie", color="Segment", wedge_size="SUM(Sales)"
+        )
+        ws = pie_editor._find_worksheet("pie_test")
+        enc = ws.find(".//pane/encodings/color")
+        assert enc is not None
+        assert "Segment" in enc.get("column", "")
+
+    def test_pie_chart_wedge_size_encoding(self, pie_editor):
+        pie_editor.add_worksheet("pie_test")
+        pie_editor.configure_chart(
+            "pie_test", mark_type="Pie", color="Segment", wedge_size="SUM(Sales)"
+        )
+        ws = pie_editor._find_worksheet("pie_test")
+        enc = ws.find(".//pane/encodings/wedge-size")
+        assert enc is not None
+        assert "Sales" in enc.get("column", "")
+
+    def test_pie_chart_saves_valid_twb(self, pie_editor, tmp_path):
+        pie_editor.add_worksheet("pie_test")
+        pie_editor.configure_chart(
+            "pie_test", mark_type="Pie", color="Segment", wedge_size="SUM(Sales)"
+        )
+        output = tmp_path / "pie_test.twb"
+        pie_editor.save(output)
+        assert output.exists()
+        root = ET.parse(output).getroot()
+        assert root.find(".//worksheet[@name='pie_test']") is not None
+
+    def test_pie_chart_has_no_row_col_shelf(self, pie_editor):
+        """Pie charts should not need rows/cols shelf."""
+        pie_editor.add_worksheet("pie_test")
+        pie_editor.configure_chart(
+            "pie_test", mark_type="Pie", color="Segment", wedge_size="SUM(Sales)"
+        )
+        ws = pie_editor._find_worksheet("pie_test")
+        rows_text = (ws.findtext("./table/rows") or "").strip()
+        cols_text = (ws.findtext("./table/cols") or "").strip()
+        assert rows_text == ""
+        assert cols_text == ""
