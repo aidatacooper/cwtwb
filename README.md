@@ -17,6 +17,46 @@ The default workflow is:
 4. Assemble dashboards and interactions
 5. Save and validate a `.twb` that opens in Tableau Desktop
 
+```
+                            Interfaces
+  ┌───────────────────────────────────────────────────────────────┐
+  │  ┌──────────────────────────┐  ┌───────────────────────────┐  │
+  │  │        MCP Server        │  │      Python Library       │  │
+  │  │  tools_workbook          │  │  from cwtwb.twb_editor    │  │
+  │  │  tools_layout            │  │  import TWBEditor         │  │
+  │  │  tools_migration         │  │                           │  │
+  │  │  tools_support           │  │  editor.add_...()         │  │
+  │  │                          │  │  editor.configure_...()   │  │
+  │  │  (Claude / Cursor /      │  │  editor.save(...)         │  │
+  │  │   VSCode / Claude Code)  │  │                           │  │
+  │  └─────────────┬────────────┘  └──────────────┬────────────┘  │
+  │                └──────────────┬────────────────┘               │
+  └─────────────────────────────  ┼  ─────────────────────────────┘
+                                  ▼
+  ┌───────────────────────────────────────────────────────────────┐
+  │                          TWBEditor                            │
+  │       ParametersMixin  ·  ConnectionsMixin                    │
+  │       ChartsMixin      ·  DashboardsMixin                     │
+  └──────────┬──────────────────┬──────────────────┬─────────────┘
+             ▼                  ▼                  ▼
+  ┌──────────────────┐  ┌──────────────┐  ┌──────────────────────┐
+  │  Chart Builders  │  │  Dashboard   │  │  Analysis &          │
+  │                  │  │  System      │  │  Migration           │
+  │  Basic  DualAxis │  │              │  │                      │
+  │  Pie    Text     │  │  layouts     │  │  migration.py        │
+  │  Map    Recipes  │  │  actions     │  │  twb_analyzer.py     │
+  │                  │  │  dependencies│  │  capability_registry │
+  └────────┬─────────┘  └──────┬───────┘  └──────────┬───────────┘
+           └───────────────────┼──────────────────────┘
+                               ▼
+  ┌───────────────────────────────────────────────────────────────┐
+  │                     XML Engine  (lxml)                        │
+  │          template.twb  →  patch  →  validate  →  save        │
+  └───────────────────────────────┬───────────────────────────────┘
+                                  ▼
+                             output.twb
+```
+
 ## Installation
 
 ```bash
