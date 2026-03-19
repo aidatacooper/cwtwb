@@ -1,0 +1,69 @@
+{
+  "goal": "Build an executive sales dashboard for sales leaders.",
+  "audience": "Sales leaders",
+  "dataset": "",
+  "dataset_profile": "",
+  "available_fields": [
+    "Order Date",
+    "Region",
+    "State/Province",
+    "Category",
+    "Sub-Category",
+    "Sales",
+    "Profit",
+    "Quantity"
+  ],
+  "primary_question": "Which regions and states are driving sales and profit, and how do filtered trends and sub-categories change?",
+  "require_interaction": true,
+  "constraints": {
+    "max_dashboards": 1
+  },
+  "worksheets": [
+    {
+      "name": "Sales Map",
+      "question": "Where are sales and profit concentrated geographically?",
+      "mark_type": "Map",
+      "priority": "primary"
+    },
+    {
+      "name": "Sales Trend",
+      "question": "How do monthly sales change after the current selection?",
+      "mark_type": "Line",
+      "priority": "detail"
+    },
+    {
+      "name": "Sub-Category Breakdown",
+      "question": "Which sub-categories drive sales after the current selection?",
+      "mark_type": "Bar",
+      "priority": "detail"
+    }
+  ],
+  "dashboard": {
+    "name": "Executive Overview"
+  },
+  "actions": [
+    {
+      "type": "filter",
+      "source_sheet": "Sales Map",
+      "target_sheet": "Sub-Category Breakdown",
+      "fields": [
+        "State/Province"
+      ]
+    },
+    {
+      "type": "go-to-sheet",
+      "source_sheet": "Sales Map",
+      "target_sheet": "Sales Trend",
+      "caption": "Open Monthly Trend"
+    },
+    {
+      "type": "url",
+      "source_sheet": "Sub-Category Breakdown",
+      "url": "https://example.com/product-detail",
+      "caption": "Open Product Detail"
+    }
+  ],
+  "acceptance_checks": [
+    "Workbook validates successfully"
+  ]
+}

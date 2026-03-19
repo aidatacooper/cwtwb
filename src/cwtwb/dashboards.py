@@ -43,8 +43,8 @@ Zone IDs are generated as UUIDs to avoid collisions across multiple dashboards.
 
 ACTIONS
 -------
-add_dashboard_action() wires filter or highlight interactions between worksheets.
-It writes an <action> element inside the <dashboard> using dashboard_actions.py.
+add_dashboard_action() wires filter/highlight/URL/navigation interactions
+between worksheets. It writes an <action> element using dashboard_actions.py.
 """
 
 from __future__ import annotations
@@ -157,10 +157,11 @@ class DashboardsMixin:
         dashboard_name: str,
         action_type: str,
         source_sheet: str,
-        target_sheet: str,
-        fields: list[str],
+        target_sheet: str = "",
+        fields: list[str] | None = None,
         event_type: str = "on-select",
         caption: str = "",
+        url: str = "",
     ) -> str:
         """Compatibility wrapper for dashboard action creation."""
         return _add_dashboard_action(
@@ -172,4 +173,5 @@ class DashboardsMixin:
             fields,
             event_type,
             caption,
+            url,
         )

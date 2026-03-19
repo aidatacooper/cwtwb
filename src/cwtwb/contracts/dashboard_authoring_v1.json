@@ -1,0 +1,50 @@
+{
+  "goal": "",
+  "audience": "",
+  "dataset": "",
+  "dataset_profile": "",
+  "available_fields": [],
+  "primary_question": "",
+  "require_interaction": null,
+  "constraints": {
+    "max_dashboards": 1,
+    "allowed_support_levels": [
+      "core",
+      "advanced"
+    ],
+    "layout_pattern": "executive overview",
+    "kpis": [],
+    "filters": [],
+    "interaction_pattern": ""
+  },
+  "worksheets": [
+    {
+      "name": "Summary View",
+      "question": "What summary should this dashboard show first?",
+      "mark_type": "",
+      "priority": "summary"
+    },
+    {
+      "name": "Primary View",
+      "question": "What is the primary analytical view?",
+      "mark_type": "",
+      "priority": "primary"
+    },
+    {
+      "name": "Detail View",
+      "question": "What follow-up detail should the user inspect?",
+      "mark_type": "",
+      "priority": "detail"
+    }
+  ],
+  "dashboard": {
+    "name": "",
+    "layout_pattern": "executive overview"
+  },
+  "actions": [],
+  "acceptance_checks": [
+    "Workbook validates successfully",
+    "Dashboard uses only declared supported capabilities",
+    "Dashboard layout has a clear analytical hierarchy"
+  ]
+}

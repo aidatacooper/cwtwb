@@ -1,0 +1,47 @@
+{
+  "id": "superstore",
+  "label": "Sample Superstore",
+  "aliases": [
+    "superstore",
+    "sample superstore",
+    "sample - superstore",
+    "sample _ superstore (simple)"
+  ],
+  "match": {
+    "fields_all_of": [
+      "Order Date",
+      "Region",
+      "State/Province",
+      "Sales",
+      "Profit",
+      "Quantity"
+    ]
+  },
+  "defaults": {
+    "dataset": "Superstore",
+    "constraints": {
+      "layout_pattern": "executive overview",
+      "kpis": [
+        "SUM(Sales)",
+        "SUM(Profit)",
+        "Profit Ratio",
+        "SUM(Quantity)"
+      ],
+      "filters": [
+        "Order Date",
+        "Region",
+        "State/Province"
+      ],
+      "interaction_pattern": "primary-filters-detail"
+    },
+    "dashboard": {
+      "name": "Executive Overview",
+      "layout_pattern": "executive overview"
+    },
+    "acceptance_checks": [
+      "Workbook validates successfully",
+      "Dashboard uses only core or advanced capabilities",
+      "Dashboard layout follows an executive overview hierarchy"
+    ]
+  }
+}

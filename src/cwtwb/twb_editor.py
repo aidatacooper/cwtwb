@@ -514,6 +514,50 @@ class TWBEditor(ParametersMixin, ConnectionsMixin, ChartsMixin, DashboardsMixin)
 
         return f"Added worksheet '{worksheet_name}'"
 
+    def set_worksheet_caption(self, worksheet_name: str, caption: str) -> str:
+        """Set or clear a plain-text worksheet caption."""
+
+        worksheet = self._find_worksheet(worksheet_name)
+        layout_options = worksheet.find("layout-options")
+
+        if not caption:
+            if layout_options is None:
+                return f"Cleared caption for worksheet '{worksheet_name}'"
+
+            caption_el = layout_options.find("caption")
+            if caption_el is not None:
+                layout_options.remove(caption_el)
+
+            if len(layout_options) == 0 and not (layout_options.text or "").strip():
+                worksheet.remove(layout_options)
+
+            return f"Cleared caption for worksheet '{worksheet_name}'"
+
+        if layout_options is None:
+            layout_options = etree.Element("layout-options")
+            table = worksheet.find("table")
+            if table is not None:
+                table.addprevious(layout_options)
+            else:
+                simple_id = worksheet.find("simple-id")
+                if simple_id is not None:
+                    simple_id.addprevious(layout_options)
+                else:
+                    worksheet.append(layout_options)
+
+        caption_el = layout_options.find("caption")
+        if caption_el is None:
+            caption_el = etree.SubElement(layout_options, "caption")
+        else:
+            for child in list(caption_el):
+                caption_el.remove(child)
+
+        formatted_text = etree.SubElement(caption_el, "formatted-text")
+        run = etree.SubElement(formatted_text, "run")
+        run.text = caption
+
+        return f"Set caption for worksheet '{worksheet_name}'"
+
     def _add_window(
         self,
         name: str,

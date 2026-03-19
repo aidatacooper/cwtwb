@@ -191,6 +191,14 @@ def add_worksheet(worksheet_name: str) -> str:
 
 
 @server.tool()
+def set_worksheet_caption(worksheet_name: str, caption: str) -> str:
+    """Set or clear a plain-text worksheet caption."""
+
+    editor = get_editor()
+    return editor.set_worksheet_caption(worksheet_name, caption)
+
+
+@server.tool()
 def configure_chart(
     worksheet_name: str,
     mark_type: str = "Automatic",
@@ -484,10 +492,11 @@ def add_dashboard_action(
     dashboard_name: str,
     action_type: str,
     source_sheet: str,
-    target_sheet: str,
-    fields: list[str],
+    target_sheet: str = "",
+    fields: list[str] | None = None,
     event_type: str = "on-select",
     caption: str = "",
+    url: str = "",
 ) -> str:
     """Add an interaction action to a dashboard."""
 
@@ -500,6 +509,7 @@ def add_dashboard_action(
         fields=fields,
         event_type=event_type,
         caption=caption,
+        url=url,
     )
 
 

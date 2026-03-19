@@ -395,6 +395,26 @@ class TWBAnalyzer:
                 xpath_hint=".//action/command",
             )
 
+        for action in root.xpath(".//action[link and not(command)]"):
+            self._resolve_and_record(
+                detected,
+                unknown,
+                kind="action",
+                raw_name="url-action",
+                source="action-link",
+                xpath_hint=".//action[link and not(command)]",
+            )
+
+        for nav_action in root.xpath(".//nav-action"):
+            self._resolve_and_record(
+                detected,
+                unknown,
+                kind="action",
+                raw_name="nav-action",
+                source="nav-action",
+                xpath_hint=".//nav-action",
+            )
+
     def _detect_connections(
         self,
         root: etree._Element,

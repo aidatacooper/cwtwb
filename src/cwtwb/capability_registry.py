@@ -302,6 +302,22 @@ CAPABILITY_SPECS: tuple[CapabilitySpec, ...] = (
         rationale="Important interaction primitive beyond base chart creation.",
     ),
     CapabilitySpec(
+        key="url-action",
+        kind="action",
+        level="advanced",
+        canonical="URL Action",
+        aliases=("url",),
+        rationale="Important authoring primitive for linking Tableau marks to external workflows.",
+    ),
+    CapabilitySpec(
+        key="go-to-sheet-action",
+        kind="action",
+        level="advanced",
+        canonical="Go-To-Sheet Action",
+        aliases=("tabdoc:goto-sheet", "nav-action", "go-to-sheet"),
+        rationale="Important authoring primitive for drill-down navigation inside a workbook.",
+    ),
+    CapabilitySpec(
         key="excel-direct",
         kind="connection",
         level="core",

@@ -38,6 +38,7 @@ from __future__ import annotations
 
 from typing import Optional
 
+from ..authoring_contract import review_authoring_contract_payload
 from ..capability_registry import format_capability_catalog, format_capability_detail
 from ..twb_analyzer import analyze_workbook
 from .app import server
@@ -118,3 +119,10 @@ def validate_workbook(file_path: Optional[str] = None) -> str:
         result = validate_against_schema(editor.root)
 
     return result.to_text()
+
+
+@server.tool()
+def review_authoring_contract(contract_json: str) -> str:
+    """Review a draft authoring contract and apply Superstore-oriented defaults."""
+
+    return review_authoring_contract_payload(contract_json).to_json()

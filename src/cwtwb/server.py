@@ -1,7 +1,20 @@
 """Compatibility entrypoint for cwtwb's MCP server."""
 
 from .mcp.app import server
-from .mcp.resources import read_skill, read_skills_index, read_tableau_functions
+from .mcp.prompts import (
+    authoring_execution_plan,
+    dashboard_brief_to_contract,
+    guided_dashboard_authoring,
+    light_elicitation,
+)
+from .mcp.resources import (
+    read_dataset_profile,
+    read_dashboard_authoring_contract,
+    read_profiles_index,
+    read_skill,
+    read_skills_index,
+    read_tableau_functions,
+)
 from .mcp.tools_layout import generate_layout_json
 from .mcp.tools_migration import (
     apply_twb_migration,
@@ -16,6 +29,8 @@ from .mcp.tools_support import (
     describe_capability,
     diff_template_gap,
     list_capabilities,
+    review_authoring_contract,
+    validate_workbook,
 )
 from .mcp.tools_workbook import (
     add_calculated_field,
@@ -33,6 +48,7 @@ from .mcp.tools_workbook import (
     open_workbook,
     remove_calculated_field,
     save_workbook,
+    set_worksheet_caption,
     set_hyper_connection,
     set_mysql_connection,
     set_tableauserver_connection,

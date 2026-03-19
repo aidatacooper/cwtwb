@@ -1,0 +1,34 @@
+{
+  "valid": true,
+  "summary": "Contract is ready for execution. Profile 'Sample Superstore' was applied to enrich defaults.",
+  "missing_required": [],
+  "defaults_applied": {
+    "constraints.allowed_support_levels": [
+      "core",
+      "advanced"
+    ],
+    "constraints.layout_pattern": "executive overview",
+    "constraints.kpis": [
+      "SUM(Sales)",
+      "SUM(Profit)",
+      "Profit Ratio",
+      "SUM(Quantity)"
+    ],
+    "constraints.filters": [
+      "Order Date",
+      "Region",
+      "State/Province"
+    ],
+    "constraints.interaction_pattern": "primary-filters-detail",
+    "dashboard.layout_pattern": "executive overview"
+  },
+  "clarification_questions": [],
+  "recommended_skills": [
+    "authoring_workflow",
+    "calculation_builder",
+    "chart_builder",
+    "dashboard_designer",
+    "formatting"
+  ],
+  "detected_profile": "superstore"
+}

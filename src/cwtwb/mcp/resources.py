@@ -10,6 +10,12 @@ AVAILABLE RESOURCES
       Source: docs/tableau_all_functions.json (bundled with cwtwb).
       Use this to look up function signatures when writing calculated fields.
 
+  cwtwb://profiles/index
+      Markdown index listing all available dataset profiles.
+
+  cwtwb://profiles/{profile_name}
+      A specific dataset profile JSON payload used by contract review.
+
   cwtwb://skills/index
       Markdown index listing all available agent skill files with descriptions.
       Read this first to understand which skills exist before fetching one.
@@ -31,7 +37,14 @@ USAGE PATTERN (recommended by server instructions)
 
 from __future__ import annotations
 
-from ..config import SKILLS_DIR, TABLEAU_FUNCTIONS_JSON
+from ..config import (
+    CONTRACTS_DIR,
+    SKILLS_DIR,
+    TABLEAU_FUNCTIONS_JSON,
+    find_profile_path,
+    get_profile_dirs,
+    iter_profile_files,
+)
 from .app import server
 
 
@@ -47,6 +60,7 @@ def read_tableau_functions() -> str:
 
 
 _SKILL_NAMES = [
+    "authoring_workflow",
     "calculation_builder",
     "chart_builder",
     "dashboard_designer",
@@ -80,6 +94,45 @@ def read_skills_index() -> str:
     return "\n".join(lines)
 
 
+@server.resource("cwtwb://profiles/index")
+def read_profiles_index() -> str:
+    """List available dataset profiles used by contract review."""
+
+    lines = [
+        "# cwtwb Dataset Profiles",
+        "",
+        "Dataset profiles provide external default bundles and field signatures.",
+        "Read a profile with: read_resource('cwtwb://profiles/<profile_name>')",
+        "",
+    ]
+    profile_files = iter_profile_files()
+    if not profile_files:
+        lines.append("(no dataset profiles found)")
+        return "\n".join(lines)
+
+    lines.append("Configured directories:")
+    for directory in get_profile_dirs():
+        lines.append(f"- {directory}")
+    lines.append("")
+
+    for profile_path in profile_files:
+        lines.append(f"- `{profile_path.stem}`")
+    return "\n".join(lines)
+
+
+@server.resource("cwtwb://profiles/{profile_name}")
+def read_dataset_profile(profile_name: str) -> str:
+    """Read a specific dataset profile JSON payload."""
+
+    profile_path = find_profile_path(profile_name)
+    if profile_path is None:
+        available = ", ".join(sorted(path.stem for path in iter_profile_files()))
+        raise FileNotFoundError(
+            f"Dataset profile '{profile_name}' not found. Available profiles: {available}"
+        )
+    return profile_path.read_text(encoding="utf-8")
+
+
 @server.resource("cwtwb://skills/{skill_name}")
 def read_skill(skill_name: str) -> str:
     """Read a specific cwtwb agent skill."""
@@ -91,3 +144,13 @@ def read_skill(skill_name: str) -> str:
             f"Skill '{skill_name}' not found. Available skills: {available}"
         )
     return skill_path.read_text(encoding="utf-8")
+
+
+@server.resource("cwtwb://contracts/dashboard_authoring_v1")
+def read_dashboard_authoring_contract() -> str:
+    """Read the dashboard authoring contract template used by external agents."""
+
+    contract_path = CONTRACTS_DIR / "dashboard_authoring_v1.json"
+    if not contract_path.exists():
+        raise FileNotFoundError(f"Contract template not found at: {contract_path}")
+    return contract_path.read_text(encoding="utf-8")

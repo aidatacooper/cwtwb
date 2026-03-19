@@ -1,41 +1,35 @@
-# cwtwb Skills — Specialized Agent Workflow
+# cwtwb Skills
 
-Skills are expert-level guidance files that help AI agents produce **professional-quality** Tableau workbooks. Each skill focuses on one phase of the dashboard creation process.
+Skills are expert-level guidance files that help AI agents produce
+professional Tableau workbooks. Prompts explain what to build. Skills explain
+how to build it well, phase by phase.
 
 ## Workflow Phases
 
-```
-Phase 1: calculation_builder  →  Define parameters, calculated fields, LOD expressions
-Phase 2: chart_builder         →  Choose chart types, configure encodings, filters
-Phase 3: dashboard_designer    →  Layout, filter panels, interaction actions  
-Phase 4: formatting            →  Number formats, colors, sorting, tooltips
-```
-
-## How to Use
-
-### For AI Agents (via MCP Resources)
-
-Read skills as needed during dashboard creation:
-
-```
-1. read_resource("cwtwb://skills/index")           → See available skills
-2. read_resource("cwtwb://skills/calculation_builder") → Load Phase 1 expertise
-3. read_resource("cwtwb://skills/chart_builder")       → Load Phase 2 expertise
-4. read_resource("cwtwb://skills/dashboard_designer")  → Load Phase 3 expertise
-5. read_resource("cwtwb://skills/formatting")          → Load Phase 4 expertise
+```text
+Phase 0: authoring_workflow    -> Review the contract, ask only needed questions
+Phase 1: calculation_builder   -> Define parameters, calculated fields, LOD logic
+Phase 2: chart_builder         -> Choose chart types, configure encodings, filters
+Phase 3: dashboard_designer    -> Layout, worksheet captions, interaction actions
+Phase 4: formatting            -> Number formats, colors, sorting, tooltips
 ```
 
-### For Humans
+## Recommended Resource Flow
 
-Include a skill reference in your prompt:
-
-```
-Please read the cwtwb chart_builder and dashboard_designer skills, 
-then create a sales analysis dashboard for me.
+```text
+1. read_resource("cwtwb://contracts/dashboard_authoring_v1")
+2. read_resource("cwtwb://profiles/index")
+3. review_authoring_contract(contract_json)
+4. read_resource("cwtwb://skills/authoring_workflow")
+5. read_resource("cwtwb://skills/calculation_builder")
+6. read_resource("cwtwb://skills/chart_builder")
+7. read_resource("cwtwb://skills/dashboard_designer")
+8. read_resource("cwtwb://skills/formatting")
 ```
 
 ## Design Philosophy
 
-- **Skills ≠ Prompts**: Prompts tell AI *what to build*. Skills tell AI *how to build it well*.
-- **Load on demand**: Don't load all skills at once. Load the relevant skill when entering each phase.
-- **Domain expertise**: Each skill encodes best practices from Tableau experts — chart type selection, layout ratios, interaction patterns, etc.
+- Skills are phase-specific, not generic prompt stuffing.
+- Load only the skill needed for the current phase.
+- Keep the workflow contract-first, skill-guided, and self-validating.
+- Use light elicitation: ask follow-up questions only when the contract misses critical intent.

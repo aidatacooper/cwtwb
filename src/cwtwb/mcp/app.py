@@ -18,6 +18,13 @@ from mcp.server.fastmcp import FastMCP
 server = FastMCP(
     "cwtwb",
     instructions="Tableau Workbook (.twb) generation MCP Server. "
+    "Start by reading the dashboard contract template "
+    "(cwtwb://contracts/dashboard_authoring_v1) when a user provides a fresh dashboard brief, "
+    "or preferably start with the guided_dashboard_authoring prompt for a natural-language dashboard request, "
+    "then use prompts like dashboard_brief_to_contract, light_elicitation, and authoring_execution_plan "
+    "when you want a guided authoring workflow, "
+    "optionally inspect dataset profiles via cwtwb://profiles/index when the dataset or field list is known, "
+    "then review the draft with review_authoring_contract before executing workbook tools. "
     "Create visualizations by calling create_workbook or open_workbook first, "
     "then add_worksheet + configure_chart, and finally save_workbook. "
     "Prefer core primitives first, and use list_capabilities or describe_capability "
