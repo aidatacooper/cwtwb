@@ -234,6 +234,7 @@ editor.save("output/superstore.twbx")  # produces a single-entry ZIP with the .t
 | `describe_capability` | Explain whether a chart or feature is core, advanced, recipe, or unsupported |
 | `analyze_twb` | Analyze a `.twb` file against the capability catalog |
 | `diff_template_gap` | Summarize the non-core gap of a template |
+| `validate_workbook` | Validate a workbook against the official Tableau TWB XSD schema (2026.1) |
 | `migrate_twb_guided` | Run the built-in TWB migration workflow and pause for warning confirmation when needed |
 | `set_mysql_connection` | Configure the datasource to use a local MySQL connection |
 | `set_tableauserver_connection` | Configure connection to an online Tableau Server |
@@ -304,11 +305,39 @@ This keeps new feature work aligned with the project's real product boundary ins
 
 ## Built-in Validation
 
+### Structural validation
+
 `save()` automatically validates the TWB XML structure before writing:
 
 - **Fatal errors** such as missing `<workbook>` or `<datasources>` raise `TWBValidationError`
 - **Warnings** such as missing `<view>` or `<panes>` are logged but do not block saving
 - Validation can be disabled with `editor.save("output.twb", validate=False)` or `editor.save("output.twbx", validate=False)`
+
+### XSD schema validation
+
+`TWBEditor.validate_schema()` checks the workbook against the official Tableau TWB XSD schema (2026.1), vendored at `vendor/tableau-document-schemas/`:
+
+```python
+result = editor.validate_schema()
+print(result.to_text())
+# PASS  Workbook is valid against Tableau TWB XSD schema (2026.1)
+# — or —
+# FAIL  Schema validation failed (2 error(s)):
+#   * Element 'workbook': Missing child element(s)...
+
+result.valid          # bool
+result.errors         # list[str] — lxml error messages
+result.schema_available  # False if the vendor submodule is not checked out
+```
+
+The same check is available as an MCP tool:
+
+```
+validate_workbook()                       # validate current open workbook in memory
+validate_workbook(file_path="out.twb")    # validate a file on disk (.twb or .twbx)
+```
+
+XSD errors are **informational** — Tableau itself generates workbooks that occasionally deviate from the schema — but recurring errors signal structural problems worth fixing.
 
 ## Dashboard Layouts
 

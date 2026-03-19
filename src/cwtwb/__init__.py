@@ -26,7 +26,7 @@ from .migration import (  # noqa: E402
 )
 from .twb_analyzer import AnalysisReport, TWBAnalyzer, analyze_workbook  # noqa: E402
 from .twb_editor import TWBEditor  # noqa: E402
-from .validator import TWBValidationError  # noqa: E402
+from .validator import SchemaValidationResult, TWBValidationError, validate_against_schema  # noqa: E402
 
 __all__ = [
     "AnalysisReport",
@@ -36,6 +36,8 @@ __all__ = [
     "TWBAnalyzer",
     "TWBEditor",
     "TWBValidationError",
+    "SchemaValidationResult",
+    "validate_against_schema",
     "__version__",
     "apply_twb_migration",
     "analyze_workbook",

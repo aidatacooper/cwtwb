@@ -637,6 +637,20 @@ class TWBEditor(ParametersMixin, ConnectionsMixin, ChartsMixin, DashboardsMixin)
 
         return "\n".join(lines)
 
+    def validate_schema(self) -> "SchemaValidationResult":
+        """Validate the current workbook against the official Tableau TWB XSD schema.
+
+        This check is non-destructive and does not require saving first.
+        XSD errors are reported as informational — Tableau itself occasionally
+        generates workbooks that deviate from the schema.
+
+        Returns:
+            SchemaValidationResult with validity flag, error list, and a
+            human-readable .to_text() summary.
+        """
+        from .validator import SchemaValidationResult, validate_against_schema
+        return validate_against_schema(self.root)
+
     def save(self, output_path: str | Path, validate: bool = True) -> str:
         """Save the workbook as a .twb or .twbx file.
 

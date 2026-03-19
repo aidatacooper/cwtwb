@@ -5,6 +5,17 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.15.0] - 2026-03-18
+
+### Added
+
+- **XSD schema validation** against the official Tableau TWB XSD (2026.1), vendored at `vendor/tableau-document-schemas/`:
+  - `TWBEditor.validate_schema()` — validates the in-memory workbook without saving first; returns a `SchemaValidationResult` with `valid`, `errors`, `schema_available`, and `to_text()` summary.
+  - `validate_workbook` MCP tool — validates the current open workbook (in memory) or any `.twb`/`.twbx` file on disk by path. Errors are reported as informational; Tableau itself occasionally generates workbooks that deviate from the schema.
+  - `validate_against_schema(root)` — public SDK function in `cwtwb.validator`, accepts an lxml `_Element` and returns `SchemaValidationResult`.
+  - `SchemaValidationResult` exported from the top-level `cwtwb` package.
+  - Two missing XSD imports (`http://www.tableausoftware.com/xml/user` and `http://www.w3.org/XML/1998/namespace`) resolved via local stub XSD files written to `vendor/tableau-document-schemas/schemas/2026_1/` at first use; schema is loaded once and cached for the process lifetime.
+
 ## [0.14.0] - 2026-03-17
 
 ### Added
