@@ -17,17 +17,19 @@ The goal is not "AI can draw a chart". The goal is to show a controlled
 Agentic BI workflow:
 
 ```text
-real datasource -> schema summary -> contract -> execution plan -> workbook
+real datasource -> schema summary -> analysis brief -> contract -> wireframe -> execution plan -> workbook
 ```
 
 The strongest Matthew-facing checkpoints are:
 
 1. `schema_summary.json`
-2. `contract_final.json`
-3. `execution_plan.json`
-4. `final_workbook.twb`
-5. `validation_report.json`
-6. `analysis_report.json`
+2. `analysis_brief.json`
+3. `contract_final.json`
+4. `wireframe.json`
+5. `execution_plan.json`
+6. `final_workbook.twb`
+7. `validation_report.json`
+8. `analysis_report.json`
 
 ## Demo Mode 1: Live MCP Client
 
@@ -59,21 +61,28 @@ Recommended live sequence:
 3. Let it call `intake_datasource_schema(...)`.
 4. Show the generated schema summary and confirm it.
 5. Make sure it calls `confirm_authoring_stage(..., stage="schema")`.
-6. Let it draft, review, and finalize the contract.
-7. Show the finalized contract and confirm it.
-8. Make sure it calls `confirm_authoring_stage(..., stage="contract")`.
-9. Let it build the execution plan.
-10. Show the execution plan and confirm it.
-11. Make sure it calls `confirm_authoring_stage(..., stage="execution_plan")`.
-12. Let it call `generate_workbook_from_run(...)`.
-13. End by showing the final workbook path plus validation and analysis artifacts.
+6. Let it build and finalize the analysis brief.
+7. Show the candidate directions and confirm the selected analysis direction.
+8. Make sure it calls `confirm_authoring_stage(..., stage="analysis")`.
+9. Let it draft, review, and finalize the contract.
+10. Show the finalized contract and confirm it.
+11. Make sure it calls `confirm_authoring_stage(..., stage="contract")`.
+12. Let it build and finalize the ASCII wireframe.
+13. Show the wireframe and support/workaround notes, then confirm it.
+14. Make sure it calls `confirm_authoring_stage(..., stage="wireframe")`.
+15. Let it build the execution plan.
+16. Show the execution plan and confirm it.
+17. Make sure it calls `confirm_authoring_stage(..., stage="execution_plan")`.
+18. Let it call `generate_workbook_from_run(...)`.
+19. End by showing the final workbook path plus validation and analysis artifacts.
 
 What to emphasize while speaking:
 
 - The system starts from a real Excel file, not a baked demo JSON.
-- The agent pauses at `schema`, `contract`, and `execution_plan`.
+- The agent pauses at `schema`, `analysis`, `contract`, `wireframe`, and `execution_plan`.
 - The prompts guide; the tools write files and move run state.
 - The run is resumable because artifacts live under `tmp/agentic_run/{run_id}/`.
+- The human-facing review surface is now paired Markdown artifacts, not just JSON.
 
 ## Demo Mode 2: Deterministic Real MCP Client Script
 
@@ -110,12 +119,21 @@ Typical output:
 ```text
 tmp/agentic_run/20260319-153045-a1b2c3d4/manifest.json
 tmp/agentic_run/20260319-153045-a1b2c3d4/schema_summary.20260319-153046.json
+tmp/agentic_run/20260319-153045-a1b2c3d4/schema_summary.20260319-153046.md
+tmp/agentic_run/20260319-153045-a1b2c3d4/analysis_brief.20260319-153055.json
+tmp/agentic_run/20260319-153045-a1b2c3d4/analysis_brief.20260319-153055.md
 tmp/agentic_run/20260319-153045-a1b2c3d4/contract_final.20260319-153120.json
+tmp/agentic_run/20260319-153045-a1b2c3d4/contract_final.20260319-153120.md
+tmp/agentic_run/20260319-153045-a1b2c3d4/wireframe.20260319-153140.json
+tmp/agentic_run/20260319-153045-a1b2c3d4/wireframe.20260319-153140.md
 tmp/agentic_run/20260319-153045-a1b2c3d4/execution_plan.20260319-153155.json
+tmp/agentic_run/20260319-153045-a1b2c3d4/execution_plan.20260319-153155.md
 tmp/agentic_run/20260319-153045-a1b2c3d4/final_workbook.twb
 tmp/agentic_run/20260319-153045-a1b2c3d4/validation_report.20260319-153205.json
 tmp/agentic_run/20260319-153045-a1b2c3d4/analysis_report.20260319-153206.json
 ```
 
 Use `list_authoring_runs()` and `get_run_status(run_id)` to recover a run after
-the client or server restarts.
+the client or server restarts. If generation fails, use
+`reopen_authoring_stage(run_id, stage, notes)` instead of editing run artifacts
+by hand.

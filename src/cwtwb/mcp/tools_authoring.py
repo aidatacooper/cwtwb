@@ -7,15 +7,23 @@ from pathlib import Path
 
 from ..authoring_run import (
     ARTIFACT_ANALYSIS,
+    ARTIFACT_ANALYSIS_BRIEF,
     ARTIFACT_VALIDATION,
+    ANALYSIS_STAGE,
     EXECUTION_STEP_WHITELIST,
+    EXECUTION_STAGE,
     POST_CHECK_WHITELIST,
     STATUS_ANALYZED,
     STATUS_VALIDATED,
+    WIREFRAME_STAGE,
+    build_analysis_brief as build_analysis_brief_impl,
     build_execution_plan as build_execution_plan_impl,
+    build_wireframe as build_wireframe_impl,
     confirm_authoring_stage as confirm_authoring_stage_impl,
     draft_authoring_contract as draft_authoring_contract_impl,
+    finalize_analysis_brief as finalize_analysis_brief_impl,
     finalize_authoring_contract as finalize_authoring_contract_impl,
+    finalize_wireframe as finalize_wireframe_impl,
     get_run_status as get_run_status_impl,
     intake_datasource_schema as intake_datasource_schema_impl,
     list_authoring_runs as list_authoring_runs_impl,
@@ -23,6 +31,7 @@ from ..authoring_run import (
     mark_generation_failed,
     mark_generation_started,
     mark_generation_success,
+    reopen_authoring_stage as reopen_authoring_stage_impl,
     resume_authoring_run as resume_authoring_run_impl,
     review_authoring_contract_for_run as review_authoring_contract_for_run_impl,
     start_authoring_run as start_authoring_run_impl,
@@ -75,6 +84,28 @@ def intake_datasource_schema(run_id: str, preferred_sheet: str = "") -> str:
 
 
 @server.tool()
+def build_analysis_brief(run_id: str) -> str:
+    """Build analysis_brief.json and .md with 2-4 candidate dashboard directions."""
+
+    return build_analysis_brief_impl(run_id=run_id)
+
+
+@server.tool()
+def finalize_analysis_brief(
+    run_id: str,
+    user_answers_json: str = "",
+    markdown_path: str = "",
+) -> str:
+    """Finalize analysis_brief from chat overrides or an edited Markdown review file."""
+
+    return finalize_analysis_brief_impl(
+        run_id=run_id,
+        user_answers_json=user_answers_json,
+        markdown_path=markdown_path,
+    )
+
+
+@server.tool()
 def draft_authoring_contract(run_id: str, human_brief: str, rewrite: bool = False) -> str:
     """Create a contract draft from the current schema summary plus a human brief."""
 
@@ -93,12 +124,17 @@ def review_authoring_contract_for_run(run_id: str) -> str:
 
 
 @server.tool()
-def finalize_authoring_contract(run_id: str, user_answers_json: str = "") -> str:
+def finalize_authoring_contract(
+    run_id: str,
+    user_answers_json: str = "",
+    markdown_path: str = "",
+) -> str:
     """Merge contract review defaults with human answers and persist contract_final.json."""
 
     return finalize_authoring_contract_impl(
         run_id=run_id,
         user_answers_json=user_answers_json,
+        markdown_path=markdown_path,
     )
 
 
@@ -112,6 +148,35 @@ def confirm_authoring_stage(run_id: str, stage: str, approved: bool, notes: str 
         approved=approved,
         notes=notes,
     )
+
+
+@server.tool()
+def build_wireframe(run_id: str) -> str:
+    """Build wireframe.json and .md, including an ASCII dashboard sketch."""
+
+    return build_wireframe_impl(run_id=run_id)
+
+
+@server.tool()
+def finalize_wireframe(
+    run_id: str,
+    user_answers_json: str = "",
+    markdown_path: str = "",
+) -> str:
+    """Finalize wireframe review notes or normalized actions before planning."""
+
+    return finalize_wireframe_impl(
+        run_id=run_id,
+        user_answers_json=user_answers_json,
+        markdown_path=markdown_path,
+    )
+
+
+@server.tool()
+def reopen_authoring_stage(run_id: str, stage: str, notes: str = "") -> str:
+    """Reopen analysis, contract, wireframe, or execution_plan after generation failure."""
+
+    return reopen_authoring_stage_impl(run_id=run_id, stage=stage, notes=notes)
 
 
 @server.tool()

@@ -11,8 +11,9 @@ All scripts use the **built-in Superstore dataset** — no external files needed
 
 For the newer datasource-first MCP workflow, see
 `examples/agentic_mcp_authoring/README.md`. That flow starts from a real
-Excel or Hyper file, writes run artifacts under `tmp/agentic_run/{run_id}/`,
-and is designed for human-in-the-loop dashboard authoring.
+Excel or Hyper file, writes paired JSON + Markdown review artifacts under
+`tmp/agentic_run/{run_id}/`, and is designed for human-in-the-loop dashboard
+authoring.
 
 ---
 
@@ -69,7 +70,7 @@ End-to-end examples with their own subfolders and all required assets.
 
 | Project | What it shows | How to run |
 |---------|---------------|------------|
-| `agentic_mcp_authoring/` | Datasource-first guided MCP authoring run: schema intake, contract review, human confirmation gates, execution planning, and final `.twb` generation | Start the MCP server with `python -m cwtwb.mcp` or `uvx cwtwb`, then follow `agentic_mcp_authoring/README.md` in your MCP client, or run `python examples/agentic_mcp_authoring/demo_guided_authoring_mcp_client.py` for a deterministic protocol-level demo |
+| `agentic_mcp_authoring/` | Datasource-first guided MCP authoring run: schema intake, analysis brief, contract review, ASCII wireframe, human confirmation gates, execution planning, and final `.twb` generation | Start the MCP server with `python -m cwtwb.mcp` or `uvx cwtwb`, then follow `agentic_mcp_authoring/README.md` in your MCP client, or run `python examples/agentic_mcp_authoring/demo_guided_authoring_mcp_client.py` for a deterministic protocol-level demo |
 | `superstore_recreated/` | Full recreation of Tableau's "Exec Overview" dashboard — table calculations, KPI badges, donut via `extra_axes`, Top N filters, rich-text labels | `python examples/superstore_recreated/build_exec_overview.py` |
 | `migrate_workflow/` | Migrate an existing `.twb` workbook to a new datasource with automatic field mapping and a migration report | `python examples/migrate_workflow/test_migration_workflow.py` |
 | `screenshot2layout/` | Dashboard screenshots paired with their JSON layout descriptors — useful as reference input for layout-generation workflows | Open the PNGs and JSON files directly |

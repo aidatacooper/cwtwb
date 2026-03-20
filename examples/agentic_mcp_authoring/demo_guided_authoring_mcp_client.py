@@ -4,7 +4,7 @@ This script uses the official `mcp` Python client over stdio to connect to the
 local `cwtwb` server. It is a deterministic fallback demo for the Matthew-facing
 guided authoring workflow:
 
-real datasource -> schema -> contract -> execution plan -> workbook
+real datasource -> schema -> analysis -> contract -> wireframe -> execution plan -> workbook
 """
 
 from __future__ import annotations
@@ -145,6 +145,41 @@ async def run_demo(
                 },
             )
 
+            analysis = await _call_tool(session, "build_analysis_brief", {"run_id": run_id})
+            analysis_payload = _load_json(analysis["artifact"])
+            _print_block(
+                "ANALYSIS BRIEF SNAPSHOT",
+                {
+                    "selected_direction_id": analysis_payload.get("selected_direction_id"),
+                    "selected_direction_title": analysis_payload.get("selected_direction_title"),
+                    "direction_titles": [
+                        direction.get("title")
+                        for direction in analysis_payload.get("directions", [])
+                    ],
+                },
+            )
+            await _call_tool(
+                session,
+                "finalize_analysis_brief",
+                {
+                    "run_id": run_id,
+                    "user_answers_json": json.dumps(
+                        {"selected_direction_id": "executive_overview"},
+                        ensure_ascii=False,
+                    ),
+                },
+            )
+            await _call_tool(
+                session,
+                "confirm_authoring_stage",
+                {
+                    "run_id": run_id,
+                    "stage": "analysis",
+                    "approved": True,
+                    "notes": "Executive Overview is the right direction for the demo.",
+                },
+            )
+
             await _call_tool(
                 session,
                 "draft_authoring_contract",
@@ -207,6 +242,36 @@ async def run_demo(
                     "stage": "contract",
                     "approved": True,
                     "notes": "Contract is aligned with the Matthew-facing demo.",
+                },
+            )
+
+            wireframe = await _call_tool(session, "build_wireframe", {"run_id": run_id})
+            wireframe_payload = _load_json(wireframe["artifact"])
+            _print_block(
+                "WIREFRAME SNAPSHOT",
+                {
+                    "dashboard_name": wireframe_payload.get("dashboard_name"),
+                    "actions": wireframe_payload.get("actions"),
+                    "support_notes": wireframe_payload.get("support_notes"),
+                    "ascii_wireframe": wireframe_payload.get("ascii_wireframe"),
+                },
+            )
+            await _call_tool(
+                session,
+                "finalize_wireframe",
+                {
+                    "run_id": run_id,
+                    "user_answers_json": json.dumps({}, ensure_ascii=False),
+                },
+            )
+            await _call_tool(
+                session,
+                "confirm_authoring_stage",
+                {
+                    "run_id": run_id,
+                    "stage": "wireframe",
+                    "approved": True,
+                    "notes": "Wireframe and interaction notes look good for the demo.",
                 },
             )
 

@@ -17,14 +17,19 @@ from .mcp.resources import (
 )
 from .mcp.tools_layout import generate_layout_json
 from .mcp.tools_authoring import (
+    build_analysis_brief,
     build_execution_plan,
+    build_wireframe,
     confirm_authoring_stage,
     draft_authoring_contract,
+    finalize_analysis_brief,
     finalize_authoring_contract,
+    finalize_wireframe,
     generate_workbook_from_run,
     get_run_status,
     intake_datasource_schema,
     list_authoring_runs,
+    reopen_authoring_stage,
     resume_authoring_run,
     review_authoring_contract_for_run,
     start_authoring_run,
