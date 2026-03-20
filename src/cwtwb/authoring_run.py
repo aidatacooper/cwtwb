@@ -71,6 +71,14 @@ ARTIFACT_EXECUTION_PLAN = "execution_plan"
 ARTIFACT_VALIDATION = "validation_report"
 ARTIFACT_ANALYSIS = "analysis_report"
 
+STAGE_ARTIFACT_MAP = {
+    SCHEMA_STAGE: ARTIFACT_SCHEMA,
+    ANALYSIS_STAGE: ARTIFACT_ANALYSIS_BRIEF,
+    CONTRACT_STAGE: ARTIFACT_CONTRACT_FINAL,
+    WIREFRAME_STAGE: ARTIFACT_WIREFRAME,
+    EXECUTION_STAGE: ARTIFACT_EXECUTION_PLAN,
+}
+
 ARTIFACT_KEYS = (
     ARTIFACT_SCHEMA,
     ARTIFACT_ANALYSIS_BRIEF,
@@ -81,6 +89,98 @@ ARTIFACT_KEYS = (
     ARTIFACT_EXECUTION_PLAN,
     ARTIFACT_VALIDATION,
     ARTIFACT_ANALYSIS,
+)
+
+REOPEN_STATUS_ALLOWED = {
+    ANALYSIS_STAGE: (
+        STATUS_ANALYSIS_CONFIRMED,
+        STATUS_CONTRACT_DRAFTED,
+        STATUS_CONTRACT_REVIEWED,
+        STATUS_CONTRACT_FINALIZED,
+        STATUS_CONTRACT_CONFIRMED,
+        STATUS_WIREFRAME_BUILT,
+        STATUS_WIREFRAME_FINALIZED,
+        STATUS_WIREFRAME_CONFIRMED,
+        STATUS_EXECUTION_PLANNED,
+        STATUS_EXECUTION_CONFIRMED,
+        STATUS_GENERATION_FAILED,
+        STATUS_GENERATED,
+        STATUS_VALIDATED,
+        STATUS_ANALYZED,
+    ),
+    CONTRACT_STAGE: (
+        STATUS_CONTRACT_CONFIRMED,
+        STATUS_WIREFRAME_BUILT,
+        STATUS_WIREFRAME_FINALIZED,
+        STATUS_WIREFRAME_CONFIRMED,
+        STATUS_EXECUTION_PLANNED,
+        STATUS_EXECUTION_CONFIRMED,
+        STATUS_GENERATION_FAILED,
+        STATUS_GENERATED,
+        STATUS_VALIDATED,
+        STATUS_ANALYZED,
+    ),
+    WIREFRAME_STAGE: (
+        STATUS_WIREFRAME_CONFIRMED,
+        STATUS_EXECUTION_PLANNED,
+        STATUS_EXECUTION_CONFIRMED,
+        STATUS_GENERATION_FAILED,
+        STATUS_GENERATED,
+        STATUS_VALIDATED,
+        STATUS_ANALYZED,
+    ),
+    EXECUTION_STAGE: (
+        STATUS_EXECUTION_CONFIRMED,
+        STATUS_GENERATION_FAILED,
+        STATUS_GENERATED,
+        STATUS_VALIDATED,
+        STATUS_ANALYZED,
+    ),
+}
+
+DOWNSTREAM_ARTIFACTS = {
+    ANALYSIS_STAGE: (
+        ARTIFACT_CONTRACT_DRAFT,
+        ARTIFACT_CONTRACT_REVIEW,
+        ARTIFACT_CONTRACT_FINAL,
+        ARTIFACT_WIREFRAME,
+        ARTIFACT_EXECUTION_PLAN,
+        ARTIFACT_VALIDATION,
+        ARTIFACT_ANALYSIS,
+    ),
+    CONTRACT_STAGE: (
+        ARTIFACT_WIREFRAME,
+        ARTIFACT_EXECUTION_PLAN,
+        ARTIFACT_VALIDATION,
+        ARTIFACT_ANALYSIS,
+    ),
+    WIREFRAME_STAGE: (
+        ARTIFACT_EXECUTION_PLAN,
+        ARTIFACT_VALIDATION,
+        ARTIFACT_ANALYSIS,
+    ),
+    EXECUTION_STAGE: (
+        ARTIFACT_VALIDATION,
+        ARTIFACT_ANALYSIS,
+    ),
+}
+
+SCOPE_CHANGE_NOTE_PREFIXES = (
+    "add ",
+    "add a ",
+    "add an ",
+    "add another ",
+    "additional ",
+    "include ",
+    "include a ",
+    "include another ",
+    "new ",
+)
+SCOPE_CHANGE_NOTE_OBJECTS = (
+    "worksheet",
+    "sheet",
+    "chart",
+    "view",
 )
 
 EXECUTION_STEP_WHITELIST = (
@@ -170,6 +270,7 @@ def _default_manifest(
         "updated_at": now,
         "selected_primary_object": "",
         "artifacts": {key: _new_artifact_state() for key in ARTIFACT_KEYS},
+        "pending_confirmation": {},
         "final_workbook": "",
         "approvals_file": APPROVALS_NAME,
         "last_error": {},
@@ -202,6 +303,8 @@ def _write_text(path: Path, content: str) -> None:
 def _load_index(root_dir: Path) -> dict[str, Any]:
     index_path = _index_path(root_dir)
     if not index_path.exists():
+        return {"runs": {}}
+    if index_path.stat().st_size == 0:
         return {"runs": {}}
     return _read_json(index_path)
 
@@ -290,6 +393,23 @@ def _current_review_artifact_path(manifest: dict[str, Any], artifact_key: str) -
     return path
 
 
+def _clear_current_artifact(manifest: dict[str, Any], artifact_key: str) -> None:
+    entry = _artifact_entry(manifest, artifact_key)
+    entry["current"] = ""
+    entry["review_current"] = ""
+
+
+def _invalidate_downstream_artifacts(manifest: dict[str, Any], stage: str) -> list[str]:
+    cleared: list[str] = []
+    for artifact_key in DOWNSTREAM_ARTIFACTS.get(stage, ()):
+        entry = _artifact_entry(manifest, artifact_key)
+        if entry.get("current") or entry.get("review_current"):
+            cleared.append(artifact_key)
+        _clear_current_artifact(manifest, artifact_key)
+    manifest["final_workbook"] = ""
+    return cleared
+
+
 def _load_approvals(manifest: dict[str, Any]) -> dict[str, Any]:
     approvals_path = Path(manifest["run_dir"]) / APPROVALS_NAME
     if not approvals_path.exists():
@@ -309,11 +429,14 @@ def _update_manifest(
     *,
     status: str | None = None,
     last_error: dict[str, Any] | None = None,
+    pending_confirmation: dict[str, Any] | None = None,
 ) -> None:
     if status is not None:
         manifest["status"] = status
     if last_error is not None:
         manifest["last_error"] = last_error
+    if pending_confirmation is not None:
+        manifest["pending_confirmation"] = pending_confirmation
     manifest["updated_at"] = _now_iso()
     manifest_path = Path(manifest["run_dir"]) / MANIFEST_NAME
     _write_json(manifest_path, manifest)
@@ -348,6 +471,65 @@ def _require_status(manifest: dict[str, Any], allowed: tuple[str, ...], action: 
             f"Cannot {action} while run '{manifest['run_id']}' is in status "
             f"'{manifest['status']}'. Allowed: {', '.join(allowed)}"
         )
+
+
+def _current_stage_artifact_name(manifest: dict[str, Any], stage: str) -> str:
+    artifact_key = STAGE_ARTIFACT_MAP[stage]
+    return _artifact_entry(manifest, artifact_key).get("current", "")
+
+
+def _current_stage_review_artifact_name(manifest: dict[str, Any], stage: str) -> str:
+    artifact_key = STAGE_ARTIFACT_MAP[stage]
+    return _artifact_entry(manifest, artifact_key).get("review_current", "")
+
+
+def request_stage_confirmation(
+    run_id: str,
+    stage: str,
+    *,
+    confirmation_mode: str,
+    requested_via: str = "interactive_stage_confirmation",
+) -> dict[str, Any]:
+    """Persist a pending human confirmation request for one guided stage."""
+
+    if stage not in CONFIRMABLE_STAGES:
+        raise ValueError(
+            f"Unsupported stage '{stage}'. Expected one of: {', '.join(sorted(CONFIRMABLE_STAGES))}"
+        )
+
+    manifest = _load_manifest_by_id(run_id)
+    artifact = _current_stage_artifact_name(manifest, stage)
+    if not artifact:
+        raise RuntimeError(f"Cannot request confirmation for '{stage}' before its artifact exists.")
+
+    pending = {
+        "stage": stage,
+        "artifact": artifact,
+        "review_artifact": _current_stage_review_artifact_name(manifest, stage),
+        "requested_at": _now_iso(),
+        "current_status": manifest.get("status", ""),
+        "confirmation_mode": confirmation_mode,
+        "requested_via": requested_via,
+    }
+    _update_manifest(manifest, pending_confirmation=pending)
+    return pending
+
+
+def _require_pending_confirmation(manifest: dict[str, Any], stage: str) -> dict[str, Any]:
+    pending = manifest.get("pending_confirmation", {}) or {}
+    if pending.get("stage") != stage:
+        raise RuntimeError(
+            "confirm_authoring_stage requires a fresh interactive_stage_confirmation request "
+            f"for stage '{stage}' before approval can be recorded."
+        )
+
+    expected_artifact = _current_stage_artifact_name(manifest, stage)
+    if pending.get("artifact") != expected_artifact:
+        raise RuntimeError(
+            f"The pending confirmation for stage '{stage}' is stale. "
+            "Re-run interactive_stage_confirmation after the latest stage artifact is finalized."
+        )
+    return pending
 
 
 def _sanitize_header(value: Any, index: int, seen: dict[str, int], notes: list[str]) -> str:
@@ -1364,9 +1546,18 @@ def _build_wireframe_payload(
 ) -> dict[str, Any]:
     field_candidates = schema_summary.get("field_candidates", {})
     constraints = contract.get("constraints", {})
+    worksheet_names = _contract_worksheet_names(contract)
     primary_view = _worksheet_by_priority(contract, "primary") or {"name": "Primary View", "question": ""}
     detail_view = _worksheet_by_priority(contract, "detail") or {"name": "Detail View", "question": ""}
     summary_view = _worksheet_by_priority(contract, "summary") or {"name": "Summary View", "question": ""}
+    summary_name = summary_view.get("name", "Summary View")
+    primary_name = primary_view.get("name", "Primary View")
+    detail_name = detail_view.get("name", "Detail View")
+    auxiliary_worksheets = [
+        name
+        for name in worksheet_names
+        if name not in {str(summary_name), str(primary_name), str(detail_name)}
+    ]
     filters = constraints.get("filters", []) or _suggest_filters(field_candidates)
     actions = _normalize_wireframe_actions(contract, field_candidates)
     support_notes = [action["note"] for action in actions if action.get("note")]
@@ -1378,12 +1569,22 @@ def _build_wireframe_payload(
         "",
         "KPI Zone: " + " | ".join((constraints.get("kpis", []) or ["(define KPIs)"])[:4]),
         "",
-        f"Primary View: {primary_view.get('name', 'Primary View')}",
+        f"Primary View: {primary_name}",
         str(primary_view.get("question", "")),
         "",
-        f"Detail View: {detail_view.get('name', 'Detail View')}",
+        f"Detail View: {detail_name}",
         str(detail_view.get("question", "")),
         "",
+    ]
+    if auxiliary_worksheets:
+        ascii_lines.extend(
+            [
+                "Additional Views: " + " | ".join(auxiliary_worksheets),
+                "",
+            ]
+        )
+    ascii_lines.extend(
+        [
         "Filters: " + " | ".join(filters or ["(none)"]),
         "Actions: " + " ; ".join(
             [
@@ -1393,16 +1594,19 @@ def _build_wireframe_payload(
             or ["(none)"]
         ),
         "Notes: " + " ; ".join(support_notes),
-    ]
+        ]
+    )
 
     return {
         "run_id": run_id,
         "dashboard_name": contract.get("dashboard", {}).get("name", "Analytical Dashboard"),
+        "worksheet_names": worksheet_names,
         "zones": {
             "title_zone": contract.get("dashboard", {}).get("name", "Analytical Dashboard"),
-            "summary_zone": summary_view.get("name", "Summary View"),
-            "primary_zone": primary_view.get("name", "Primary View"),
-            "detail_zone": detail_view.get("name", "Detail View"),
+            "summary_zone": summary_name,
+            "primary_zone": primary_name,
+            "detail_zone": detail_name,
+            "secondary_zones": auxiliary_worksheets,
             "filter_zone": filters,
         },
         "actions": actions,
@@ -1550,6 +1754,7 @@ def get_run_status(run_id: str) -> str:
         updated_at=manifest.get("updated_at", ""),
         artifacts=manifest.get("artifacts", {}),
         artifacts_present=_artifact_names(manifest),
+        pending_confirmation=manifest.get("pending_confirmation", {}),
         final_workbook=manifest.get("final_workbook", ""),
         last_error=manifest.get("last_error", {}),
     )
@@ -1861,6 +2066,7 @@ def confirm_authoring_stage(run_id: str, stage: str, approved: bool, notes: str 
         )
 
     manifest = _load_manifest_by_id(run_id)
+    _require_pending_confirmation(manifest, stage)
     stage_current: dict[str, Any] = {}
     if stage == SCHEMA_STAGE:
         _require_status(manifest, (STATUS_SCHEMA_INTAKED,), "confirm schema")
@@ -1937,7 +2143,7 @@ def confirm_authoring_stage(run_id: str, stage: str, approved: bool, notes: str 
         }
     )
     _save_approvals(manifest, approvals)
-    _update_manifest(manifest, status=next_status, last_error={})
+    _update_manifest(manifest, status=next_status, last_error={}, pending_confirmation={})
     return _json_response(
         run_id=run_id,
         status=manifest["status"],
@@ -1949,7 +2155,7 @@ def confirm_authoring_stage(run_id: str, stage: str, approved: bool, notes: str 
 
 
 def reopen_authoring_stage(run_id: str, stage: str, notes: str = "") -> str:
-    """Reopen one editable guided-run stage after a generation failure."""
+    """Reopen one editable guided-run stage after confirmation or a generation failure."""
 
     if stage not in {ANALYSIS_STAGE, CONTRACT_STAGE, WIREFRAME_STAGE, EXECUTION_STAGE}:
         raise ValueError(
@@ -1957,23 +2163,19 @@ def reopen_authoring_stage(run_id: str, stage: str, notes: str = "") -> str:
         )
 
     manifest = _load_manifest_by_id(run_id)
-    _require_status(manifest, (STATUS_GENERATION_FAILED,), "reopen authoring stage")
+    _require_status(manifest, REOPEN_STATUS_ALLOWED[stage], "reopen authoring stage")
     status_map = {
         ANALYSIS_STAGE: STATUS_ANALYSIS_FINALIZED,
         CONTRACT_STAGE: STATUS_CONTRACT_FINALIZED,
         WIREFRAME_STAGE: STATUS_WIREFRAME_FINALIZED,
         EXECUTION_STAGE: STATUS_EXECUTION_PLANNED,
     }
-    artifact_map = {
-        ANALYSIS_STAGE: ARTIFACT_ANALYSIS_BRIEF,
-        CONTRACT_STAGE: ARTIFACT_CONTRACT_FINAL,
-        WIREFRAME_STAGE: ARTIFACT_WIREFRAME,
-        EXECUTION_STAGE: ARTIFACT_EXECUTION_PLAN,
-    }
-    artifact_name = _artifact_entry(manifest, artifact_map[stage]).get("current", "")
+    artifact_name = _artifact_entry(manifest, STAGE_ARTIFACT_MAP[stage]).get("current", "")
     if not artifact_name:
         raise RuntimeError(f"Cannot reopen '{stage}' because no current artifact exists for that stage.")
 
+    previous_status = manifest.get("status", "")
+    cleared_artifacts = _invalidate_downstream_artifacts(manifest, stage)
     approvals = _load_approvals(manifest)
     approvals.setdefault("events", []).append(
         {
@@ -1983,16 +2185,20 @@ def reopen_authoring_stage(run_id: str, stage: str, notes: str = "") -> str:
             "timestamp": _now_iso(),
             "artifact": artifact_name,
             "event_type": "reopen",
+            "previous_status": previous_status,
+            "cleared_artifacts": cleared_artifacts,
         }
     )
     _save_approvals(manifest, approvals)
-    _update_manifest(manifest, status=status_map[stage], last_error={})
+    _update_manifest(manifest, status=status_map[stage], last_error={}, pending_confirmation={})
     return _json_response(
         run_id=run_id,
         status=manifest["status"],
         stage=stage,
         artifact=artifact_name,
         notes=notes,
+        previous_status=previous_status,
+        cleared_artifacts=cleared_artifacts,
     )
 
 
@@ -2093,6 +2299,116 @@ def _choose_default_action_sheets(
     return primary_name, detail_name
 
 
+def _contract_worksheet_names(contract: dict[str, Any]) -> list[str]:
+    names: list[str] = []
+    seen: set[str] = set()
+    for worksheet in contract.get("worksheets", []):
+        if not isinstance(worksheet, dict):
+            continue
+        name = str(worksheet.get("name", "")).strip()
+        if not name:
+            continue
+        if name in seen:
+            raise RuntimeError(
+                f"Contract contains duplicate worksheet name '{name}'. "
+                "Reopen the contract stage and make worksheet names unique before planning."
+            )
+        seen.add(name)
+        names.append(name)
+    if not names:
+        raise RuntimeError(
+            "The confirmed contract does not contain any worksheets to plan. "
+            "Reopen the contract stage and add at least one worksheet."
+        )
+    return names
+
+
+def _wireframe_mentions_new_scope(wireframe: dict[str, Any]) -> list[str]:
+    flagged: list[str] = []
+    for note in wireframe.get("support_notes", []):
+        text = str(note).strip()
+        lower = text.casefold()
+        if not lower:
+            continue
+        if any(prefix in lower for prefix in SCOPE_CHANGE_NOTE_PREFIXES) and any(
+            obj in lower for obj in SCOPE_CHANGE_NOTE_OBJECTS
+        ):
+            flagged.append(text)
+    return flagged
+
+
+def _validate_execution_scope(contract: dict[str, Any], wireframe: dict[str, Any]) -> list[str]:
+    contract_names = _contract_worksheet_names(contract)
+    contract_name_set = set(contract_names)
+    errors: list[str] = []
+
+    wireframe_names = _unique_strings(
+        [
+            str(name).strip()
+            for name in wireframe.get("worksheet_names", [])
+            if isinstance(name, str) and str(name).strip()
+        ]
+    )
+    if wireframe_names:
+        extras = [name for name in wireframe_names if name not in contract_name_set]
+        missing = [name for name in contract_names if name not in set(wireframe_names)]
+        if extras or missing:
+            details: list[str] = []
+            if extras:
+                details.append("extra worksheets in wireframe: " + ", ".join(extras))
+            if missing:
+                details.append("missing worksheets from wireframe: " + ", ".join(missing))
+            errors.append(
+                "Wireframe scope no longer matches the confirmed contract (" + "; ".join(details) + ")."
+            )
+
+    zones = wireframe.get("zones", {}) if isinstance(wireframe.get("zones", {}), dict) else {}
+    for key in ("summary_zone", "primary_zone", "detail_zone"):
+        name = str(zones.get(key, "")).strip()
+        if name and name not in contract_name_set:
+            errors.append(
+                f"Wireframe zone '{key}' points to worksheet '{name}', which is not in the confirmed contract."
+            )
+    secondary = zones.get("secondary_zones", [])
+    secondary_names = secondary if isinstance(secondary, list) else [secondary]
+    for name in _unique_strings([str(item).strip() for item in secondary_names if str(item).strip()]):
+        if name not in contract_name_set:
+            errors.append(
+                f"Wireframe secondary zone '{name}' is not in the confirmed contract."
+            )
+
+    for action in wireframe.get("actions", []):
+        if not isinstance(action, dict) or action.get("support_level") == "unsupported":
+            continue
+        action_type = str(action.get("type", "")).strip().casefold()
+        source = str(action.get("source", "")).strip()
+        target = str(action.get("target", "")).strip()
+        if source and source not in contract_name_set:
+            errors.append(
+                f"Wireframe action source '{source}' is not in the confirmed contract."
+            )
+        if action_type == "filter" and target and target not in contract_name_set:
+            errors.append(
+                f"Wireframe action target '{target}' is not in the confirmed contract."
+            )
+
+    scope_drift_notes = _wireframe_mentions_new_scope(wireframe)
+    if scope_drift_notes:
+        errors.append(
+            "Wireframe notes are requesting new worksheets or views after contract confirmation: "
+            + "; ".join(scope_drift_notes)
+        )
+
+    if errors:
+        raise RuntimeError(
+            "Execution plan scope drift detected. "
+            + " ".join(errors)
+            + " Reopen the contract stage and update the confirmed contract before rebuilding the wireframe or execution plan."
+        )
+
+    return contract_names
+
+
 def build_execution_plan(run_id: str) -> str:
     """Create a mechanical MCP tool sequence from the current final contract."""
 
@@ -2101,6 +2417,7 @@ def build_execution_plan(run_id: str) -> str:
     contract = _load_current_artifact(manifest, ARTIFACT_CONTRACT_FINAL)
     schema_summary = _load_current_artifact(manifest, ARTIFACT_SCHEMA)
     wireframe = _load_current_artifact(manifest, ARTIFACT_WIREFRAME)
+    worksheet_names = _validate_execution_scope(contract, wireframe)
     field_candidates = schema_summary.get("field_candidates", {})
     available_fields = [field["name"] for field in schema_summary.get("fields", [])]
     workbook_template = contract.get("workbook_template", "") or ""
@@ -2146,14 +2463,12 @@ def build_execution_plan(run_id: str) -> str:
 
     steps.extend(_plan_calculated_fields(contract, available_fields))
 
-    worksheet_names: list[str] = []
     for worksheet in contract.get("worksheets", []):
         if not isinstance(worksheet, dict):
             continue
         name = str(worksheet.get("name", "")).strip()
         if not name:
             continue
-        worksheet_names.append(name)
         steps.append({"tool": "add_worksheet", "args": {"worksheet_name": name}})
         steps.append(_build_chart_step(worksheet, field_candidates))
         caption = str(worksheet.get("question", "")).strip()

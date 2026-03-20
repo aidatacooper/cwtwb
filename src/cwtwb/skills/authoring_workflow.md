@@ -39,10 +39,13 @@ only generate the workbook after the required confirmation gates have passed.
 - **Datasource before contract**: Always inspect the datasource first.
 - **Respect the gates**: Do not continue past `schema`, `analysis`, `contract`, `wireframe`, or `execution_plan` until the human approves.
 - **Prefer protocol confirmations**: Use `interactive_stage_confirmation(...)` first so supporting clients can surface MCP elicitation. If the tool falls back to chat, then ask the human in chat and call `confirm_authoring_stage(...)` with the explicit answer.
+- **Fresh request per revision**: After any new `finalize_*` or rebuilt stage artifact, trigger a fresh `interactive_stage_confirmation(...)` before trying to confirm that stage again.
+- **Reopen scope formally**: If the human adds a new worksheet, KPI, or core interaction after `contract` is confirmed, reopen `contract` before continuing. Do not hide contract-scope changes in `wireframe` notes.
 - **Artifacts matter**: Every major stage should write a run artifact under `tmp/agentic_run/{run_id}/`, and the human-facing stages should also write a paired Markdown review file.
 - **Prompts guide, tools persist**: Use MCP prompts to reason and tools to write files or change run state.
 - **Prefer small clarifications**: Ask only the minimum questions needed to make the contract executable.
 - **Hard-stop on failures**: If a guided-run tool fails, stop, call `get_run_status(run_id)`, explain `last_error`, and ask whether to reopen `analysis`, `contract`, `wireframe`, or `execution_plan`.
+- **Keep plan scope honest**: `build_execution_plan(...)` only accepts a wireframe that still matches the confirmed contract. If scope drift appears, reopen `contract` and rebuild downstream stages.
 - **Do not hand-edit run artifacts**: Never directly edit files under `tmp/agentic_run/{run_id}/`.
 - **Do not auto-fallback**: Do not switch to low-level workbook tools unless the human explicitly asks to leave guided mode.
 

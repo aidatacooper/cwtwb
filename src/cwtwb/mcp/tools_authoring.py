@@ -45,6 +45,7 @@ from ..authoring_run import (
     mark_generation_started,
     mark_generation_success,
     reopen_authoring_stage as reopen_authoring_stage_impl,
+    request_stage_confirmation as request_stage_confirmation_impl,
     resume_authoring_run as resume_authoring_run_impl,
     review_authoring_contract_for_run as review_authoring_contract_for_run_impl,
     start_authoring_run as start_authoring_run_impl,
@@ -281,6 +282,11 @@ async def interactive_stage_confirmation(
     review_artifact, current_status = _review_artifact_for_stage(run_id, stage)
     capabilities = _client_interaction_capabilities(ctx)
     if not capabilities["form_elicitation_supported"] or ctx is None:
+        request_stage_confirmation_impl(
+            run_id=run_id,
+            stage=stage,
+            confirmation_mode="chat_fallback",
+        )
         return _chat_fallback_payload(
             run_id=run_id,
             stage=stage,
@@ -299,6 +305,11 @@ async def interactive_stage_confirmation(
         f"Review artifact: {review_artifact}\n"
         "Submit approved=true to continue, or approved=false to keep iterating on this stage. "
         "Use notes for any requested changes."
+    )
+    request_stage_confirmation_impl(
+        run_id=run_id,
+        stage=stage,
+        confirmation_mode="elicitation",
     )
 
     try:
@@ -378,7 +389,7 @@ def finalize_wireframe(
 
 @server.tool()
 def reopen_authoring_stage(run_id: str, stage: str, notes: str = "") -> str:
-    """Reopen analysis, contract, wireframe, or execution_plan after generation failure."""
+    """Reopen analysis, contract, wireframe, or execution_plan after confirmation or generation failure."""
 
     return reopen_authoring_stage_impl(run_id=run_id, stage=stage, notes=notes)
 

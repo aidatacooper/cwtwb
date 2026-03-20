@@ -71,6 +71,18 @@ def _start_run() -> dict:
     return payload
 
 
+def _request_confirmation(run_id: str, stage: str) -> dict:
+    return json.loads(
+        asyncio.run(
+            interactive_stage_confirmation(
+                run_id=run_id,
+                stage=stage,
+                stage_summary=f"Test confirmation request for {stage}.",
+            )
+        )
+    )
+
+
 def _approve_schema(run_id: str) -> dict:
     intake_payload = json.loads(intake_datasource_schema(run_id))
     schema_path = Path(intake_payload["artifact"])
@@ -79,6 +91,7 @@ def _approve_schema(run_id: str) -> dict:
         preferred = schema_summary["sheets"][0]["name"]
         intake_payload = json.loads(intake_datasource_schema(run_id, preferred_sheet=preferred))
         schema_summary = _load_json(intake_payload["artifact"])
+    _request_confirmation(run_id, "schema")
     confirm_authoring_stage(run_id, "schema", True, "Schema looks correct.")
     return schema_summary
 
@@ -98,6 +111,7 @@ def _approve_analysis(run_id: str, selected_direction_id: str = "") -> dict:
             user_answers_json=overrides,
         )
     )
+    _request_confirmation(run_id, "analysis")
     confirm_authoring_stage(run_id, "analysis", True, "Analysis direction approved.")
     return _load_json(finalized["artifact"])
 
@@ -123,6 +137,7 @@ def _finalize_contract(
         markdown_path.write_text(markdown_payload, encoding="utf-8")
         kwargs["markdown_path"] = str(markdown_path)
     finalized = json.loads(finalize_authoring_contract(**kwargs))
+    _request_confirmation(run_id, "contract")
     confirm_authoring_stage(run_id, "contract", True, "Contract approved.")
     return _load_json(finalized["artifact"])
 
@@ -138,6 +153,7 @@ def _approve_wireframe(run_id: str, overrides: dict | None = None) -> dict:
             user_answers_json=json.dumps(overrides or {}, ensure_ascii=False),
         )
     )
+    _request_confirmation(run_id, "wireframe")
     confirm_authoring_stage(run_id, "wireframe", True, "Wireframe approved.")
     return _load_json(finalized["artifact"])
 
@@ -377,6 +393,7 @@ class TestAuthoringRunLifecycle:
             finalize_analysis_brief(run_id, markdown_path=str(override_path))
         )
         assert finalized["selected_direction_id"] == second_id
+        _request_confirmation(run_id, "analysis")
         confirm_authoring_stage(run_id, "analysis", True, "Analysis approved from markdown.")
 
     def test_contract_can_be_rewritten_after_rejection(self):
@@ -387,6 +404,7 @@ class TestAuthoringRunLifecycle:
         draft_authoring_contract(run_id, "Build a regional sales dashboard.")
         review_authoring_contract_for_run(run_id)
         finalize_authoring_contract(run_id)
+        _request_confirmation(run_id, "contract")
         confirm_authoring_stage(run_id, "contract", False, "Please rewrite from scratch.")
 
         rewrite = json.loads(
@@ -515,6 +533,85 @@ class TestAuthoringRunLifecycle:
         assert action_step["args"]["fields"] == ["Region"]
         assert "read-only" in review_text
 
+    def test_confirm_authoring_stage_requires_fresh_interactive_request(self):
+        run = _start_run()
+        run_id = run["run_id"]
+
+        intake_datasource_schema(run_id)
+        with pytest.raises(RuntimeError, match="interactive_stage_confirmation"):
+            confirm_authoring_stage(run_id, "schema", True, "Skipping the interactive request should fail.")
+
+    def test_reopen_contract_after_confirmation_clears_downstream_scope(self):
+        run = _start_run()
+        run_id = run["run_id"]
+
+        _approve_schema(run_id)
+        _approve_analysis(run_id, selected_direction_id="executive_overview")
+        _draft_contract(run_id, _full_brief())
+        _finalize_contract(
+            run_id,
+            user_answers={
+                "audience": "Sales leaders",
+                "primary_question": "Which regions need attention first?",
+                "require_interaction": True,
+            },
+        )
+        _approve_wireframe(run_id)
+        build_execution_plan(run_id)
+
+        reopened = json.loads(
+            reopen_authoring_stage(
+                run_id,
+                "contract",
+                "Add a Sales by Segment worksheet before execution.",
+            )
+        )
+        assert reopened["status"] == "contract_finalized"
+        assert reopened["previous_status"] == "execution_planned"
+        assert "wireframe" in reopened["cleared_artifacts"]
+        assert "execution_plan" in reopened["cleared_artifacts"]
+
+        status = json.loads(get_run_status(run_id))
+        assert status["status"] == "contract_finalized"
+        assert status["artifacts"]["wireframe"]["current"] == ""
+        assert status["artifacts"]["execution_plan"]["current"] == ""
+        assert status["pending_confirmation"] == {}
+
+    def test_execution_plan_rejects_wireframe_scope_drift(self):
+        run = _start_run()
+        run_id = run["run_id"]
+
+        _approve_schema(run_id)
+        _approve_analysis(run_id, selected_direction_id="executive_overview")
+        _draft_contract(run_id, _full_brief())
+        _finalize_contract(
+            run_id,
+            user_answers={
+                "audience": "Sales leaders",
+                "primary_question": "Which regions need attention first?",
+                "require_interaction": True,
+            },
+        )
+
+        built = json.loads(build_wireframe(run_id))
+        assert Path(built["artifact"]).exists()
+        finalize_wireframe(
+            run_id,
+            user_answers_json=json.dumps(
+                {
+                    "support_notes": [
+                        "Add a Sales by Segment bar chart as an additional worksheet alongside the existing views."
+                    ]
+                },
+                ensure_ascii=False,
+            ),
+        )
+        _request_confirmation(run_id, "wireframe")
+        confirm_authoring_stage(run_id, "wireframe", True, "Wireframe approved.")
+
+        with pytest.raises(RuntimeError, match="Reopen the contract stage"):
+            build_execution_plan(run_id)
+
     def test_full_guided_run_generates_workbook_and_reports(self):
         run = _start_run()
         run_id = run["run_id"]
@@ -537,6 +634,7 @@ class TestAuthoringRunLifecycle:
 
         plan = json.loads(build_execution_plan(run_id))
         assert plan["status"] == "execution_planned"
+        _request_confirmation(run_id, "execution_plan")
         confirm_authoring_stage(run_id, "execution_plan", True, "Execution plan approved.")
 
         generated = json.loads(generate_workbook_from_run(run_id))
@@ -583,6 +681,7 @@ class TestAuthoringRunLifecycle:
         plan_payload["steps"][1]["tool"] = "save_workbook"
         plan_path.write_text(json.dumps(plan_payload, ensure_ascii=False, indent=2), encoding="utf-8")
 
+        _request_confirmation(run_id, "execution_plan")
         confirm_authoring_stage(run_id, "execution_plan", True, "Approve the broken plan for failure coverage.")
         with pytest.raises(RuntimeError):
             generate_workbook_from_run(run_id)
