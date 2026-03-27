@@ -3,6 +3,8 @@
 > **Tableau Workbook (.twb/.twbx) generation toolkit for reproducible dashboards and workbook engineering**
 > Programmatically create Tableau workbooks with stable analytical primitives, dashboard composition, and built-in structural validation.
 
+**Author:** Cooper Wenhua &lt;imgwho@gmail.com&gt;
+
 ## Overview
 
 **cwtwb** is a Model Context Protocol (MCP) server and Python toolkit for generating Tableau Desktop workbook files (`.twb` / `.twbx`) from code or AI-driven tool calls.
