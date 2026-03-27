@@ -1,10 +1,10 @@
-﻿"""Canonical capability catalog for cwtwb.
+from __future__ import annotations
+
+"""Canonical capability catalog for cwtwb.
 
 This module defines the project's explicit capability boundary so the SDK,
 MCP tools, docs, and tests can reference the same source of truth.
 """
-
-from __future__ import annotations
 
 from dataclasses import dataclass
 from typing import Literal, Optional

@@ -1,12 +1,12 @@
-﻿"""Read-only capability analysis for existing Tableau workbooks.
+from __future__ import annotations
+
+"""Read-only capability analysis for existing Tableau workbooks.
 
 The analyzer parses a TWB file and maps detected XML features to cwtwb's
 capability registry (core/advanced/recipe/unsupported). It is used by MCP
 tools to judge template fit, surface migration risks, and explain why a
 workbook is or is not a good support target.
 """
-
-from __future__ import annotations
 
 from dataclasses import dataclass, field
 from pathlib import Path
