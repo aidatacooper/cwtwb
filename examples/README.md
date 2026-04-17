@@ -74,6 +74,7 @@ End-to-end examples with their own subfolders and all required assets.
 | `agentic_mcp_authoring/` | Datasource-first guided MCP authoring run: schema intake, analysis brief, contract review, ASCII wireframe, human confirmation gates, execution planning, and final `.twb` generation | Start the MCP server with `python -m cwtwb.mcp` or `uvx cwtwb`, then follow `agentic_mcp_authoring/README.md` in your MCP client, or run `python examples/agentic_mcp_authoring/demo_guided_authoring_mcp_client.py` for a deterministic protocol-level demo |
 | `superstore_recreated/` | Full recreation of Tableau's "Exec Overview" dashboard — table calculations, KPI badges, donut via `extra_axes`, Top N filters, rich-text labels | `python examples/superstore_recreated/build_exec_overview.py` |
 | `migrate_workflow/` | Migrate an existing `.twb` workbook to a new datasource with automatic field mapping and a migration report | `python examples/migrate_workflow/test_migration_workflow.py` |
+| `worksheet_refactor_kpi_profit/` | Clone the `1. KPI` worksheet, refactor its calculation chain from Sales to Profit, and write an output workbook with a visible `1. KPI Profit` worksheet | `python examples/worksheet_refactor_kpi_profit/generate_example.py` |
 | `screenshot2layout/` | Dashboard screenshots paired with their JSON layout descriptors — useful as reference input for layout-generation workflows | Open the PNGs and JSON files directly |
 
 ---

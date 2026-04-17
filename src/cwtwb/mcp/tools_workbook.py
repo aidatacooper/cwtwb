@@ -191,6 +191,48 @@ def add_worksheet(worksheet_name: str) -> str:
 
 
 @server.tool()
+def clone_worksheet(source_worksheet: str, target_worksheet: str) -> str:
+    """Clone an existing worksheet and its worksheet window."""
+
+    editor = get_editor()
+    return editor.clone_worksheet(source_worksheet, target_worksheet)
+
+
+@server.tool()
+def preview_worksheet_refactor(
+    worksheet_name: str,
+    replacements: dict[str, str],
+) -> str:
+    """Preview worksheet-scoped field rewrites without mutating the workbook."""
+
+    import json
+
+    editor = get_editor()
+    return json.dumps(
+        editor.preview_worksheet_refactor(worksheet_name, replacements),
+        ensure_ascii=False,
+        indent=2,
+    )
+
+
+@server.tool()
+def apply_worksheet_refactor(
+    worksheet_name: str,
+    replacements: dict[str, str],
+) -> str:
+    """Rewrite one worksheet to use replacement fields without touching others."""
+
+    import json
+
+    editor = get_editor()
+    return json.dumps(
+        editor.apply_worksheet_refactor(worksheet_name, replacements),
+        ensure_ascii=False,
+        indent=2,
+    )
+
+
+@server.tool()
 def set_worksheet_caption(worksheet_name: str, caption: str) -> str:
     """Set or clear a plain-text worksheet caption."""
 

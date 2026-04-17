@@ -16,8 +16,9 @@ import io
 import logging
 import re
 import zipfile
+from dataclasses import asdict, dataclass
 from pathlib import Path
-from typing import Optional
+from typing import Any, Optional
 
 from lxml import etree
 
@@ -34,6 +35,23 @@ _AGGREGATE_FUNCTION_RE = re.compile(
     r"\b(SUM|AVG|COUNT|COUNTD|MIN|MAX|MEDIAN|ATTR)\s*\(",
     re.IGNORECASE,
 )
+_FIELD_TOKEN_RE = re.compile(r"\[([^\]]+)\]")
+
+
+@dataclass
+class WorksheetRefactorPreview:
+    """Preview payload for worksheet-level clone/refactor operations."""
+
+    worksheet_name: str
+    replacements: dict[str, str]
+    local_columns_renamed: list[dict[str, str]]
+    formulas_updated: list[dict[str, str]]
+    cloned_datasource_fields: list[dict[str, str]]
+    reference_rewrites: dict[str, str]
+
+    def to_dict(self) -> dict[str, Any]:
+        """Serialize preview payload into JSON-friendly structures."""
+        return asdict(self)
 
 
 class TWBEditor(ParametersMixin, ConnectionsMixin, ChartsMixin, DashboardsMixin):
@@ -558,6 +576,558 @@ class TWBEditor(ParametersMixin, ConnectionsMixin, ChartsMixin, DashboardsMixin)
         run.text = caption
 
         return f"Set caption for worksheet '{worksheet_name}'"
+
+    def clone_worksheet(self, source_worksheet: str, target_worksheet: str) -> str:
+        """Clone an existing worksheet and its worksheet window."""
+
+        if source_worksheet == target_worksheet:
+            raise ValueError("Target worksheet name must differ from source worksheet name.")
+        if target_worksheet in self.list_worksheets():
+            raise ValueError(f"Worksheet '{target_worksheet}' already exists")
+
+        source_ws = self._find_worksheet(source_worksheet)
+        cloned_ws = copy.deepcopy(source_ws)
+        cloned_ws.set("name", target_worksheet)
+
+        simple_id = cloned_ws.find("simple-id")
+        if simple_id is not None:
+            simple_id.set("uuid", _generate_uuid())
+
+        worksheets = self.root.find("worksheets")
+        if worksheets is None:
+            raise ValueError("Workbook has no <worksheets> container")
+        source_ws.addnext(cloned_ws)
+
+        source_window = self._find_window(source_worksheet, "worksheet")
+        if source_window is not None:
+            cloned_window = copy.deepcopy(source_window)
+            cloned_window.set("name", target_worksheet)
+            win_simple_id = cloned_window.find("simple-id")
+            if win_simple_id is not None:
+                win_simple_id.set("uuid", _generate_uuid())
+            source_window.addnext(cloned_window)
+        else:
+            self._add_window(target_worksheet, "worksheet")
+
+        return f"Cloned worksheet '{source_worksheet}' to '{target_worksheet}'"
+
+    def set_worksheet_hidden(self, worksheet_name: str, hidden: bool = True) -> str:
+        """Hide or unhide a worksheet tab by updating its window metadata."""
+
+        self._find_worksheet(worksheet_name)
+        window = self._find_window(worksheet_name, "worksheet")
+        if window is None:
+            raise ValueError(f"Worksheet window for '{worksheet_name}' not found")
+
+        if hidden:
+            window.set("hidden", "true")
+            return f"Worksheet '{worksheet_name}' hidden"
+
+        if "hidden" in window.attrib:
+            del window.attrib["hidden"]
+        return f"Worksheet '{worksheet_name}' unhidden"
+
+    def preview_worksheet_refactor(
+        self,
+        worksheet_name: str,
+        replacements: dict[str, str],
+    ) -> dict[str, Any]:
+        """Preview worksheet-scoped field refactors without mutating the workbook."""
+
+        worksheet = self._find_worksheet(worksheet_name)
+        operations = self._plan_worksheet_refactor(worksheet, replacements)
+        return operations.to_dict()
+
+    def apply_worksheet_refactor(
+        self,
+        worksheet_name: str,
+        replacements: dict[str, str],
+    ) -> dict[str, Any]:
+        """Rewrite one worksheet to use replacement fields without touching others."""
+
+        worksheet = self._find_worksheet(worksheet_name)
+        plan = self._plan_worksheet_refactor(worksheet, replacements)
+        self._apply_worksheet_refactor_plan(worksheet, plan)
+        self._reinit_fields()
+        return plan.to_dict()
+
+    def _plan_worksheet_refactor(
+        self,
+        worksheet: etree._Element,
+        replacements: dict[str, str],
+    ) -> WorksheetRefactorPreview:
+        """Build a worksheet-scoped refactor plan before mutating XML."""
+
+        normalized_replacements = self._normalize_replacements(replacements)
+        if not normalized_replacements:
+            raise ValueError("At least one replacement mapping is required.")
+
+        worksheet_name = worksheet.get("name", "")
+        ds_dependencies = worksheet.findall(".//datasource-dependencies")
+        worksheet_rewrite_map: dict[str, str] = {}
+        local_columns_renamed: list[dict[str, str]] = []
+        formulas_updated: list[dict[str, str]] = []
+        cloned_datasource_fields: list[dict[str, str]] = []
+
+        top_level_columns = {
+            column.get("name", ""): column
+            for column in self._datasource.findall("column")
+            if column.get("name")
+        }
+        top_level_clones: dict[str, etree._Element] = {}
+
+        for dep in ds_dependencies:
+            local_columns = [col for col in dep.findall("column") if col.get("name")]
+            local_name_map = self._build_local_column_rename_map(local_columns, normalized_replacements)
+
+            for old_name, new_name in local_name_map.items():
+                if old_name != new_name:
+                    worksheet_rewrite_map[old_name] = new_name
+
+            impacted_local_names = self._collect_impacted_local_names(local_columns, normalized_replacements, local_name_map)
+            top_level_refs = self._collect_top_level_calc_refs(local_columns, top_level_columns)
+            impacted_top_level_names = self._collect_impacted_top_level_names(
+                top_level_refs,
+                top_level_columns,
+                normalized_replacements,
+            )
+
+            datasource_field_rewrite_map: dict[str, str] = {}
+            for old_name in impacted_top_level_names:
+                source_column = top_level_columns[old_name]
+                clone_column = self._clone_datasource_calculation(source_column, normalized_replacements)
+                top_level_clones[old_name] = clone_column
+                datasource_field_rewrite_map[old_name] = clone_column.get("name", old_name)
+                worksheet_rewrite_map[old_name] = clone_column.get("name", old_name)
+                cloned_datasource_fields.append(
+                    {
+                        "source_name": old_name,
+                        "target_name": clone_column.get("name", old_name),
+                        "source_caption": source_column.get("caption", old_name.strip("[]")),
+                        "target_caption": clone_column.get("caption", clone_column.get("name", "")),
+                    }
+                )
+
+            formula_rewrite_map = {
+                **self._formula_field_token_map(normalized_replacements),
+                **local_name_map,
+                **datasource_field_rewrite_map,
+            }
+
+            for column in local_columns:
+                old_name = column.get("name", "")
+                new_name = local_name_map.get(old_name, old_name)
+                old_caption = column.get("caption", old_name.strip("[]"))
+                new_caption = self._replace_plain_text(old_caption, normalized_replacements)
+
+                if old_name != new_name or old_caption != new_caption:
+                    local_columns_renamed.append(
+                        {
+                            "source_name": old_name,
+                            "target_name": new_name,
+                            "source_caption": old_caption,
+                            "target_caption": new_caption,
+                        }
+                    )
+
+                calc = column.find("calculation")
+                if calc is not None:
+                    old_formula = calc.get("formula", "")
+                    new_formula = self._replace_formula_tokens(old_formula, formula_rewrite_map)
+                    if old_formula != new_formula:
+                        formulas_updated.append(
+                            {
+                                "column_name": new_name,
+                                "source_formula": old_formula,
+                                "target_formula": new_formula,
+                            }
+                        )
+
+            for column_instance in dep.findall("column-instance"):
+                old_column = column_instance.get("column", "")
+                if old_column in local_name_map and local_name_map[old_column] != old_column:
+                    worksheet_rewrite_map[old_column] = local_name_map[old_column]
+                old_instance_name = column_instance.get("name", "")
+                if old_instance_name:
+                    new_instance_name = self._replace_plain_text(old_instance_name, normalized_replacements)
+                    if new_instance_name != old_instance_name:
+                        worksheet_rewrite_map[old_instance_name] = new_instance_name
+
+        worksheet_rewrite_map = {
+            old: new
+            for old, new in worksheet_rewrite_map.items()
+            if old and new and old != new
+        }
+
+        return WorksheetRefactorPreview(
+            worksheet_name=worksheet_name,
+            replacements=normalized_replacements,
+            local_columns_renamed=local_columns_renamed,
+            formulas_updated=formulas_updated,
+            cloned_datasource_fields=cloned_datasource_fields,
+            reference_rewrites=worksheet_rewrite_map,
+        )
+
+    def _apply_worksheet_refactor_plan(
+        self,
+        worksheet: etree._Element,
+        plan: WorksheetRefactorPreview,
+    ) -> None:
+        """Apply a worksheet refactor plan to XML structures."""
+
+        for clone_info in plan.cloned_datasource_fields:
+            source_name = clone_info["source_name"]
+            if self._datasource.find(f"column[@name='{clone_info['target_name']}']") is not None:
+                continue
+            source_column = self._datasource.find(f"column[@name='{source_name}']")
+            if source_column is None:
+                continue
+            clone_column = self._clone_datasource_calculation(
+                source_column,
+                plan.replacements,
+                target_name=clone_info["target_name"],
+                target_caption=clone_info["target_caption"],
+            )
+            self._insert_datasource_column(clone_column)
+
+        for dep in worksheet.findall(".//datasource-dependencies"):
+            for column in dep.findall("column"):
+                old_name = column.get("name", "")
+                if old_name in plan.reference_rewrites:
+                    column.set("name", plan.reference_rewrites[old_name])
+                caption = column.get("caption")
+                if caption:
+                    column.set("caption", self._replace_plain_text(caption, plan.replacements))
+                calc = column.find("calculation")
+                if calc is not None:
+                    formula = calc.get("formula", "")
+                    calc.set(
+                        "formula",
+                        self._replace_formula_tokens(formula, self._formula_rewrite_map_from_plan(plan)),
+                    )
+
+            for column_instance in dep.findall("column-instance"):
+                column_ref = column_instance.get("column", "")
+                if column_ref in plan.reference_rewrites:
+                    column_instance.set("column", plan.reference_rewrites[column_ref])
+                instance_name = column_instance.get("name", "")
+                if instance_name in plan.reference_rewrites:
+                    column_instance.set("name", plan.reference_rewrites[instance_name])
+                else:
+                    rewritten_name = self._replace_plain_text(instance_name, plan.replacements)
+                    if rewritten_name != instance_name:
+                        column_instance.set("name", rewritten_name)
+
+        self._rewrite_worksheet_text_and_attributes(worksheet, plan.reference_rewrites, plan.replacements)
+
+    def _formula_rewrite_map_from_plan(self, plan: WorksheetRefactorPreview) -> dict[str, str]:
+        """Combine field-token rewrite rules used for formula rewrites."""
+
+        formula_map = self._formula_field_token_map(plan.replacements)
+        formula_map.update(plan.reference_rewrites)
+        return formula_map
+
+    def _normalize_replacements(self, replacements: dict[str, str]) -> dict[str, str]:
+        """Resolve replacement field names to canonical display names."""
+
+        normalized: dict[str, str] = {}
+        for source_name, target_name in replacements.items():
+            source_alias = self._resolve_field_alias(source_name)
+            target_alias = self._resolve_field_alias(target_name)
+            normalized[source_alias["display_name"]] = target_alias["display_name"]
+        return normalized
+
+    def _formula_field_token_map(self, replacements: dict[str, str]) -> dict[str, str]:
+        """Build formula token replacements for base datasource fields."""
+
+        token_map: dict[str, str] = {}
+        for source_name, target_name in replacements.items():
+            source_alias = self._resolve_field_alias(source_name)
+            target_alias = self._resolve_field_alias(target_name)
+            token_map[source_alias["display_name"]] = target_alias["display_name"]
+            token_map[source_alias["local_name"]] = target_alias["local_name"]
+            token_map[source_alias["local_name"].strip("[]")] = target_alias["local_name"].strip("[]")
+        return token_map
+
+    def _resolve_field_alias(self, name: str) -> dict[str, str]:
+        """Resolve a field replacement input against display names or local tokens."""
+
+        try:
+            field = self.field_registry._find_field(name)
+            return {
+                "display_name": field.display_name,
+                "local_name": field.local_name,
+            }
+        except KeyError:
+            normalized = name.strip("[]")
+            for field in self.field_registry.all_fields():
+                if field.local_name.strip("[]").casefold() == normalized.casefold():
+                    return {
+                        "display_name": normalized,
+                        "local_name": field.local_name,
+                    }
+            return {
+                "display_name": normalized,
+                "local_name": f"[{normalized}]",
+            }
+
+    def _build_local_column_rename_map(
+        self,
+        local_columns: list[etree._Element],
+        replacements: dict[str, str],
+    ) -> dict[str, str]:
+        """Rename worksheet-local column names in a replacement-aware way."""
+
+        existing_names = {column.get("name", "") for column in local_columns if column.get("name")}
+        rename_map: dict[str, str] = {}
+        reserved = set(existing_names)
+
+        for column in local_columns:
+            old_name = column.get("name", "")
+            if not old_name:
+                continue
+            candidate = self._replace_plain_text(old_name, replacements)
+            candidate = self._ensure_unique_bracketed_name(candidate, reserved, old_name)
+            rename_map[old_name] = candidate
+            reserved.add(candidate)
+        return rename_map
+
+    def _collect_impacted_local_names(
+        self,
+        local_columns: list[etree._Element],
+        replacements: dict[str, str],
+        local_name_map: dict[str, str],
+    ) -> set[str]:
+        """Collect worksheet-local columns touched by field or dependency rewrites."""
+
+        impacted = {
+            column.get("name", "")
+            for column in local_columns
+            if self._column_needs_refactor(column, replacements)
+            or local_name_map.get(column.get("name", ""), column.get("name", "")) != column.get("name", "")
+        }
+
+        changed = True
+        while changed:
+            changed = False
+            for column in local_columns:
+                name = column.get("name", "")
+                if not name or name in impacted:
+                    continue
+                calc = column.find("calculation")
+                if calc is None:
+                    continue
+                refs = set(self._extract_formula_refs(calc.get("formula", "")))
+                if refs & impacted:
+                    impacted.add(name)
+                    changed = True
+        return impacted
+
+    def _collect_top_level_calc_refs(
+        self,
+        local_columns: list[etree._Element],
+        top_level_columns: dict[str, etree._Element],
+    ) -> set[str]:
+        """Collect top-level calculated fields referenced by worksheet-local formulas."""
+
+        refs: set[str] = set()
+        for column in local_columns:
+            calc = column.find("calculation")
+            if calc is None:
+                continue
+            for ref in self._extract_formula_refs(calc.get("formula", "")):
+                if ref in top_level_columns and top_level_columns[ref].find("calculation") is not None:
+                    refs.add(ref)
+        return refs
+
+    def _collect_impacted_top_level_names(
+        self,
+        top_level_refs: set[str],
+        top_level_columns: dict[str, etree._Element],
+        replacements: dict[str, str],
+    ) -> set[str]:
+        """Collect referenced top-level calculated fields that need cloning."""
+
+        impacted = {
+            name
+            for name in top_level_refs
+            if self._column_needs_refactor(top_level_columns[name], replacements)
+        }
+
+        changed = True
+        while changed:
+            changed = False
+            for name in top_level_refs:
+                if name in impacted:
+                    continue
+                calc = top_level_columns[name].find("calculation")
+                if calc is None:
+                    continue
+                refs = set(self._extract_formula_refs(calc.get("formula", "")))
+                if refs & impacted:
+                    impacted.add(name)
+                    changed = True
+        return impacted
+
+    def _column_needs_refactor(self, column: etree._Element, replacements: dict[str, str]) -> bool:
+        """Return whether a column should be rewritten for the replacement set."""
+
+        text_values = [column.get("caption", ""), column.get("name", "")]
+        calc = column.find("calculation")
+        if calc is not None:
+            text_values.append(calc.get("formula", ""))
+        return any(
+            source_name in value
+            for source_name in replacements
+            for value in text_values
+            if value
+        )
+
+    def _clone_datasource_calculation(
+        self,
+        source_column: etree._Element,
+        replacements: dict[str, str],
+        *,
+        target_name: str | None = None,
+        target_caption: str | None = None,
+    ) -> etree._Element:
+        """Clone one top-level calculated field with rewritten caption/name/formula."""
+
+        clone_column = copy.deepcopy(source_column)
+        source_name = source_column.get("name", "")
+        source_caption = source_column.get("caption", source_name.strip("[]"))
+        target_caption = target_caption or self._replace_plain_text(source_caption, replacements)
+        target_name = target_name or self._ensure_unique_datasource_calc_name(source_name)
+
+        clone_column.set("caption", target_caption)
+        clone_column.set("name", target_name)
+
+        calc = clone_column.find("calculation")
+        if calc is not None:
+            calc.set(
+                "formula",
+                self._replace_formula_tokens(calc.get("formula", ""), self._formula_field_token_map(replacements)),
+            )
+        return clone_column
+
+    def _insert_datasource_column(self, column: etree._Element) -> None:
+        """Insert a datasource column before layout/style sections."""
+
+        layout_el = self._datasource.find("layout")
+        if layout_el is not None:
+            layout_el.addprevious(column)
+            return
+        semantic_values = self._datasource.find("semantic-values")
+        if semantic_values is not None:
+            semantic_values.addprevious(column)
+            return
+        self._datasource.append(column)
+
+    def _ensure_unique_datasource_calc_name(self, source_name: str) -> str:
+        """Allocate a fresh top-level calculated field internal name."""
+
+        while True:
+            candidate = f"[Calculation_{_generate_uuid().strip('{}').replace('-', '')}]"
+            if self._datasource.find(f"column[@name='{candidate}']") is None:
+                return candidate
+
+    def _ensure_unique_bracketed_name(
+        self,
+        candidate: str,
+        reserved: set[str],
+        source_name: str,
+    ) -> str:
+        """Keep local worksheet column names unique after replacement."""
+
+        if not candidate:
+            return source_name
+        if candidate == source_name:
+            return candidate
+        if candidate not in reserved:
+            return candidate
+
+        inner = candidate.strip("[]")
+        suffix = 2
+        while True:
+            maybe = f"[{inner} {suffix}]"
+            if maybe not in reserved:
+                return maybe
+            suffix += 1
+
+    def _replace_formula_tokens(self, formula: str, replacements: dict[str, str]) -> str:
+        """Replace Tableau field tokens inside one formula string."""
+
+        def repl(match: re.Match[str]) -> str:
+            token = match.group(1)
+            if token in replacements:
+                replacement = replacements[token]
+                if replacement.startswith("[") and replacement.endswith("]"):
+                    return replacement
+                return f"[{replacement}]"
+            wrapped = f"[{token}]"
+            if wrapped in replacements:
+                replacement = replacements[wrapped]
+                if replacement.startswith("[") and replacement.endswith("]"):
+                    return replacement
+                return f"[{replacement}]"
+            return match.group(0)
+
+        return _FIELD_TOKEN_RE.sub(repl, formula)
+
+    def _extract_formula_refs(self, formula: str) -> list[str]:
+        """Extract bracketed field tokens from one formula."""
+
+        return [f"[{token}]" for token in _FIELD_TOKEN_RE.findall(formula)]
+
+    def _replace_plain_text(self, value: str, replacements: dict[str, str]) -> str:
+        """Apply plain-text replacements in stable longest-first order."""
+
+        updated = value
+        for source_name, target_name in sorted(replacements.items(), key=lambda item: len(item[0]), reverse=True):
+            updated = updated.replace(source_name, target_name)
+        return updated
+
+    def _rewrite_worksheet_text_and_attributes(
+        self,
+        worksheet: etree._Element,
+        reference_rewrites: dict[str, str],
+        replacements: dict[str, str],
+    ) -> None:
+        """Rewrite worksheet subtree references and visible text in place."""
+
+        ordered_refs = sorted(reference_rewrites.items(), key=lambda item: len(item[0]), reverse=True)
+        for element in worksheet.iter():
+            for attr_name, attr_value in list(element.attrib.items()):
+                updated = attr_value
+                for old, new in ordered_refs:
+                    if old in updated:
+                        updated = updated.replace(old, new)
+                updated = self._replace_plain_text(updated, replacements)
+                if updated != attr_value:
+                    element.set(attr_name, updated)
+
+            if element.text:
+                updated_text = element.text
+                for old, new in ordered_refs:
+                    if old in updated_text:
+                        updated_text = updated_text.replace(old, new)
+                updated_text = self._replace_plain_text(updated_text, replacements)
+                if updated_text != element.text:
+                    element.text = updated_text
+
+    def _find_window(self, name: str, window_class: str | None = None) -> etree._Element | None:
+        """Find a workbook window by name and optional class."""
+
+        windows = self.root.find("windows")
+        if windows is None:
+            return None
+        for window in windows.findall("window"):
+            if window.get("name") != name:
+                continue
+            if window_class and window.get("class") != window_class:
+                continue
+            return window
+        return None
 
     def _add_window(
         self,

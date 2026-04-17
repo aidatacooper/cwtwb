@@ -5,6 +5,21 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+
+- **Worksheet clone and local refactor workflow**: added SDK and MCP/server support for duplicating an existing worksheet and rewriting only the cloned worksheet's field and calculation references.
+  - New APIs and tools: `clone_worksheet`, `preview_worksheet_refactor`, and `apply_worksheet_refactor`
+  - New worksheet visibility helper: `set_worksheet_hidden`
+  - Worksheet refactor previews now report renamed local columns, rewritten formulas, cloned datasource-level calculations, and worksheet-local reference rewrites
+- **Worksheet refactor example**: added `examples/worksheet_refactor_kpi_profit/` with a local source workbook copy, a runnable `generate_example.py`, and an output workbook containing a visible `1. KPI Profit` worksheet cloned from `1. KPI`.
+- **Regression coverage for worksheet clone/refactor**: added `tests/test_worksheet_refactor.py` covering both direct `TWBEditor` usage and `server.py` wrappers against the real `5 KPI Design Ideas (2).twb` workbook.
+
+### Fixed
+
+- **Cloned hidden KPI sheets remained invisible in Tableau Desktop**: cloned worksheet windows can now be explicitly unhidden so the generated worksheet appears in visible sheet tabs when opened in Tableau.
+
 ## [0.18.0] - 2026-03-31
 
 ### Changed

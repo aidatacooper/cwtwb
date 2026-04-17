@@ -201,6 +201,32 @@ editor.add_dashboard(
 editor.save("output/my_workbook.twb")
 ```
 
+### Clone and Refactor an Existing Worksheet
+
+Use worksheet clone/refactor when you want to duplicate an existing visual
+module and rebind only the cloned worksheet to a different core measure. This
+is especially useful for KPI cards such as turning a Sales KPI worksheet into
+an independent Profit KPI worksheet while preserving the original sheet.
+
+```python
+from cwtwb.twb_editor import TWBEditor
+
+editor = TWBEditor.open_existing("examples/worksheet_refactor_kpi_profit/5 KPI Design Ideas (2).twb")
+
+editor.clone_worksheet("1. KPI", "1. KPI Profit")
+editor.apply_worksheet_refactor("1. KPI Profit", {"Sales": "Profit"})
+editor.set_worksheet_hidden("1. KPI Profit", hidden=False)
+
+editor.save("output/kpi_profit_clone.twb")
+```
+
+Available worksheet-refactor helpers:
+
+- `clone_worksheet(source_worksheet, target_worksheet)`
+- `preview_worksheet_refactor(worksheet_name, replacements)`
+- `apply_worksheet_refactor(worksheet_name, replacements)`
+- `set_worksheet_hidden(worksheet_name, hidden=True)`
+
 ### Working with Packaged Workbooks (.twbx)
 
 `.twbx` files are ZIP archives that bundle the workbook XML together with data extracts (`.hyper`) and image assets. cwtwb reads and writes them transparently:
@@ -258,6 +284,9 @@ editor.save("output/superstore.twbx")  # produces a single-entry ZIP with the .t
 | `add_parameter` | Add an interactive parameter for what-if analysis |
 | `add_calculated_field` | Add a calculated field with Tableau formula |
 | `remove_calculated_field` | Remove a previously added calculated field |
+| `clone_worksheet` | Clone an existing worksheet and its worksheet window |
+| `preview_worksheet_refactor` | Preview worksheet-scoped field rewrites before mutating the workbook |
+| `apply_worksheet_refactor` | Apply worksheet-scoped field rewrites while preserving the original worksheet |
 | `add_worksheet` | Add a new blank worksheet |
 | `configure_chart` | Configure chart type and field mappings |
 | `configure_worksheet_style` | Apply worksheet-level styling: background color, axis/grid/border visibility |
@@ -266,6 +295,7 @@ editor.save("output/superstore.twbx")  # produces a single-entry ZIP with the .t
 | `add_dashboard` | Create a dashboard combining worksheets |
 | `add_dashboard_action` | Add filter, highlight, URL, or go-to-sheet actions to a dashboard |
 | `set_worksheet_caption` | Set or clear a worksheet caption using plain text |
+| `set_worksheet_hidden` | Hide or unhide a worksheet by updating its worksheet window metadata |
 | `generate_layout_json` | Build an interactive structured dashboard flexbox layout |
 | `list_capabilities` | Show cwtwb's declared support boundary |
 | `describe_capability` | Explain whether a chart or feature is core, advanced, recipe, or unsupported |
