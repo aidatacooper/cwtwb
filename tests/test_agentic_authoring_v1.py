@@ -379,6 +379,9 @@ class TestAuthoringPrompts:
 
     def test_server_instructions_reference_analysis_choice_gate(self):
         text = server.instructions
+        assert "Do not automatically enter guided dashboard authoring" in text
+        assert "only when the human explicitly asks for guided authoring" in text
+        assert "For ordinary workbook requests, use manual workbook editing" in text
         assert "interactive_stage_confirmation('schema')" in text
         assert "interactive_stage_confirmation('analysis')" in text
         assert "interactive_stage_confirmation('contract')" in text
@@ -392,7 +395,7 @@ class TestAuthoringPrompts:
         assert "execution-plan approval gate" in text
         assert "interactive_stage_confirmation('execution_plan')" not in text
         assert "get_client_interaction_capabilities" in text
-        assert "Do not switch to low-level workbook tools" in text
+        assert "Do not switch from an active guided run to low-level workbook tools" in text
 
     def test_contract_stage_uses_dashboard_proposal_label(self):
         assert _STAGE_LABELS["contract"] == "dashboard proposal review"
