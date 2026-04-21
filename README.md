@@ -480,6 +480,32 @@ XSD errors are **informational** — Tableau itself generates workbooks that occ
 
 Custom layouts can be built programmatically using a nested `layout` dictionary or via `generate_layout_json` for MCP workflows.
 
+Use the canonical layout tree shape for nested dashboards:
+
+```json
+{
+  "type": "container",
+  "direction": "horizontal",
+  "children": [
+    {"type": "worksheet", "name": "Sidebar", "fixed_size": 160},
+    {
+      "type": "container",
+      "direction": "vertical",
+      "children": [
+        {"type": "worksheet", "name": "Header", "fixed_size": 80},
+        {"type": "worksheet", "name": "Main Chart", "weight": 1}
+      ]
+    }
+  ]
+}
+```
+
+For compatibility with older MCP prompts and generated JSON files, `add_dashboard`
+also accepts legacy container aliases and normalizes them recursively:
+`{"type": "horizontal", "children": [...]}` and
+`{"type": "vertical", "children": [...]}`. Unknown layout node types now raise a
+clear error instead of silently creating an empty dashboard zone.
+
 ## Hyper-backed Example
 
 The `examples/hyper_and_new_charts.py` example uses the `Sample - EU Superstore.hyper`

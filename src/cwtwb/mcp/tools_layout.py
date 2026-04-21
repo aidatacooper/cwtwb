@@ -14,13 +14,18 @@ LAYOUT JSON STRUCTURE
   {
     "_ascii_layout_preview": ["line 1", "line 2", ...],   // human-readable preview
     "layout_schema": {                                     // the actual layout tree
-      "type": "vertical" | "horizontal" | "tiled",
+      "type": "container",
+      "direction": "vertical" | "horizontal",
       "children": [
-        {"type": "worksheet", "name": "Sheet1", "width": 600, "height": 400},
-        {"type": "horizontal", "children": [...]}
+        {"type": "worksheet", "name": "Sheet1", "fixed_size": 400},
+        {"type": "container", "direction": "horizontal", "children": [...]}
       ]
     }
   }
+
+Legacy container aliases are accepted and normalized recursively:
+  {"type": "horizontal", "children": [...]} -> {"type": "container", "direction": "horizontal", ...}
+  {"type": "vertical", "children": [...]}   -> {"type": "container", "direction": "vertical", ...}
 
 The ascii_preview field is stored for documentation only; add_dashboard ignores it.
 The layout_schema tree is parsed by dashboard_layouts.resolve_dashboard_layout()

@@ -5,6 +5,20 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.18.1] - 2026-04-21
+
+### Fixed
+
+- **Nested dashboard layout objects no longer render as empty dashboards**: `add_dashboard` now recursively normalizes legacy container aliases such as `{"type": "horizontal"}` and `{"type": "vertical"}` into the canonical `{"type": "container", "direction": ...}` layout model before XML generation.
+- **Invalid dashboard layout nodes now fail loudly**: unknown layout node types raise a `ValueError` with the offending tree path instead of returning `"Created dashboard"` while producing an empty root `<zone>`.
+- **MCP-generated layout JSON is safer for complex dashboards**: object layouts produced by `generate_layout_json` or passed directly through the MCP `add_dashboard` tool now preserve deeply nested worksheet zones instead of silently dropping child containers.
+
+### Changed
+
+- **Dashboard layout documentation now uses the canonical schema**: README, MCP layout helper docs, SDK docstrings, and the dashboard designer skill now recommend `type="container"` plus `direction="horizontal" | "vertical"` while documenting recursive compatibility for legacy aliases.
+- **Dashboard layout regression coverage**: added a three-level nested legacy-layout test mirroring real MCP output (`horizontal -> vertical -> horizontal/vertical`) and asserting that `list_dashboards()` reports all worksheet zones.
+- **Release tooling**: added `scripts/publish_from_env.ps1` so Windows releases can build and upload only the active package version from `.env` credentials without printing tokens.
+
 ## [0.18.0] - 2026-04-17
 
 ### Added

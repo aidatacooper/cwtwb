@@ -57,10 +57,12 @@ Example structure:
 
 ```json
 {
-  "type": "vertical",
+  "type": "container",
+  "direction": "vertical",
   "children": [
     {
-      "type": "horizontal",
+      "type": "container",
+      "direction": "horizontal",
       "fixed_size": 56,
       "children": [
         {"type": "worksheet", "name": "KPI Sales"},
@@ -68,11 +70,13 @@ Example structure:
       ]
     },
     {
-      "type": "horizontal",
+      "type": "container",
+      "direction": "horizontal",
       "children": [
         {"type": "worksheet", "name": "Sales Map", "weight": 55},
         {
-          "type": "vertical",
+          "type": "container",
+          "direction": "vertical",
           "fixed_size": 132,
           "children": [
             {"type": "filter", "worksheet": "Sales Map", "field": "Order Date", "mode": "dropdown"},
@@ -83,7 +87,8 @@ Example structure:
       ]
     },
     {
-      "type": "horizontal",
+      "type": "container",
+      "direction": "horizontal",
       "children": [
         {"type": "worksheet", "name": "Sales Trend"},
         {"type": "worksheet", "name": "Sub-Category Breakdown"}
@@ -92,6 +97,10 @@ Example structure:
   ]
 }
 ```
+
+Older generated JSON that uses `{"type": "horizontal"}` or
+`{"type": "vertical"}` for containers is still accepted, but prefer the
+canonical `{"type": "container", "direction": ...}` shape for new prompts.
 
 ## Interaction Actions
 

@@ -14,15 +14,20 @@ The `layout` parameter accepts three forms:
 
 Structured layout tree example:
   {
-    "type": "horizontal",
+    "type": "container",
+    "direction": "horizontal",
     "children": [
-      {"type": "worksheet", "name": "Sidebar KPIs", "width": 300},
-      {"type": "vertical", "children": [
+      {"type": "worksheet", "name": "Sidebar KPIs", "fixed_size": 300},
+      {"type": "container", "direction": "vertical", "children": [
         {"type": "worksheet", "name": "CY Sales"},
         {"type": "worksheet", "name": "Sales by Sub-Category"}
       ]}
     ]
   }
+
+Legacy container aliases are also accepted and normalized recursively:
+  {"type": "horizontal", "children": [...]} -> {"type": "container", "direction": "horizontal", ...}
+  {"type": "vertical", "children": [...]}   -> {"type": "container", "direction": "vertical", ...}
 
 XML OUTPUT
 ----------
