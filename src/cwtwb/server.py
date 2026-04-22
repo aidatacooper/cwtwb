@@ -2,46 +2,17 @@
 __author__ = "Cooper Wenhua <imgwho@gmail.com>"
 
 from .mcp.app import server
-from .mcp.prompts import (
-    authoring_execution_plan,
-    dashboard_brief_to_contract,
-    guided_dashboard_authoring,
-    light_elicitation,
-    worksheet_clone_refactor,
-)
 from .mcp.resources import (
     read_dataset_profile,
-    read_dashboard_authoring_contract,
     read_profiles_index,
     read_skill,
     read_skills_index,
     read_tableau_functions,
 )
 from .mcp.tools_layout import generate_layout_json
-from .mcp.tools_authoring import (
-    build_analysis_brief,
-    build_execution_plan,
-    build_wireframe,
-    confirm_authoring_stage,
-    draft_authoring_contract,
-    finalize_analysis_brief,
-    finalize_authoring_contract,
-    finalize_wireframe,
-    generate_workbook_from_run,
-    get_client_interaction_capabilities,
-    get_run_status,
-    intake_datasource_schema,
-    interactive_stage_confirmation,
-    list_authoring_runs,
-    reopen_authoring_stage,
-    resume_authoring_run,
-    review_authoring_contract_for_run,
-    start_authoring_run,
-)
 from .mcp.tools_migration import (
     apply_twb_migration,
     inspect_target_schema,
-    migrate_twb_guided,
     profile_twb_for_migration,
     propose_field_mapping,
     preview_twb_migration,
@@ -51,7 +22,6 @@ from .mcp.tools_support import (
     describe_capability,
     diff_template_gap,
     list_capabilities,
-    review_authoring_contract,
     validate_workbook,
 )
 from .mcp.tools_workbook import (

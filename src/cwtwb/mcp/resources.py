@@ -29,11 +29,10 @@ AVAILABLE RESOURCES
         - formatting           → color palettes, font choices, style consistency
 
 USAGE PATTERN (recommended by server instructions)
----------------------------------------------------
-  In guided authoring runs, fetch the workflow skill first and then the phase skills:
-    read_resource("cwtwb://skills/authoring_workflow")
-    read_resource("cwtwb://skills/chart_builder")    # before configure_chart
-    read_resource("cwtwb://skills/dashboard_designer") # before add_dashboard
+--------------------------------------------------
+  Fetch focused skills as needed before the matching workbook authoring phase:
+    read_resource("cwtwb://skills/chart_builder")       # before configure_chart
+    read_resource("cwtwb://skills/dashboard_designer")  # before add_dashboard
 """
 
 from __future__ import annotations
@@ -61,7 +60,6 @@ def read_tableau_functions() -> str:
 
 
 _SKILL_NAMES = [
-    "authoring_workflow",
     "calculation_builder",
     "chart_builder",
     "dashboard_designer",
@@ -147,7 +145,6 @@ def read_skill(skill_name: str) -> str:
     return skill_path.read_text(encoding="utf-8")
 
 
-@server.resource("cwtwb://contracts/dashboard_authoring_v1")
 def read_dashboard_authoring_contract() -> str:
     """Read the dashboard authoring contract template used by external agents."""
 

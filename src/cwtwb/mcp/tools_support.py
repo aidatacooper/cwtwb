@@ -112,7 +112,6 @@ def validate_workbook(file_path: Optional[str] = None) -> str:
     return result.to_text()
 
 
-@server.tool()
 def review_authoring_contract(contract_json: str) -> str:
     """Review a draft authoring contract and apply profile-aware defaults."""
 

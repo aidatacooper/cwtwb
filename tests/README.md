@@ -187,10 +187,7 @@ The table below maps each SDK/MCP public function to its primary test file.
 | `set_mysql_connection` | `test_connections.py`, `test_mcp_tools.py` |
 | `set_tableauserver_connection` | `test_connections.py`, `test_mcp_tools.py` |
 | `set_hyper_connection` | `test_connections.py`, `test_mcp_tools.py` |
-| `start_authoring_run` / `list_authoring_runs` / `get_run_status` / `resume_authoring_run` | `test_agentic_authoring_v1.py` |
-| `intake_datasource_schema` | `test_agentic_authoring_v1.py` |
-| `draft_authoring_contract` / `review_authoring_contract_for_run` / `finalize_authoring_contract` / `confirm_authoring_stage` | `test_agentic_authoring_v1.py` |
-| `build_execution_plan` / `generate_workbook_from_run` | `test_agentic_authoring_v1.py` |
+| Guided authoring internals (`start_authoring_run`, `generate_workbook_from_run`, etc.) | `test_agentic_authoring_v1.py`; these remain tested as internal/experimental code but are hidden from the default MCP entrypoint |
 | `inspect_target_schema` | `test_mcp_tools.py` |
 | `list_fields` / `list_worksheets` / `list_dashboards` | `test_e2e.py`, `test_existing_workbook_editing.py` |
 | `list_capabilities` | `test_mcp_tools.py`, `test_capability_registry.py` |
@@ -199,15 +196,15 @@ The table below maps each SDK/MCP public function to its primary test file.
 | `propose_field_mapping` | `test_migration_workflow.py` |
 | `preview_twb_migration` | `test_migration_workflow.py` |
 | `apply_twb_migration` | `test_migration_workflow.py` |
-| `migrate_twb_guided` | `test_migration_workflow.py` |
+| `migrate_twb_guided` | `test_migration_workflow.py`; Python wrapper only in the default distribution, not a default MCP tool |
 
 ---
 
 ## Known Gaps & Out-of-Scope
 
 - **`intake_datasource_schema` on real `.hyper` files**: covered in `test_agentic_authoring_v1.py`, but the test is skipped when the local `tableauhyperapi` runtime is unavailable or cannot inspect the sample extract in the current environment.
-- **`set_excel_connection` coverage**: low-level XML verification now lives in `test_connections.py`, but there is still no full guided-authoring end-to-end test that asserts an Excel-connected workbook opens cleanly in Tableau Desktop itself.
+- **`set_excel_connection` coverage**: low-level XML verification now lives in `test_connections.py`, but there is still no Tableau Desktop openability test for an Excel-connected workbook.
 - **`configure_chart` with `label_param`**: parameter-driven label content is not separately unit-tested (tested implicitly via `label_runs` with `param` key).
 - **`configure_chart` with `customized_label`** (raw string override): no dedicated test; simple text labels are covered by `test_label_runs.py`.
 - **Multi-table hyper connection** (`tables` parameter in `set_hyper_connection`): no unit test; requires a real multi-table `.hyper` file.
-- **MCP resources and prompts**: skills/profile resources and prompt registration are partially covered in `test_agentic_authoring_v1.py`, but there is still no dedicated end-to-end client test that verifies prompt invocation behavior inside a third-party MCP client.
+- **MCP resources and prompts**: the default MCP entrypoint intentionally registers no prompts; guided prompt registration remains covered only through the internal guided-authoring tests.

@@ -141,7 +141,6 @@ def apply_twb_migration(
     )
 
 
-@server.tool()
 def migrate_twb_guided(
     file_path: str,
     target_source: str,

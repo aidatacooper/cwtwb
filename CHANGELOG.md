@@ -5,6 +5,22 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.18.2] - 2026-04-22
+
+### Changed
+
+- **Default MCP entrypoint now hides guided authoring**: the `cwtwb` MCP server no longer registers the datasource-first guided authoring tools, guided prompts, guided contract resource, or `authoring_workflow` skill by default. The underlying Python modules remain in the package and can be re-registered from a future dedicated entrypoint, but the default MCP surface now stays focused on direct workbook engineering tools.
+- **Default MCP instructions now describe only the explicit workbook-editing path**: server instructions now point agents to `create_workbook` / `open_workbook`, worksheet/chart/dashboard tools, datasource connection tools, validation, and `save_workbook`, without embedding a long guided workflow that can pull agents into the wrong mode.
+- **Migration MCP surface is explicit by default**: `migrate_twb_guided` remains available as a Python convenience wrapper, but it is no longer registered as a default MCP tool. MCP clients should use `inspect_target_schema`, `profile_twb_for_migration`, `propose_field_mapping`, `preview_twb_migration`, and `apply_twb_migration`.
+- **Save-time validation is now fail-closed on strict serialized workbook errors**: `TWBEditor.save()` writes to a temporary `.twb`/`.twbx`, parses the saved file back from disk, runs structural validation and strict Tableau XSD validation, and only replaces the final output after validation passes. Known Tableau compatibility warnings remain non-fatal.
+
+### Fixed
+
+- **Invalid serialized workbook XML no longer reaches the final output path**: strict XSD failures now raise `TWBValidationError` before the temporary file is promoted.
+- **Datasource calculated fields are inserted in XSD-safe order**: new calculated fields now appear before later datasource sections such as `column-instance`, `group`, `extract`, `layout`, and `style`, avoiding invalid XML in existing TWBX workbooks.
+- **Declarative layout background aliases now emit valid Tableau style attributes**: `bg_color` / `bg-color` are normalized to the XSD-valid `background-color`.
+- **`analyze_twb` ignores XML comments during feature scanning**: generated watermark comments no longer cause QName parsing errors.
+
 ## [0.18.1] - 2026-04-21
 
 ### Fixed

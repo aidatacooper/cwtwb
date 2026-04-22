@@ -19,16 +19,10 @@ The default workflow is:
 4. Assemble dashboards and interactions
 5. Save and validate a `.twb` or `.twbx` that opens in Tableau Desktop
 
-For natural-language MCP authoring, cwtwb also supports a guided run workflow
-that starts from a real datasource file instead of a hand-written contract:
-
-1. Start an authoring run from a local Excel or Hyper file
-2. Inspect the datasource schema and pause for human confirmation
-3. Build an analysis brief, present 2-4 candidate dashboard directions, and confirm the chosen direction
-4. Draft, review, and finalize a structured authoring contract
-5. Build and confirm a human-facing wireframe
-6. Build a mechanical execution plan internally and generate the final workbook
-7. Persist every intermediate artifact under `tmp/agentic_run/{run_id}/`
+The default MCP entrypoint exposes the low-level workbook engineering tools only.
+Experimental guided authoring code is still present in the package, but it is not
+registered in the default MCP tool or prompt surface so agents do not
+accidentally enter a long guided workflow when a direct workbook edit is wanted.
 
 ```
                             Interfaces
@@ -265,23 +259,6 @@ editor.save("output/superstore.twbx")  # produces a single-entry ZIP with the .t
 
 | Tool | Description |
 |---|---|
-| `start_authoring_run` | Create a guided datasource-first authoring run and persist its manifest under `tmp/agentic_run/{run_id}/` |
-| `list_authoring_runs` | List previously created authoring runs, their current status, and available artifacts |
-| `get_run_status` | Inspect one authoring run, including confirmation gates, current artifact versions, and failure details |
-| `resume_authoring_run` | Re-open a previous authoring run after a client or server restart |
-| `intake_datasource_schema` | Read the run datasource from the manifest and persist a structured schema summary for Excel or Hyper |
-| `build_analysis_brief` | Create the analysis brief scaffold from the current schema summary |
-| `finalize_analysis_brief` | Finalize 2-4 candidate directions plus the selected direction for the run |
-| `draft_authoring_contract` | Create a contract draft from the schema summary plus a human brief |
-| `review_authoring_contract_for_run` | Review the current draft, apply profile-aware defaults, and produce clarification guidance |
-| `finalize_authoring_contract` | Merge review output with human answers and persist the finalized contract |
-| `interactive_stage_confirmation` | Prefer MCP elicitation for schema, analysis, contract, and wireframe confirmation, with chat fallback when unsupported |
-| `confirm_authoring_stage` | Persist an approval or rejection for `schema`, `analysis`, `contract`, `wireframe`, or `execution_plan` after a fresh confirmation request |
-| `build_wireframe` | Build a reviewable wireframe artifact from the confirmed contract |
-| `finalize_wireframe` | Finalize the wireframe review, including layout notes and supported actions |
-| `reopen_authoring_stage` | Reopen `analysis`, `contract`, `wireframe`, or `execution_plan` after a rejection or downstream scope change |
-| `build_execution_plan` | Convert the finalized contract into a mechanical MCP tool-call plan |
-| `generate_workbook_from_run` | Execute the confirmed plan, save the workbook, and persist validation and analysis reports |
 | `create_workbook` | Load a `.twb` or `.twbx` template and initialize a rebuild-from-template workspace |
 | `open_workbook` | Open an existing `.twb` or `.twbx` and keep its worksheets and dashboards for editing |
 | `list_fields` | List all available dimensions and measures |
@@ -308,7 +285,6 @@ editor.save("output/superstore.twbx")  # produces a single-entry ZIP with the .t
 | `analyze_twb` | Analyze a `.twb` file against the capability catalog; output includes both the full capability breakdown and the capability gap triage summary |
 | `diff_template_gap` | Summarize the non-core gap of a template |
 | `validate_workbook` | Validate a workbook against the official Tableau TWB XSD schema (2026.1) |
-| `migrate_twb_guided` | Run the built-in TWB migration workflow and pause for warning confirmation when needed |
 | `set_excel_connection` | Configure the datasource to use a local Excel workbook and register fields from the selected sheet |
 | `set_mysql_connection` | Configure the datasource to use a local MySQL connection |
 | `set_tableauserver_connection` | Configure connection to an online Tableau Server |
@@ -317,58 +293,30 @@ editor.save("output/superstore.twbx")  # produces a single-entry ZIP with the .t
 
 ## MCP Prompts
 
-The MCP server also exposes prompts that guide a datasource-first, human-in-the-loop workflow:
+The default MCP entrypoint currently registers no prompts. This is intentional:
+the default server is optimized for direct tool calling through the workbook
+engineering surface.
 
-| Prompt | Purpose |
-|---|---|
-| `guided_dashboard_authoring` | Top-level orchestration prompt for `datasource -> schema -> analysis -> contract -> wireframe -> workbook` |
-| `dashboard_brief_to_contract` | Convert a human brief plus schema summary into a strict contract draft |
-| `light_elicitation` | Ask only the minimum missing business questions from a contract review |
-| `authoring_execution_plan` | Turn a finalized contract into an execution-oriented internal MCP build plan |
-| `worksheet_clone_refactor` | Guide a worksheet-scoped `open -> clone -> preview -> apply -> unhide -> save` refactor workflow for existing workbooks |
+## Guided Authoring Status
 
-## Guided MCP Authoring Runs
+The datasource-first guided authoring implementation remains in the source tree
+for future use, but it is hidden from the default MCP entrypoint. In practical
+terms:
 
-Use the guided run flow when you want a more structured Agentic BI authoring experience than a single free-form tool sequence.
+- The Python modules such as `cwtwb.authoring_run` and
+  `cwtwb.mcp.tools_authoring` still exist.
+- The default `cwtwb` MCP command does not import `tools_authoring.py`, so guided
+  tools such as `start_authoring_run` and `generate_workbook_from_run` are not
+  registered.
+- The default MCP command does not register guided prompts such as
+  `guided_dashboard_authoring`.
+- The default MCP resources do not expose the guided authoring contract template
+  or `authoring_workflow` skill.
 
-High-level flow:
-
-1. `start_authoring_run(datasource_path=...)`
-2. `intake_datasource_schema(run_id)`
-3. Human confirms the schema, preferably with `interactive_stage_confirmation(..., stage="schema")`
-4. `build_analysis_brief(...)`
-5. In `agent_first` mode, author and present 2-4 candidate directions, then `finalize_analysis_brief(...)`
-6. Human confirms the selected direction, preferably with `interactive_stage_confirmation(..., stage="analysis")`
-7. `draft_authoring_contract(...)`
-8. `review_authoring_contract_for_run(...)`
-9. `finalize_authoring_contract(...)`
-10. Human confirms the contract, preferably with `interactive_stage_confirmation(..., stage="contract")`
-11. `build_wireframe(...)`
-12. `finalize_wireframe(...)`
-13. Human confirms the wireframe, preferably with `interactive_stage_confirmation(..., stage="wireframe")`
-14. `build_execution_plan(...)`
-15. `generate_workbook_from_run(...)`
-
-`confirm_authoring_stage(...)` is still the persistence step when a client falls
-back to chat or when replaying an already-explicit human decision. By default,
-`execution_plan` remains an internal artifact and is not a human approval gate.
-
-Every run writes versioned artifacts, for example:
-
-```text
-tmp/agentic_run/20260319-153045-a1b2c3d4/manifest.json
-tmp/agentic_run/20260319-153045-a1b2c3d4/schema_summary.20260319-153046.json
-tmp/agentic_run/20260319-153045-a1b2c3d4/contract_final.20260319-153120.json
-tmp/agentic_run/20260319-153045-a1b2c3d4/execution_plan.20260319-153155.json
-tmp/agentic_run/20260319-153045-a1b2c3d4/final_workbook.twb
-tmp/agentic_run/20260319-153045-a1b2c3d4/validation_report.20260319-153205.json
-tmp/agentic_run/20260319-153045-a1b2c3d4/analysis_report.20260319-153206.json
-```
-
-Supported datasource types for this workflow today:
-
-- Excel (`.xls`, `.xlsx`, `.xlsm`)
-- Hyper (`.hyper`)
+To restore guided authoring later, re-register the guided modules from an MCP
+entrypoint by importing `cwtwb.mcp.tools_authoring` and the guided prompt module.
+For now, keeping them hidden prevents agents from choosing a long guided
+workflow when the intended task is a direct workbook edit.
 
 ## Capability Model
 
@@ -437,10 +385,14 @@ This keeps new feature work aligned with the project's real product boundary ins
 
 ### Structural validation
 
-`save()` automatically validates the TWB XML structure before writing:
+`save()` automatically validates the TWB XML before publishing the final file:
 
 - **Fatal errors** such as missing `<workbook>` or `<datasources>` raise `TWBValidationError`
 - **Warnings** such as missing `<view>` or `<panes>` are logged but do not block saving
+- The workbook is first written to a same-directory temporary file, then parsed back from disk
+- The saved `.twb` or packaged `.twbx` is checked against the Tableau TWB XSD when the vendored schema is available
+- Strict XSD errors raise `TWBValidationError`; known Tableau compatibility warnings remain non-fatal
+- The final output path is replaced only after the temporary file passes validation
 - Validation can be disabled with `editor.save("output.twb", validate=False)` or `editor.save("output.twbx", validate=False)`
 
 ### XSD schema validation
@@ -467,7 +419,10 @@ validate_workbook()                       # validate current open workbook in me
 validate_workbook(file_path="out.twb")    # validate a file on disk (.twb or .twbx)
 ```
 
-XSD errors are **informational** — Tableau itself generates workbooks that occasionally deviate from the schema — but recurring errors signal structural problems worth fixing.
+When called directly, `validate_workbook` still returns a PASS/WARN/FAIL text
+summary. During `save()`, strict XSD errors are fail-closed and block the final
+output file; known Tableau compatibility warnings are reported but do not block
+saving.
 
 ## Dashboard Layouts
 
@@ -522,8 +477,8 @@ of the same dataset.
 
 ### How it works
 
-Migration is a multi-step workflow. Each step is available as both an MCP tool
-and a Python function:
+Migration is a multi-step workflow. Each explicit step is available as both an
+MCP tool and a Python function:
 
 ```
 1. inspect_target_schema   →  Scan the target Excel and list its columns
@@ -533,9 +488,11 @@ and a Python function:
 5. apply_twb_migration     →  Write the migrated .twb + JSON reports
 ```
 
-`migrate_twb_guided` is a convenience wrapper that runs steps 2–5 in sequence
-and pauses automatically when only low-confidence field matches remain, returning
-a `warning_review_bundle` for human review before proceeding.
+`migrate_twb_guided` remains available as a Python convenience wrapper that runs
+steps 2-5 in sequence and pauses automatically when only low-confidence field
+matches remain, returning a `warning_review_bundle` for human review before
+proceeding. It is not registered as a default MCP tool, keeping the MCP surface
+explicit and predictable.
 
 ### Python example
 
@@ -565,18 +522,36 @@ if bundle["status"] == "warning_review_required":
 
 ### MCP tool example
 
-When using cwtwb as an MCP server, an AI agent can run the full workflow:
+When using cwtwb as an MCP server, an AI agent can run the explicit workflow:
 
 ```
 inspect_target_schema(target_source="data/new_data_source.xlsx")
 → returns column list and data types
 
-migrate_twb_guided(
+profile_twb_for_migration(
+    file_path="templates/SalesDashboard.twb",
+    target_source="data/new_data_source.xlsx"
+)
+→ inventories source fields and workbook scope
+
+propose_field_mapping(
+    file_path="templates/SalesDashboard.twb",
+    target_source="data/new_data_source.xlsx"
+)
+→ proposes source-to-target field mappings
+
+preview_twb_migration(
+    file_path="templates/SalesDashboard.twb",
+    target_source="data/new_data_source.xlsx"
+)
+→ returns blockers, warnings, and planned rewrites
+
+apply_twb_migration(
     file_path="templates/SalesDashboard.twb",
     target_source="data/new_data_source.xlsx",
     output_path="output/SalesDashboard_migrated.twb"
 )
-→ returns status: "applied" or "warning_review_required"
+→ writes the migrated workbook and reports
 ```
 
 ### Output files
