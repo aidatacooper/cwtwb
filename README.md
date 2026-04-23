@@ -279,7 +279,7 @@ editor.save("output/superstore.twbx")  # produces a single-entry ZIP with the .t
 | `add_dashboard_action` | Add filter, highlight, URL, or go-to-sheet actions to a dashboard |
 | `set_worksheet_caption` | Set or clear a worksheet caption using plain text |
 | `set_worksheet_hidden` | Hide or unhide a worksheet by updating its worksheet window metadata |
-| `generate_layout_json` | Build an interactive structured dashboard flexbox layout |
+| `generate_layout_json` | Build and validate an interactive structured dashboard flexbox layout JSON before writing it |
 | `list_capabilities` | Show cwtwb's declared support boundary |
 | `describe_capability` | Explain whether a chart or feature is core, advanced, recipe, or unsupported |
 | `analyze_twb` | Analyze a `.twb` file against the capability catalog; output includes both the full capability breakdown and the capability gap triage summary |

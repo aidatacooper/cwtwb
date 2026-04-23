@@ -5,6 +5,13 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.18.4] - 2026-04-23
+
+### Fixed
+
+- **`generate_layout_json` now fails fast for invalid dashboard schemas**: the MCP layout generator now validates and normalizes `layout_tree` with the same declarative DSL used by `add_dashboard` before writing JSON. Invalid roots such as `type="dashboard"` or unsupported nodes (for example `zone`, `header`, and absolute-position payloads) now return a clear failure message and do not write a misleading layout file.
+- **Layout generation regression coverage**: added a test that passes a non-DSL `layout_tree` and asserts `generate_layout_json` fails with an explicit schema error and leaves no output file behind.
+
 ## [0.18.3] - 2026-04-22
 
 ### Fixed

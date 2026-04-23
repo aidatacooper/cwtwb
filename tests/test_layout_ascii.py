@@ -44,5 +44,25 @@ def test_new_layout_flow():
     assert Path(twb_out).exists()
     print(f'Great success! Tested end to end. Output saved to: {twb_out}')
 
+
+def test_generate_layout_json_rejects_non_dsl_schema(tmp_path):
+    json_out = tmp_path / "invalid_layout.json"
+    invalid_layout_tree = {
+        "type": "dashboard",
+        "children": [
+            {
+                "type": "zone",
+                "position": {"x": 0, "y": 0, "w": 100, "h": 50},
+                "children": [{"type": "worksheet", "name": "Demo Chart"}],
+            }
+        ],
+    }
+
+    result = generate_layout_json(str(json_out), invalid_layout_tree, "")
+
+    assert "Failed to generate layout JSON" in result
+    assert "not a supported add_dashboard layout DSL" in result
+    assert not json_out.exists()
+
 if __name__ == '__main__':
     test_new_layout_flow()

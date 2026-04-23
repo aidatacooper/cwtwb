@@ -43,6 +43,7 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
+from ..dashboard_layouts import normalize_dashboard_layout
 from .app import server
 
 
@@ -55,6 +56,9 @@ def generate_layout_json(
     """Generate and save a dashboard layout JSON file."""
 
     try:
+        if not isinstance(layout_tree, dict):
+            return "Failed to generate layout JSON: layout_tree must be an object."
+
         path = Path(output_path)
         path.parent.mkdir(parents=True, exist_ok=True)
 
@@ -62,7 +66,9 @@ def generate_layout_json(
         if ascii_preview:
             output_data["_ascii_layout_preview"] = ascii_preview.strip().split("\n")
 
-        output_data["layout_schema"] = layout_tree
+        # Validate and canonicalize to the exact declarative DSL expected by
+        # add_dashboard(layout=...).
+        output_data["layout_schema"] = normalize_dashboard_layout(layout_tree)
 
         with open(path, "w", encoding="utf-8") as f:
             json.dump(output_data, f, indent=2, ensure_ascii=False)
@@ -70,6 +76,11 @@ def generate_layout_json(
         return (
             f"Layout JSON successfully written to: {path.absolute()}\n"
             f"You can now call `add_dashboard` and set the `layout` parameter to exactly this file path."
+        )
+    except ValueError as e:
+        return (
+            "Failed to generate layout JSON: layout_tree is not a supported add_dashboard layout DSL. "
+            f"{str(e)}"
         )
     except Exception as e:
         return f"Failed to generate layout JSON: {str(e)}"
