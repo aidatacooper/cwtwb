@@ -5,6 +5,17 @@ from __future__ import annotations
 from typing import Any, Callable, Optional
 
 
+def _coerce_text_run(run: dict[str, Any]) -> dict[str, Any]:
+    """Normalize one declarative text run while preserving Tableau-like keys."""
+    return {
+        "text": str(run.get("text", "")),
+        "bold": bool(run.get("bold", False)),
+        "font_size": str(run.get("font_size", "12")),
+        "font_color": str(run.get("font_color", "#111e29")),
+        "font_alignment": str(run.get("font_alignment", "1")),
+    }
+
+
 class FlexNode:
     """A node in the declarative dashboard layout tree."""
 
@@ -22,6 +33,11 @@ class FlexNode:
         self.font_size = d.get("font_size", "12")
         self.font_color = d.get("font_color", "#111e29")
         self.bold = d.get("bold", False)
+        self.text_runs = [
+            _coerce_text_run(run)
+            for run in d.get("runs", [])
+            if isinstance(run, dict)
+        ]
         self.layout_strategy = d.get("layout_strategy")
         self.fit = d.get("fit")
 

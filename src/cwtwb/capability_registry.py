@@ -262,6 +262,22 @@ CAPABILITY_SPECS: tuple[CapabilitySpec, ...] = (
         rationale="Base dashboard layout primitive used to arrange worksheet zones.",
     ),
     CapabilitySpec(
+        key="text-zone",
+        kind="dashboard_zone",
+        level="advanced",
+        canonical="Text",
+        aliases=("text zone", "text"),
+        rationale="Supports dashboard annotation and KPI placeholder composition.",
+    ),
+    CapabilitySpec(
+        key="empty-zone",
+        kind="dashboard_zone",
+        level="advanced",
+        canonical="Empty",
+        aliases=("empty zone", "empty"),
+        rationale="Supports spacer and divider blocks used for precise dashboard layout.",
+    ),
+    CapabilitySpec(
         key="filter-zone",
         kind="dashboard_zone",
         level="advanced",

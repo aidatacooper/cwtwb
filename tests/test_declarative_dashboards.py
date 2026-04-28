@@ -261,3 +261,52 @@ def test_unknown_layout_node_type_raises(tmp_superstore):
                 "children": [{"type": "worksheet", "name": "Sheet A"}],
             },
         )
+
+
+def test_text_runs_and_empty_zone_rendered(tmp_superstore):
+    editor = TWBEditor(tmp_superstore)
+    editor.clear_worksheets()
+    editor.add_worksheet("Sheet A")
+    editor.configure_chart("Sheet A", mark_type="Bar", rows=["Ship Mode"], columns=["SUM(Sales)"])
+
+    layout = {
+        "type": "container",
+        "direction": "vertical",
+        "children": [
+            {
+                "type": "text",
+                "runs": [
+                    {"text": "KPI 1", "bold": True, "font_size": "15", "font_color": "#111e29"},
+                    {"text": "\n", "font_size": "12", "font_color": "#111e29"},
+                    {"text": "PLACEHOLDER", "bold": True, "font_size": "15", "font_color": "#111e29"},
+                ],
+                "style": {"margin": "4"},
+                "fixed_size": 120,
+            },
+            {
+                "type": "empty",
+                "fixed_size": 2,
+                "style": {"background-color": "#192f3e", "margin": "0"},
+            },
+            {"type": "worksheet", "name": "Sheet A"},
+        ],
+    }
+
+    editor.add_dashboard("TextAndEmptyZones", layout=layout, worksheet_names=["Sheet A"])
+
+    db = editor.root.find(".//dashboards/dashboard[@name='TextAndEmptyZones']")
+    assert db is not None
+
+    text_zone = db.find(".//zone[@type-v2='text']")
+    assert text_zone is not None
+    runs = text_zone.findall("./formatted-text/run")
+    assert len(runs) == 3
+    assert runs[0].text == "KPI 1"
+    assert runs[0].get("bold") == "true"
+    assert runs[2].text == "PLACEHOLDER"
+
+    empty_zone = db.find(".//zone[@type-v2='empty']")
+    assert empty_zone is not None
+    bg = empty_zone.find("./zone-style/format[@attr='background-color']")
+    assert bg is not None
+    assert bg.get("value") == "#192f3e"

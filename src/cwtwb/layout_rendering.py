@@ -146,10 +146,22 @@ def _render_container(
 
 
 def _render_text(node: FlexNode, zone: etree._Element) -> None:
-    """Render a text zone with a single formatted-text run."""
+    """Render a text zone with one or more formatted-text runs."""
     zone.set("type-v2", "text")
     zone.set("forceUpdate", "true")
     formatted_text = etree.SubElement(zone, "formatted-text")
+
+    if node.text_runs:
+        for text_run in node.text_runs:
+            run = etree.SubElement(formatted_text, "run")
+            if text_run.get("bold"):
+                run.set("bold", "true")
+            run.set("fontalignment", str(text_run.get("font_alignment", "1")))
+            run.set("fontcolor", str(text_run.get("font_color", "#111e29")))
+            run.set("fontsize", str(text_run.get("font_size", "12")))
+            run.text = str(text_run.get("text", ""))
+        return
+
     run = etree.SubElement(formatted_text, "run")
     if node.bold:
         run.set("bold", "true")

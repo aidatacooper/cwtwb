@@ -121,3 +121,20 @@ def test_describe_capability_tool_reports_support_tier():
     assert "chart: Scatterplot" in result
     assert "Level: advanced" in result
     assert "advanced" in result
+
+
+def test_analyze_m1_template_recognizes_text_and_empty_dashboard_zones():
+    path = Path("backup/m.1.twb")
+    report = analyze_workbook(path)
+
+    detected = {(item.kind, item.canonical) for item in report.detected}
+    assert ("dashboard_zone", "Text") in detected
+    assert ("dashboard_zone", "Empty") in detected
+
+    unknown_zones = {
+        (item.kind, item.raw_name.casefold())
+        for item in report.unknown
+        if item.kind == "dashboard_zone"
+    }
+    assert ("dashboard_zone", "text") not in unknown_zones
+    assert ("dashboard_zone", "empty") not in unknown_zones

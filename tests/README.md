@@ -77,7 +77,7 @@ most fundamental to most complex.
 
 | File | Coverage |
 |------|----------|
-| `test_declarative_dashboards.py` | Complex declarative JSON layout; simple horizontal/vertical string layouts |
+| `test_declarative_dashboards.py` | Complex declarative JSON layout; simple horizontal/vertical string layouts; text-zone multi-run rendering; empty spacer zone rendering |
 | `test_layout_ascii.py` | `generate_layout_json` tool; JSON file creation; dashboard from JSON path |
 | `test_level1_features.py` | Filter zone and ParamCtrl zone in dashboard layout |
 | `test_twb_structure.py` | Dashboard structure via TWBAssert DSL |
@@ -129,7 +129,7 @@ most fundamental to most complex.
 | File | Coverage |
 |------|----------|
 | `test_capability_registry.py` | Alias resolution, recipe listing, level summary, catalog text, capability detail |
-| `test_twb_analyzer.py` | `analyze_workbook` on generated and real workbooks; gap text; `diff_template_gap`; `describe_capability` |
+| `test_twb_analyzer.py` | `analyze_workbook` on generated and real workbooks (including `backup/m.1.twb` text/empty dashboard zones); gap text; `diff_template_gap`; `describe_capability` |
 | `test_migration_workflow.py` | Full migration pipeline: profile, propose, preview, apply, guided flow (pause/confirm), MCP tool JSON payloads |
 
 ### Integration / Replica Tests

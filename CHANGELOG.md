@@ -5,6 +5,17 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+
+- **Dashboard capability catalog now includes `Text` and `Empty` zones**: `list_capabilities`/`describe_capability`/`analyze_twb` now classify `type-v2='text'` and `type-v2='empty'` as declared `dashboard_zone` support instead of `unknown`.
+- **Template-fit regression coverage for layout-only dashboards**: added analyzer coverage against `backup/m.1.twb` to ensure text/empty zones stay recognized in future releases.
+
+### Changed
+
+- **Declarative text zones support multi-run rich text**: dashboard layout nodes of `type="text"` now accept `runs=[...]` so generated TWB XML can emit multiple `<formatted-text><run ...>` segments (for title/KPI placeholders and mixed formatting) while preserving backward compatibility with single-run `text` payloads.
+
 ## [0.18.4] - 2026-04-23
 
 ### Fixed

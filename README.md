@@ -355,7 +355,8 @@ These are supported, but they are higher-level compositions or interaction featu
 - **Rich-text labels** — `configure_chart(label_runs=[...])` for multi-style KPI cards and dynamic titles with inline field values
 - **Advanced worksheet styling** — `configure_worksheet_style` supports pane-level cell/datalabel/mark styles, per-field label/cell/header formats, axis tick control, tooltip disabling, and all Tableau visual noise suppressions
 - **Row dimension header suppression** — `configure_worksheet_style(hide_row_label="FieldName")`
-- Filter zones, parameter controls, color legends
+- Dashboard zone primitives beyond worksheet/layout: **Text**, **Empty**, **Filter**, **ParamCtrl**, **Color Legend**
+- Declarative text zones with multi-run rich text (`runs=[...]`) for title/KPI placeholder layouts
 - Dashboard filter, highlight, URL, and go-to-sheet actions
 - Worksheet captions
 - Declarative JSON layout workflows
