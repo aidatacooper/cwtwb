@@ -64,6 +64,9 @@ def build_dimension_shelf(editor, instances: dict[str, "ColumnInstance"], exprs:
     ci_list: list["ColumnInstance"] = []
     for expr in exprs:
         ci = instances.get(expr)
+        if ci is None:
+            normalized_expr = editor.field_registry.default_view_expression(expr)
+            ci = instances.get(normalized_expr)
         if ci:
             parts.append(editor.field_registry.resolve_full_reference(ci.instance_name))
             ci_list.append(ci)
@@ -486,8 +489,11 @@ def apply_measure_values(
     user_ns = "{http://www.tableausoftware.com/xml/user}"
     measure_refs: list[str] = []
     for mv_expr in measure_values:
-        if mv_expr in instances:
-            ci = instances[mv_expr]
+        ci = instances.get(mv_expr)
+        if ci is None:
+            normalized_expr = editor.field_registry.default_view_expression(mv_expr)
+            ci = instances.get(normalized_expr)
+        if ci is not None:
             full_ref = editor.field_registry.resolve_full_reference(ci.instance_name)
             measure_refs.append(full_ref)
 

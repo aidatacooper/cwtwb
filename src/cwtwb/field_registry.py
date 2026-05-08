@@ -211,6 +211,27 @@ class FieldRegistry:
             ci_type=ci_type,
         )
 
+    def default_view_expression(self, expr: str) -> str:
+        """Return the default Tableau view binding for a field expression.
+
+        Bare, non-calculated measures are promoted to SUM(...) so chart builders
+        can treat raw measures as aggregated values without the caller having to
+        spell out the aggregation every time.
+        """
+
+        text = str(expr).strip()
+        if not text:
+            return ""
+
+        ci = self.parse_expression(text)
+        if ci.derivation != "None":
+            return text
+
+        fi = self._find_field(text)
+        if fi.role == "measure" and not fi.is_calculated:
+            return f"SUM({text})"
+        return text
+
     def resolve_full_reference(self, instance_name: str) -> str:
         """Generate a fully-qualified reference with datasource prefix.
 

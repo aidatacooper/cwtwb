@@ -93,6 +93,8 @@ class BaseChartBuilder:
             for f in filters:
                 if "column" in f:
                     all_exprs.append(f["column"])
+                if "by" in f:
+                    all_exprs.append(f["by"])
         if geographic_field:
             all_exprs.append(geographic_field)
         if measure_values:
@@ -105,8 +107,10 @@ class BaseChartBuilder:
         """Parse expressions into ColumnInstances and normalize filter-side types."""
         instances: dict[str, ColumnInstance] = {}
         for expr in all_exprs:
-            ci = self.field_registry.parse_expression(expr)
+            normalized_expr = self.field_registry.default_view_expression(expr)
+            ci = self.field_registry.parse_expression(normalized_expr)
             instances[expr] = ci
+            instances[normalized_expr] = ci
         if filters:
             for f in filters:
                 if f.get("type") == "quantitative" and f["column"] in instances:
@@ -117,6 +121,24 @@ class BaseChartBuilder:
                         new_inst_name = new_inst_name[:-4] + ":qk]"
                     instances[expr] = dataclass_replace(ci, ci_type="quantitative", instance_name=new_inst_name)
         return instances
+
+    def _instance_for_expression(
+        self,
+        instances: dict[str, ColumnInstance],
+        expr: Optional[str],
+    ) -> ColumnInstance | None:
+        """Resolve a field expression using the normalized chart binding rules."""
+
+        text = str(expr or "").strip()
+        if not text:
+            return None
+        ci = instances.get(text)
+        if ci is not None:
+            return ci
+        normalized = self.field_registry.default_view_expression(text)
+        if normalized != text:
+            return instances.get(normalized)
+        return None
 
     def _setup_datasource_dependencies(self, view: etree._Element, ds_name: str, instances: dict[str, ColumnInstance], all_exprs: list[str]) -> None:
         """Rewrite <datasource-dependencies> to include required columns and instances."""
@@ -321,7 +343,7 @@ class BaseChartBuilder:
                     r.text = etree.CDATA(f"{prefix}<{param_ref}>")
             elif "field" in run_spec:
                 field_expr = run_spec["field"]
-                ci = instances.get(field_expr)
+                ci = self._instance_for_expression(instances, field_expr)
                 if ci:
                     full_ref = self.field_registry.resolve_full_reference(ci.instance_name)
                     prefix = run_spec.get("prefix", "")
@@ -380,33 +402,47 @@ class BaseChartBuilder:
             encodings_el = etree.SubElement(pane, "encodings")
 
             if color:
-                color_el = etree.SubElement(encodings_el, "color")
-                color_el.set("column", self.field_registry.resolve_full_reference(instances[color].instance_name))
+                color_ci = self._instance_for_expression(instances, color)
+                if color_ci is not None:
+                    color_el = etree.SubElement(encodings_el, "color")
+                    color_el.set("column", self.field_registry.resolve_full_reference(color_ci.instance_name))
 
             if wedge_size:
-                ws_el = etree.SubElement(encodings_el, "wedge-size")
-                ws_el.set("column", self.field_registry.resolve_full_reference(instances[wedge_size].instance_name))
+                ws_ci = self._instance_for_expression(instances, wedge_size)
+                if ws_ci is not None:
+                    ws_el = etree.SubElement(encodings_el, "wedge-size")
+                    ws_el.set("column", self.field_registry.resolve_full_reference(ws_ci.instance_name))
 
             if size:
-                size_el = etree.SubElement(encodings_el, "size")
-                size_el.set("column", self.field_registry.resolve_full_reference(instances[size].instance_name))
+                size_ci = self._instance_for_expression(instances, size)
+                if size_ci is not None:
+                    size_el = etree.SubElement(encodings_el, "size")
+                    size_el.set("column", self.field_registry.resolve_full_reference(size_ci.instance_name))
 
             if label:
-                label_el = etree.SubElement(encodings_el, "text")
-                label_el.set("column", self.field_registry.resolve_full_reference(instances[label].instance_name))
+                label_ci = self._instance_for_expression(instances, label)
+                if label_ci is not None:
+                    label_el = etree.SubElement(encodings_el, "text")
+                    label_el.set("column", self.field_registry.resolve_full_reference(label_ci.instance_name))
 
             if detail:
-                detail_el = etree.SubElement(encodings_el, "lod")
-                detail_el.set("column", self.field_registry.resolve_full_reference(instances[detail].instance_name))
+                detail_ci = self._instance_for_expression(instances, detail)
+                if detail_ci is not None:
+                    detail_el = etree.SubElement(encodings_el, "lod")
+                    detail_el.set("column", self.field_registry.resolve_full_reference(detail_ci.instance_name))
 
             if is_map and geographic_field and geographic_field != detail:
-                geo_lod = etree.SubElement(encodings_el, "lod")
-                geo_lod.set("column", self.field_registry.resolve_full_reference(instances[geographic_field].instance_name))
+                geo_ci = self._instance_for_expression(instances, geographic_field)
+                if geo_ci is not None:
+                    geo_lod = etree.SubElement(encodings_el, "lod")
+                    geo_lod.set("column", self.field_registry.resolve_full_reference(geo_ci.instance_name))
 
             if is_map and map_fields:
                 for mf_name in map_fields:
                     try:
-                        mf_ci = self.field_registry.parse_expression(mf_name)
+                        mf_ci = self._instance_for_expression(instances, mf_name)
+                        if mf_ci is None:
+                            mf_ci = self.field_registry.parse_expression(mf_name)
                         mf_lod = etree.SubElement(encodings_el, "lod")
                         mf_lod.set("column", self.field_registry.resolve_full_reference(mf_ci.instance_name))
                     except (KeyError, ValueError) as e:
@@ -419,8 +455,10 @@ class BaseChartBuilder:
             if tooltip:
                 tooltip_list = [tooltip] if isinstance(tooltip, str) else tooltip
                 for tt in tooltip_list:
-                    tt_el = etree.SubElement(encodings_el, "tooltip")
-                    tt_el.set("column", self.field_registry.resolve_full_reference(instances[tt].instance_name))
+                    tt_ci = self._instance_for_expression(instances, tt)
+                    if tt_ci is not None:
+                        tt_el = etree.SubElement(encodings_el, "tooltip")
+                        tt_el.set("column", self.field_registry.resolve_full_reference(tt_ci.instance_name))
 
         pane_style = pane.find("style")
         if pane_style is None:
@@ -484,7 +522,9 @@ class BaseChartBuilder:
                 by_measure = f.get("by")
                 if by_measure:
                     try:
-                        by_ci = self.field_registry.parse_expression(by_measure)
+                        by_ci = self._instance_for_expression(instances, by_measure)
+                        if by_ci is None:
+                            by_ci = self.field_registry.parse_expression(by_measure)
                         by_expr = f"{by_ci.derivation.upper()}({by_ci.column_local_name})"
                         gf_order.set("expression", by_expr)
                     except (KeyError, ValueError):
@@ -578,7 +618,7 @@ class BaseChartBuilder:
         if dim_ci is None:
             return
 
-        measure_ci = instances.get(sort_measure_expr)
+        measure_ci = self._instance_for_expression(instances, sort_measure_expr) or instances.get(sort_measure_expr)
         if measure_ci is None:
             return
 

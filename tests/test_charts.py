@@ -58,3 +58,21 @@ def test_simplified_chart_types(empty_editor, tmp_path):
     editor.configure_chart("Bubble", mark_type="Bubble Chart", size="SUM(Sales)", color="Category")
     check_mark(editor, "Bubble", "Circle")
     check_display_labels_off(editor, "Bubble", ["cols", "rows"])
+
+
+def test_raw_measure_defaults_to_sum_on_view_bindings(empty_editor):
+    editor = empty_editor
+    editor.add_worksheet("Raw Measure Sum")
+    editor.configure_chart(
+        "Raw Measure Sum",
+        mark_type="Bar",
+        rows=["Category"],
+        columns=["Sales"],
+    )
+
+    ws = editor._find_worksheet("Raw Measure Sum")
+    cols_text = ws.findtext(".//cols") or ""
+    deps = ws.findall(".//datasource-dependencies/column-instance")
+
+    assert "sum:Sales (Orders):qk" in cols_text
+    assert any(ci.get("derivation") == "Sum" and "Sales (Orders)" in (ci.get("column") or "") for ci in deps)
