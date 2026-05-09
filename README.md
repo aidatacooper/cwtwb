@@ -1,30 +1,99 @@
 # cwtwb
 
-> **Tableau Workbook (.twb/.twbx) generation toolkit for reproducible dashboards and workbook engineering**
-> Programmatically create Tableau workbooks with stable analytical primitives, dashboard composition, and built-in structural validation.
+<p align="center">
+  <img src="docs/assets/readme/logo.png" alt="Datacooper logo" width="220" />
+</p>
+
+> Tableau workbook engineering for reproducible `.twb` / `.twbx` generation, validation, and migration.
+
+<p align="center">
+  <img src="docs/assets/readme/hero.png" alt="cwtwb hero image" width="1200" />
+</p>
+
+**cwtwb** is a Python toolkit and Model Context Protocol (MCP) server for building Tableau Desktop workbooks from code or agent tool calls.
+
+It is meant to be a **workbook engineering layer**, not a conversational analytics agent. The focus is reproducibility, inspectability, and safe automation in local workflows, scripts, and CI.
+
+The `cw` in `cwtwb` comes from `Cooper Wenhua`.
 
 **Author:** Cooper Wenhua &lt;imgwho@gmail.com&gt;
 
-## Overview
+[Website](https://datacooper.com) · [Source](https://github.com/imgwho/cwtwb) · [Changelog](https://github.com/imgwho/cwtwb/blob/master/CHANGELOG.md)
 
-**cwtwb** is a Model Context Protocol (MCP) server and Python toolkit for generating Tableau Desktop workbook files (`.twb` / `.twbx`) from code or AI-driven tool calls.
+[![Website](https://img.shields.io/badge/Website-datacooper.com-0A7CFF?style=flat-square)](https://datacooper.com)
+[![Source](https://img.shields.io/badge/Source-GitHub-181717?style=flat-square)](https://github.com/imgwho/cwtwb)
+[![License](https://img.shields.io/badge/License-AGPL--3.0--or--later-green?style=flat-square)](https://github.com/imgwho/cwtwb/blob/master/LICENSE)
+[![Python](https://img.shields.io/badge/Python-3.10%2B-3776AB?style=flat-square)](https://www.python.org/)
 
-It is designed as a **workbook engineering layer**, not as a conversational data exploration agent. The goal is to make workbook generation reproducible, inspectable, and safe to automate in local workflows, scripts, and CI.
+[Try the example workflow](examples/scripts/demo_all_supported_charts.py)
 
-Latest update (`0.18.7`): shared measure-intent normalization now keeps SDK chart builders, showcase recipes, and MCP execution plans aligned so raw measures default to `SUM(...)` consistently.
+## Quick Start
 
-The default workflow is:
+<details>
+<summary>Detailed setup</summary>
+
+### MCP Server
+
+```bash
+uvx cwtwb
+```
+
+Use this when you want Claude, Cursor, VSCode, or another MCP client to create or edit Tableau workbooks.
+
+### Python Library
+
+```bash
+pip install cwtwb
+```
+
+Use `TWBEditor(...)` when you want to generate or modify workbooks directly from Python.
+
+### Optional Examples
+
+```bash
+pip install "cwtwb[examples]"
+```
+
+This adds the Hyper-backed example that reads bundled `.hyper` files.
+
+</details>
+
+## What It Does
 
 1. Start from a known template (`.twb` or `.twbx`) or the built-in zero-config template
 2. Add calculated fields and parameters
 3. Build worksheets from stable chart primitives
 4. Assemble dashboards and interactions
-5. Save and validate a `.twb` or `.twbx` that opens in Tableau Desktop
+5. Save and validate a workbook that opens in Tableau Desktop
 
-The default MCP entrypoint exposes the low-level workbook engineering tools only.
-Experimental guided authoring code is still present in the package, but it is not
-registered in the default MCP tool or prompt surface so agents do not
-accidentally enter a long guided workflow when a direct workbook edit is wanted.
+The default MCP entrypoint exposes the low-level workbook engineering tools only. Guided authoring code still exists in the package, but it is not registered in the default MCP tool or prompt surface.
+
+## Why This Exists
+
+- Make workbook generation repeatable instead of hand-edited
+- Keep workbook structure inspectable before it is saved
+- Support both direct Python usage and MCP-based agent workflows
+- Validate the output before it is published
+
+## Highlights
+
+| Area | What you get |
+|---|---|
+| Workbook authoring | Generate `.twb` / `.twbx` files from templates or from scratch |
+| Chart building | Build bar, line, pie, map, KPI, and dual-axis workbooks with stable primitives |
+| Safety | Validate structure and Tableau XSD before publishing |
+| Migration | Repoint existing workbooks to new data sources with explicit steps |
+| MCP support | Drive workbook workflows from Claude, Cursor, VSCode, or other MCP clients |
+
+## See It In Action
+
+This GIF shows the MCP tool flow that builds a dashboard step by step.
+
+<p align="center">
+  <img src="docs/assets/readme/output_compressed.gif" alt="cwtwb demo GIF" width="1200" />
+</p>
+
+## Architecture
 
 ```
                             Interfaces
@@ -66,7 +135,7 @@ accidentally enter a long guided workflow when a direct workbook edit is wanted.
                       output.twb  /  output.twbx
 ```
 
-## Installation
+## Installation and Requirements
 
 ```bash
 pip install cwtwb
@@ -645,6 +714,24 @@ python examples/migrate_workflow/test_migration_workflow.py
 # Start MCP server
 cwtwb
 ```
+
+## FAQ
+
+### What is the difference between `.twb` and `.twbx`?
+
+`.twb` is the workbook XML. `.twbx` is the packaged version that bundles the workbook together with extracts and images.
+
+### Does `validate_workbook` save files?
+
+No. `validate_workbook()` checks the workbook in memory or on disk, but it does not write output. `save_workbook()` is the tool that writes files.
+
+### When should I use `uvx cwtwb` versus `python -m cwtwb.mcp`?
+
+Use `uvx cwtwb` for the normal MCP workflow. Use `python -m cwtwb.mcp` for local testing without `uvx`.
+
+### Is guided authoring exposed by default?
+
+No. The default MCP entrypoint keeps guided authoring hidden so direct workbook edits stay the primary surface.
 
 ## License
 

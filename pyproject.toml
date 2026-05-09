@@ -38,7 +38,8 @@ examples = [
 cwtwb = "cwtwb.server:main"
 
 [project.urls]
-Homepage = "https://github.com/imgwho/cwtwb"
+Homepage = "https://datacooper.com"
+Repository = "https://github.com/imgwho/cwtwb"
 Changelog = "https://github.com/imgwho/cwtwb/blob/master/CHANGELOG.md"
 
 [build-system]
