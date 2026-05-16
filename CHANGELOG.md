@@ -45,7 +45,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - **Dashboard capability catalog now includes `Text` and `Empty` zones**: `list_capabilities`/`describe_capability`/`analyze_twb` now classify `type-v2='text'` and `type-v2='empty'` as declared `dashboard_zone` support instead of `unknown`.
-- **Template-fit regression coverage for layout-only dashboards**: added analyzer coverage against `backup/m.1.twb` to ensure text/empty zones stay recognized in future releases.
+- **Template-fit regression coverage for layout-only dashboards**: added analyzer coverage against `examples/superstore_recreated/Exec Overview Recreated.twb` to ensure text/empty zones stay recognized in future releases.
 
 ### Changed
 

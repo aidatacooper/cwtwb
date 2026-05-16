@@ -129,7 +129,7 @@ most fundamental to most complex.
 | File | Coverage |
 |------|----------|
 | `test_capability_registry.py` | Alias resolution, recipe listing, level summary, catalog text, capability detail |
-| `test_twb_analyzer.py` | `analyze_workbook` on generated and real workbooks (including `backup/m.1.twb` text/empty dashboard zones); gap text; `diff_template_gap`; `describe_capability` |
+| `test_twb_analyzer.py` | `analyze_workbook` on generated and real workbooks (including `examples/superstore_recreated/Exec Overview Recreated.twb` text/empty dashboard zones); gap text; `diff_template_gap`; `describe_capability` |
 | `test_migration_workflow.py` | Full migration pipeline: profile, propose, preview, apply, guided flow (pause/confirm), MCP tool JSON payloads |
 
 ### Integration / Replica Tests

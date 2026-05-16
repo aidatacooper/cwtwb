@@ -124,7 +124,7 @@ def test_describe_capability_tool_reports_support_tier():
 
 
 def test_analyze_m1_template_recognizes_text_and_empty_dashboard_zones():
-    path = Path("backup/m.1.twb")
+    path = Path(__file__).parent.parent / "examples" / "superstore_recreated" / "Exec Overview Recreated.twb"
     report = analyze_workbook(path)
 
     detected = {(item.kind, item.canonical) for item in report.detected}
