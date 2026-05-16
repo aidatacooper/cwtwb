@@ -1,5 +1,6 @@
 import sys
 import xml.etree.ElementTree as ET
+from datetime import datetime
 from pathlib import Path
 
 import pytest
@@ -18,7 +19,15 @@ def superstore_template():
 
 @pytest.fixture
 def sample_superstore_excel():
-    return Path(__file__).parent.parent / "examples" / "agentic_mcp_authoring" / "Sample - Superstore.xls"
+    candidates = [
+        Path(r"C:\Users\imgwho\Documents\My Tableau Repository\Datasources\2026.1\zh_CN-China\Sample - Superstore.xls"),
+        Path(__file__).parent.parent / "backup" / "Sample - Superstore.xls",
+        Path(__file__).parent.parent / "examples" / "agentic_mcp_authoring" / "Sample - Superstore.xls",
+    ]
+    for candidate in candidates:
+        if candidate.exists():
+            return candidate
+    pytest.skip("Sample - Superstore.xls is not available in this environment")
 
 def test_set_mysql_connection(superstore_template, tmp_path):
     editor = TWBEditor(superstore_template)
@@ -164,6 +173,30 @@ def test_infer_excel_datatype_does_not_promote_mixed_strings_to_date():
     assert _infer_excel_datatype("Period Label", values) == "string"
 
 
+def test_infer_excel_datatype_detects_datetime_strings():
+    values = ["2024-01-01 08:15:00", "2024-01-02 09:30:00", "2024-01-03 10:45:00"]
+    assert _infer_excel_datatype("Shipped At", values) == "datetime"
+
+
+def test_infer_excel_datatype_detects_datetime_values():
+    values = [
+        datetime(2024, 1, 1, 8, 15, 0),
+        datetime(2024, 1, 2, 9, 30, 0),
+        datetime(2024, 1, 3, 10, 45, 0),
+    ]
+    assert _infer_excel_datatype("Shipped At", values) == "datetime"
+
+
+def test_infer_excel_datatype_does_not_treat_time_in_field_name_as_datetime():
+    values = ["fast", "slow", "medium"]
+    assert _infer_excel_datatype("Lead Time", values) == "string"
+
+
+def test_infer_excel_datatype_treats_postal_code_as_string_even_when_numeric():
+    values = [77095.0, 60540.0, 19143.0, 42420.0]
+    assert _infer_excel_datatype("Postal Code", values) == "string"
+
+
 def test_set_excel_connection_rebuilds_metadata_from_schema(
     superstore_template,
     sample_superstore_excel,
@@ -176,7 +209,7 @@ def test_set_excel_connection_rebuilds_metadata_from_schema(
 
     sales = editor.field_registry.get("Sales")
     assert sales is not None
-    assert sales.local_name == "[Sales (Orders)]"
+    assert sales.local_name == "[Sales]"
 
     out_file = tmp_path / "superstore_excel.twb"
     editor.save(out_file)
@@ -185,13 +218,38 @@ def test_set_excel_connection_rebuilds_metadata_from_schema(
     ds = tree.find(".//datasource")
     assert ds is not None
 
-    relation_cols = ds.findall(".//connection[@class='federated']/relation/columns/column")
-    assert len(relation_cols) == 21
+    relation_nodes = ds.findall(".//connection[@class='federated']/relation/*[@type='table']")
+    assert len(relation_nodes) == 3
+    assert {relation.get("name") for relation in relation_nodes} == {"Orders", "People", "Returns"}
+
+    relation_cols = ds.findall(".//connection[@class='federated']/relation//columns/column")
+    assert len(relation_cols) == 25
     assert relation_cols[0].get("name") == "Row ID"
-    assert relation_cols[-1].get("name") == "Profit"
+    assert relation_cols[0].get("datatype") == "integer"
+    assert relation_cols[2].get("name") == "Order Date"
+    assert relation_cols[2].get("datatype") == "date"
+    assert relation_cols[3].get("name") == "Ship Date"
+    assert relation_cols[3].get("datatype") == "date"
+    assert relation_cols[11].get("name") == "Postal Code"
+    assert relation_cols[11].get("datatype") == "string"
+    assert relation_cols[17].get("name") == "Sales"
+    assert relation_cols[17].get("datatype") == "real"
+    assert relation_cols[18].get("name") == "Quantity"
+    assert relation_cols[18].get("datatype") == "integer"
+    assert relation_cols[19].get("name") == "Discount"
+    assert relation_cols[19].get("datatype") == "real"
+    assert relation_cols[20].get("name") == "Profit"
+    assert relation_cols[20].get("datatype") == "real"
+    assert relation_cols[22].get("name") == "Region"
+    assert relation_cols[22].get("datatype") == "string"
+    assert relation_cols[23].get("name") == "Order ID"
+    assert relation_cols[23].get("datatype") == "string"
+    assert relation_cols[24].get("name") == "Returned"
+    assert relation_cols[24].get("datatype") == "string"
 
     metadata_records = ds.findall(".//connection[@class='federated']/metadata-records/metadata-record")
-    assert len(metadata_records) == 22
+    assert len(metadata_records) == 28
+    assert sum(1 for metadata_record in metadata_records if metadata_record.get("class") == "capability") == 3
     sales_local_name = None
     state_local_name = None
     for metadata_record in metadata_records:
@@ -199,14 +257,19 @@ def test_set_excel_connection_rebuilds_metadata_from_schema(
             sales_local_name = metadata_record.findtext("local-name")
         if metadata_record.findtext("remote-name") == "State/Province":
             state_local_name = metadata_record.findtext("local-name")
-    assert sales_local_name == "[Sales (Orders)]"
+    assert sales_local_name == "[Sales]"
     assert state_local_name == "[State/Province]"
 
-    assert ds.find("./column[@name='[Sales]']") is None
-    assert ds.find("./column[@name='[City (Orders)]']").get("semantic-role") == "[City].[Name]"
+    assert ds.find("./column[@name='[Sales]']") is not None
+    assert ds.find("./column[@name='[Profit]']") is not None
+    assert ds.find("./column[@name='[Quantity]']") is not None
+    assert ds.find("./column[@name='[Discount]']") is not None
+    assert ds.find("./column[@name='[City]']").get("semantic-role") == "[City].[Name]"
     assert ds.find("./column[@name='[Country/Region]']").get("semantic-role") == "[Country].[ISO3166_2]"
-    assert ds.find("./column[@name='[Postal Code (Orders)]']").get("semantic-role") == "[ZipCode].[Name]"
+    assert ds.find("./column[@name='[Postal Code]']").get("semantic-role") == "[ZipCode].[Name]"
     assert ds.find("./column[@name='[State/Province]']").get("semantic-role") == "[State].[Name]"
+    assert ds.find("./column[@name='[Region (People)]']").get("hidden") == "true"
+    assert ds.find("./column[@name='[Order ID (Returns)]']").get("hidden") == "true"
 
 
 @pytest.mark.parametrize(
@@ -337,7 +400,7 @@ def test_excel_connection_updates_calculation_references_to_local_names(
     tree = ET.parse(out_file)
     calc = tree.find(".//datasource/column[@caption='Profit Ratio']/calculation")
     assert calc is not None
-    assert calc.get("formula") == "SUM([Profit (Orders)]) / SUM([Sales (Orders)])"
+    assert calc.get("formula") == "SUM([Profit]) / SUM([Sales])"
 
 
 def test_schema_validation_downgrades_known_workbook_tail_issue(superstore_template):

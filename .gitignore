@@ -34,6 +34,7 @@ output/
 
 # Large/binary project files
 backup/
+prototype/
 dashboard/
 *.twbx
 *.hyper
@@ -48,3 +49,11 @@ examples/migrate_workflow/* - migrated.twb
 examples/migrate_workflow/migration_report.json
 examples/migrate_workflow/field_mapping.json
 examples/migrate_workflow/prompt.txt
+
+
+prototype/frontend/node_modules/
+prototype/frontend/.pnpm-store/
+prototype/frontend/dist/
+prototype/frontend/_tmp_*
+prototype/data/interactions.jsonl
+.tmp_test_outputs/

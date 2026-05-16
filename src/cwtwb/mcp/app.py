@@ -33,6 +33,8 @@ server = FastMCP(
     "feature support catalog, not a tool inventory. "
     "Use set_excel_connection, set_csv_connection, set_hyper_connection, set_mysql_connection, or "
     "set_tableauserver_connection when the workbook datasource must be changed. "
+    "Use inspect_excel_connection when you need a read-only preview of Excel sheet parsing, inferred datatypes, "
+    "or likely multi-table relationships before mutating the workbook. "
     "When authoring a dashboard layout, first call list_worksheets and lock the exact worksheet names; "
     "reuse those exact names in layout nodes to avoid name drift. "
     "For layout JSON, use the canonical DSL: container nodes use type='container' with direction and children; "

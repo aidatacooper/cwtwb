@@ -37,6 +37,7 @@ from cwtwb.server import (
     set_tableauserver_connection,
     analyze_twb,
     inspect_target_schema,
+    inspect_excel_connection,
     validate_workbook,
 )
 
@@ -211,6 +212,40 @@ class TestInspectTargetSchema:
     def test_non_hyper_path_does_not_raise(self):
         result = inspect_target_schema("some_file.xlsx")
         assert isinstance(result, str)
+
+
+class TestInspectExcelConnection:
+    def test_preview_detects_multi_table_relationships(self, tmp_path):
+        from openpyxl import Workbook
+
+        xlsx_path = tmp_path / "preview_multi.xlsx"
+        wb = Workbook()
+        ws_orders = wb.active
+        ws_orders.title = "Orders"
+        ws_orders.append(["Order ID", "Region", "Sales"])
+        ws_orders.append(["CA-1", "West", 100])
+        ws_orders.append(["CA-2", "East", 200])
+
+        ws_people = wb.create_sheet("People")
+        ws_people.append(["Region", "Owner"])
+        ws_people.append(["West", "Alice"])
+        ws_people.append(["East", "Bob"])
+        wb.save(xlsx_path)
+
+        payload = json.loads(inspect_excel_connection(str(xlsx_path), sheet_name="Orders"))
+
+        assert payload["multi_table"] is True
+        assert payload["sheet_count"] == 2
+        assert [table["name"] for table in payload["tables"]] == ["Orders", "People"]
+        assert payload["relationships"] == [
+            {
+                "from_table": "Orders",
+                "to_table": "People",
+                "shared_fields": ["Region"],
+            }
+        ]
+        assert payload["tables"][0]["fields"][0]["datatype"] == "string"
+        assert payload["tables"][0]["fields"][2]["datatype"] == "integer"
 
 
 # ── worksheet clone / refactor MCP wrappers ──────────────────────────────────

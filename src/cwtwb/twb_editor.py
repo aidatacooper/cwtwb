@@ -150,7 +150,7 @@ class TWBEditor(ParametersMixin, ConnectionsMixin, ChartsMixin, DashboardsMixin)
                 break
             self.root.remove(thumbnails)
 
-        for tag in ("actions", "worksheets", "dashboards", "windows", "mapsources"):
+        for tag in ("actions", "worksheets", "dashboards", "mapsources"):
             self._remove_empty_top_level_container(tag)
 
     def _remove_empty_top_level_container(self, tag: str) -> None:
@@ -450,8 +450,31 @@ class TWBEditor(ParametersMixin, ConnectionsMixin, ChartsMixin, DashboardsMixin)
 
         windows = self.root.find("windows")
         if windows is not None:
-            for win in list(windows):
+            wins = list(windows)
+            for win in wins[1:]:
                 windows.remove(win)
+            if not wins:
+                win = etree.SubElement(windows, "window")
+                win.set("class", "worksheet")
+                win.set("maximized", "true")
+                win.set("name", "Sheet 1")
+                cards = etree.SubElement(win, "cards")
+                edge = etree.SubElement(cards, "edge")
+                edge.set("name", "left")
+                strip = etree.SubElement(edge, "strip")
+                strip.set("size", "160")
+                for card_type in ("pages", "filters", "marks"):
+                    card = etree.SubElement(strip, "card")
+                    card.set("type", card_type)
+                top_edge = etree.SubElement(cards, "edge")
+                top_edge.set("name", "top")
+                for card_type in ("columns", "rows", "title"):
+                    strip = etree.SubElement(top_edge, "strip")
+                    strip.set("size", "2147483647")
+                    card = etree.SubElement(strip, "card")
+                    card.set("type", card_type)
+                simple_id = etree.SubElement(win, "simple-id")
+                simple_id.set("uuid", "{5779C54A-2B31-48F9-A30A-90313B7D4CA9}")
 
         # Clear model-level columns references
         for mc in self.root.findall(".//model-columns"):

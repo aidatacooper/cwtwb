@@ -10,6 +10,7 @@ import os
 import shutil
 import tempfile
 from copy import deepcopy
+from collections import Counter
 from datetime import date, datetime
 from pathlib import Path
 from typing import Any, List, Optional
@@ -40,9 +41,27 @@ _SEMANTIC_ROLE_BY_FIELD_NAME = {
     "zip code": "[ZipCode].[Name]",
     "zipcode": "[ZipCode].[Name]",
 }
+_EXCEL_SAMPLE_LIMIT = 10_000
+_STRING_LIKE_FIELD_HINTS = (
+    "postal code",
+    "zip code",
+    "zipcode",
+    "postcode",
+    "postal",
+    "zip",
+    "phone number",
+    "phone",
+    "fax",
+    "sku",
+    "serial number",
+    "tracking number",
+    "account number",
+    "part number",
+)
 _REMOTE_TYPE_BY_DATATYPE = {
     "boolean": "11",
     "date": "7",
+    "datetime": "7",
     "integer": "20",
     "real": "5",
     "string": "130",
@@ -50,6 +69,7 @@ _REMOTE_TYPE_BY_DATATYPE = {
 _DEBUG_REMOTE_TYPE_BY_DATATYPE = {
     "boolean": "BOOL",
     "date": "DATE",
+    "datetime": "DATETIME",
     "integer": "I8",
     "real": "R8",
     "string": "WSTR",
@@ -63,6 +83,20 @@ _STRING_DATE_FORMATS = (
     "%m-%d-%Y",
     "%d/%m/%Y",
     "%d-%m-%Y",
+)
+_STRING_DATETIME_FORMATS = (
+    "%Y-%m-%d %H:%M:%S",
+    "%Y/%m/%d %H:%M:%S",
+    "%Y-%m-%d %H:%M",
+    "%Y/%m/%d %H:%M",
+    "%m/%d/%Y %H:%M:%S",
+    "%m-%d-%Y %H:%M:%S",
+    "%m/%d/%Y %H:%M",
+    "%m-%d-%Y %H:%M",
+    "%Y-%m-%dT%H:%M:%S",
+    "%Y-%m-%dT%H:%M:%S.%f",
+    "%Y-%m-%d %I:%M:%S %p",
+    "%m/%d/%Y %I:%M:%S %p",
 )
 
 
@@ -79,8 +113,6 @@ def _normalize_external_datatype(datatype: str) -> str:
     normalized = datatype.strip().lower()
     if normalized not in _VALID_EXTERNAL_DATATYPES:
         return "string"
-    if normalized == "datetime":
-        return "date"
     return normalized
 
 
@@ -94,7 +126,7 @@ def _infer_external_role(field_name: str, datatype: str) -> str:
 
 
 def _infer_external_field_type(role: str, datatype: str) -> str:
-    if datatype == "date":
+    if datatype in {"date", "datetime"}:
         return "ordinal"
     if datatype == "integer" and role != "measure":
         return "ordinal"
@@ -104,11 +136,17 @@ def _infer_external_field_type(role: str, datatype: str) -> str:
 
 
 def _default_local_name(field_name: str, source_object: str, semantic_role: str) -> str:
-    if semantic_role in {"[Country].[ISO3166_2]", "[State].[Name]"}:
+    if semantic_role in {"[Country].[ISO3166_2]", "[State].[Name]", "[ZipCode].[Name]"}:
         return f"[{field_name}]"
     if source_object:
         return f"[{field_name} ({source_object})]"
     return f"[{field_name}]"
+
+
+def _excel_local_name(field_name: str, source_object: str, *, is_primary: bool, is_shared: bool) -> str:
+    if is_primary or not is_shared:
+        return f"[{field_name}]"
+    return f"[{field_name} ({source_object})]"
 
 
 def _extract_remote_name_from_map_value(value: str) -> str:
@@ -156,7 +194,7 @@ def _read_csv_rows(
 
 
 def _default_aggregation(datatype: str) -> str:
-    if datatype == "date":
+    if datatype in {"date", "datetime"}:
         return "Year"
     if datatype in {"integer", "real"}:
         return "Sum"
@@ -183,6 +221,24 @@ def _looks_like_string_date(value: Any) -> bool:
     return False
 
 
+def _looks_like_string_datetime(value: Any) -> bool:
+    text = str(value).strip()
+    if not text or len(text) < 11:
+        return False
+    for fmt in _STRING_DATETIME_FORMATS:
+        try:
+            datetime.strptime(text, fmt)
+            return True
+        except ValueError:
+            continue
+    return False
+
+
+def _is_string_like_field_name(header: str) -> bool:
+    normalized = " ".join(header.casefold().replace("_", " ").replace("-", " ").split())
+    return any(hint in normalized for hint in _STRING_LIKE_FIELD_HINTS)
+
+
 def _is_probable_string_date_column(values: list[Any], *, threshold: float = 0.6, sample_limit: int = 24) -> bool:
     samples = [str(value).strip() for value in values if isinstance(value, str) and str(value).strip()]
     if len(samples) < 3:
@@ -192,15 +248,36 @@ def _is_probable_string_date_column(values: list[Any], *, threshold: float = 0.6
     return matches / len(sample) >= threshold
 
 
+def _is_probable_string_datetime_column(values: list[Any], *, threshold: float = 0.6, sample_limit: int = 24) -> bool:
+    samples = [str(value).strip() for value in values if isinstance(value, str) and str(value).strip()]
+    if len(samples) < 3:
+        return False
+    sample = samples[:sample_limit]
+    matches = sum(1 for value in sample if _looks_like_string_datetime(value))
+    return matches / len(sample) >= threshold
+
+
+def _datetime_has_time_component(value: Any) -> bool:
+    if not isinstance(value, datetime):
+        return False
+    return value.time() != datetime.min.time()
+
+
 def _infer_excel_datatype(header: str, values: list[Any]) -> str:
     lower = header.casefold()
     non_blank = [value for value in values if value not in ("", None)]
-    if any(token in lower for token in ("date", "month", "year", "day", "time")):
+    if _is_string_like_field_name(header):
+        return "string"
+    if any(token in lower for token in ("datetime", "date & time", "date and time")):
+        return "datetime"
+    if any(token in lower for token in ("date", "month", "year", "day")):
         return "date"
     if any(token in lower for token in ("latitude", "longitude", "lat", "lon")):
         return "real"
     if not non_blank:
         return "string"
+    if any(_datetime_has_time_component(value) for value in non_blank):
+        return "datetime"
     if any(isinstance(value, (datetime, date)) for value in non_blank):
         return "date"
     if all(isinstance(value, bool) for value in non_blank):
@@ -225,9 +302,123 @@ def _infer_excel_datatype(header: str, values: list[Any]) -> str:
         if all(float(item).is_integer() for item in numeric_values):
             return "integer"
         return "real"
+    if _is_probable_string_datetime_column(non_blank):
+        return "datetime"
     if _is_probable_string_date_column(non_blank):
         return "date"
     return "string"
+
+
+def _read_xls_rows(filepath: str, *, sheet_name: str = "", max_rows: int = _EXCEL_SAMPLE_LIMIT) -> tuple[str, list[list[Any]]]:
+    """Read a small sample from an .xls file while preserving cell types."""
+
+    path = Path(filepath)
+    workbook = xlrd.open_workbook(str(path))
+    if sheet_name:
+        try:
+            worksheet = workbook.sheet_by_name(sheet_name)
+        except xlrd.biffh.XLRDError:
+            worksheet = workbook.sheet_by_index(0)
+    else:
+        worksheet = workbook.sheet_by_index(0)
+
+    actual_sheet_name = worksheet.name
+    rows: list[list[Any]] = []
+    for row_index in range(min(worksheet.nrows, max_rows)):
+        row: list[Any] = []
+        for col_index in range(worksheet.ncols):
+            cell = worksheet.cell(row_index, col_index)
+            value: Any = cell.value
+            if cell.ctype == getattr(xlrd, "XL_CELL_DATE", 3):
+                value = xlrd.xldate_as_datetime(value, workbook.datemode)
+            elif cell.ctype == getattr(xlrd, "XL_CELL_BOOLEAN", 4):
+                value = bool(value)
+            elif cell.ctype == getattr(xlrd, "XL_CELL_ERROR", 5):
+                value = None
+            elif cell.ctype in {getattr(xlrd, "XL_CELL_EMPTY", 0), getattr(xlrd, "XL_CELL_BLANK", 6)}:
+                value = None
+            row.append(value)
+        rows.append(row)
+
+    return actual_sheet_name, rows
+
+
+def _excel_column_letter(index: int) -> str:
+    """Return a 1-based Excel column letter."""
+
+    if index < 1:
+        return "A"
+    letters: list[str] = []
+    current = index
+    while current > 0:
+        current, remainder = divmod(current - 1, 26)
+        letters.append(chr(65 + remainder))
+    return "".join(reversed(letters))
+
+
+def _excel_grid_origin(rows: list[list[Any]]) -> str:
+    """Build a Tableau-style gridOrigin string for an Excel sheet sample."""
+
+    if not rows:
+        return "A1:A1:no:A1:A1:0"
+    col_count = max((len(row) for row in rows), default=0)
+    if col_count <= 0:
+        col_count = 1
+    row_count = max(len(rows), 1)
+    last_col = _excel_column_letter(col_count)
+    last_row = str(row_count)
+    return f"A1:{last_col}{last_row}:no:A1:{last_col}{last_row}:0"
+
+
+def _read_excel_sheet_rows(filepath: str, sheet_name: str = "") -> tuple[str, list[list[Any]]]:
+    """Read rows from one Excel sheet, preserving cell types when possible."""
+
+    path = Path(filepath)
+    suffix = path.suffix.lower()
+    if suffix == ".xls":
+        return _read_xls_rows(filepath, sheet_name=sheet_name)
+    if suffix in {".xlsx", ".xlsm"}:
+        if load_workbook is None:  # pragma: no cover - depends on optional dependency
+            raise RuntimeError(
+                "Reading .xlsx/.xlsm files requires openpyxl to be installed."
+            )
+        workbook = load_workbook(str(path), read_only=True, data_only=True)
+        try:
+            if sheet_name and sheet_name in workbook.sheetnames:
+                worksheet = workbook[sheet_name]
+            else:
+                worksheet = workbook[workbook.sheetnames[0]]
+            rows: list[list[Any]] = []
+            for row in worksheet.iter_rows(min_row=1, max_row=_EXCEL_SAMPLE_LIMIT, values_only=True):
+                rows.append(list(row))
+            return worksheet.title, rows
+        finally:
+            workbook.close()
+    raise ValueError(f"Unsupported Excel file type: {suffix}")
+
+
+def _list_excel_sheet_names(filepath: str) -> list[str]:
+    """Return Excel sheet names in workbook order."""
+
+    path = Path(filepath)
+    suffix = path.suffix.lower()
+    if suffix == ".xls":
+        workbook = xlrd.open_workbook(str(path))
+        try:
+            return list(workbook.sheet_names())
+        finally:
+            pass
+    if suffix in {".xlsx", ".xlsm"}:
+        if load_workbook is None:  # pragma: no cover - depends on optional dependency
+            raise RuntimeError(
+                "Reading .xlsx/.xlsm files requires openpyxl to be installed."
+            )
+        workbook = load_workbook(str(path), read_only=True, data_only=True)
+        try:
+            return list(workbook.sheetnames)
+        finally:
+            workbook.close()
+    raise ValueError(f"Unsupported Excel file type: {suffix}")
 
 
 def _sanitize_headers(header_row: list[Any]) -> list[str]:
@@ -357,41 +548,7 @@ class ConnectionsMixin:
     def _introspect_excel_fields(self, filepath: str, sheet_name: str) -> tuple[str, list[dict[str, Any]]]:
         """Inspect an Excel sheet locally when MCP callers do not provide schema fields."""
 
-        path = Path(filepath)
-        suffix = path.suffix.lower()
-        rows: list[list[Any]] = []
-        actual_sheet_name = sheet_name
-
-        if suffix == ".xls":
-            workbook = xlrd.open_workbook(str(path))
-            if actual_sheet_name:
-                try:
-                    worksheet = workbook.sheet_by_name(actual_sheet_name)
-                except xlrd.biffh.XLRDError:
-                    worksheet = workbook.sheet_by_index(0)
-            else:
-                worksheet = workbook.sheet_by_index(0)
-            actual_sheet_name = worksheet.name
-            rows = [
-                worksheet.row_values(row_index)
-                for row_index in range(min(worksheet.nrows, 151))
-            ]
-        elif suffix in {".xlsx", ".xlsm"}:
-            if load_workbook is None:  # pragma: no cover - depends on optional dependency
-                raise RuntimeError(
-                    "Reading .xlsx/.xlsm files requires openpyxl to be installed."
-                )
-            workbook = load_workbook(str(path), read_only=True, data_only=True)
-            if actual_sheet_name and actual_sheet_name in workbook.sheetnames:
-                worksheet = workbook[actual_sheet_name]
-            else:
-                worksheet = workbook[workbook.sheetnames[0]]
-            actual_sheet_name = worksheet.title
-            for row in worksheet.iter_rows(min_row=1, max_row=151, values_only=True):
-                rows.append(list(row))
-            workbook.close()
-        else:  # pragma: no cover - tool contract already restricts formats
-            raise ValueError(f"Unsupported Excel file type: {suffix}")
+        actual_sheet_name, rows = _read_excel_sheet_rows(filepath, sheet_name=sheet_name)
 
         if not rows:
             return actual_sheet_name, []
@@ -414,6 +571,50 @@ class ConnectionsMixin:
             )
 
         return actual_sheet_name, fields
+
+    def _introspect_excel_tables(self, filepath: str, sheet_name: str = "") -> list[dict[str, Any]]:
+        """Inspect every Excel sheet locally and return table-oriented schema specs."""
+
+        sheet_names = _list_excel_sheet_names(filepath)
+        if not sheet_names:
+            return []
+        if sheet_name and sheet_name in sheet_names:
+            sheet_names = [sheet_name] + [name for name in sheet_names if name != sheet_name]
+
+        tables: list[dict[str, Any]] = []
+        for index, candidate_sheet in enumerate(sheet_names):
+            actual_sheet_name, rows = _read_excel_sheet_rows(filepath, sheet_name=candidate_sheet)
+            if not rows:
+                continue
+
+            headers = _sanitize_headers(rows[0])
+            value_rows = rows[1:]
+            fields: list[dict[str, Any]] = []
+            for ordinal, header in enumerate(headers):
+                values = _column_values_from_rows(value_rows, ordinal)
+                datatype = _infer_excel_datatype(header, values)
+                role = _infer_external_role(header, datatype)
+                fields.append(
+                    {
+                        "name": header,
+                        "ordinal": ordinal,
+                        "datatype": datatype,
+                        "role": role,
+                        "field_type": _infer_external_field_type(role, datatype),
+                        "semantic_role": infer_tableau_semantic_role(header),
+                    }
+                )
+
+            tables.append(
+                {
+                    "name": actual_sheet_name,
+                    "fields": fields,
+                    "grid_origin": _excel_grid_origin(rows),
+                    "outcome": "6" if len(rows) > 1 else "2",
+                }
+            )
+
+        return tables
 
     def _introspect_csv_fields(
         self,
@@ -714,6 +915,328 @@ class ConnectionsMixin:
         self._reinit_fields()
         self.field_registry.set_unknown_field_policy(allow_unknown_fields=True)
 
+    def _rebuild_excel_multi_table_metadata(
+        self,
+        *,
+        conn_name: str,
+        tables: list[dict[str, Any]],
+    ) -> None:
+        """Rebuild datasource metadata for an Excel workbook with multiple sheets."""
+
+        if not tables:
+            self._reinit_fields()
+            self.field_registry.set_unknown_field_policy(allow_unknown_fields=True)
+            return
+
+        name_counts = Counter(
+            field["name"]
+            for table in tables
+            for field in table.get("fields", [])
+        )
+
+        # Capture calculated columns so we can restore them after rebuilding
+        calculated_columns = [
+            deepcopy(col)
+            for col in self._datasource.findall("column")
+            if col.find("calculation") is not None
+        ]
+        for col in list(self._datasource.findall("column")):
+            self._datasource.remove(col)
+
+        alias_el = self._datasource.find("aliases")
+        if alias_el is None:
+            alias_el = etree.Element("aliases")
+            alias_el.set("enabled", "yes")
+            layout = self._datasource.find("layout")
+            if layout is not None:
+                layout.addprevious(alias_el)
+            else:
+                self._datasource.append(alias_el)
+
+        # Remove old federated payload we are about to regenerate.
+        fed_conn = self._datasource.find("connection[@class='federated']")
+        if fed_conn is None:
+            raise RuntimeError("Expected federated connection to exist before rebuilding Excel metadata.")
+
+        old_cols = fed_conn.find("cols")
+        if old_cols is not None:
+            fed_conn.remove(old_cols)
+        old_metadata_records = fed_conn.find("metadata-records")
+        if old_metadata_records is not None:
+            fed_conn.remove(old_metadata_records)
+
+        for old_rel in fed_conn.findall("relation"):
+            fed_conn.remove(old_rel)
+
+        collection = etree.SubElement(fed_conn, "relation")
+        collection.set("type", "collection")
+
+        normalized_tables: list[dict[str, Any]] = []
+        for index, table in enumerate(tables):
+            table_name = str(table.get("name", "")).strip()
+            fields = list(table.get("fields", []))
+            is_primary = index == 0
+            object_id = f"{table_name}_{_generate_uuid().strip('{}').replace('-', '')}"
+            table_fields: list[dict[str, Any]] = []
+            for field in fields:
+                field_name = str(field.get("name", "")).strip()
+                if not field_name:
+                    continue
+                is_shared = name_counts[field_name] > 1
+                local_name = _excel_local_name(
+                    field_name,
+                    table_name,
+                    is_primary=is_primary,
+                    is_shared=is_shared,
+                )
+                table_fields.append(
+                    {
+                        **field,
+                        "local_name": local_name,
+                        "is_primary": is_primary,
+                        "is_shared": is_shared,
+                    }
+                )
+
+            relation = etree.SubElement(collection, "relation")
+            relation.set("connection", conn_name)
+            relation.set("name", table_name)
+            relation.set("table", f"[{table_name}$]")
+            relation.set("type", "table")
+            columns = etree.SubElement(relation, "columns")
+            columns.attrib.clear()
+            columns.set("gridOrigin", str(table.get("grid_origin", "A1:A1:no:A1:A1:0")))
+            columns.set("header", "yes")
+            columns.set("outcome", str(table.get("outcome", "2")))
+            for ordinal, field in enumerate(table_fields):
+                column_el = etree.SubElement(columns, "column")
+                column_el.set("datatype", field["datatype"])
+                column_el.set("name", field["name"])
+                column_el.set("ordinal", str(ordinal))
+
+            normalized_tables.append(
+                {
+                    "name": table_name,
+                    "id": object_id,
+                    "fields": table_fields,
+                    "is_primary": is_primary,
+                    "grid_origin": table.get("grid_origin", "A1:A1:no:A1:A1:0"),
+                    "outcome": table.get("outcome", "6"),
+                    "relation": relation,
+                }
+            )
+
+        # Update object-graph to mirror the workbook's table graph.
+        object_graph = self._datasource.find("object-graph")
+        if object_graph is None:
+            object_graph = etree.SubElement(self._datasource, "object-graph")
+        objects_el = object_graph.find("objects")
+        if objects_el is None:
+            objects_el = etree.SubElement(object_graph, "objects")
+        else:
+            for child in list(objects_el):
+                objects_el.remove(child)
+
+        relationships_el = object_graph.find("relationships")
+        if relationships_el is None:
+            relationships_el = etree.SubElement(object_graph, "relationships")
+        else:
+            for child in list(relationships_el):
+                relationships_el.remove(child)
+
+        table_objects: list[dict[str, Any]] = []
+        for table in normalized_tables:
+            table_name = table["name"]
+            table_object_id = table["id"]
+            relation = table["relation"]
+            obj = etree.SubElement(objects_el, "object")
+            obj.set("caption", table_name)
+            obj.set("id", table_object_id)
+            props = etree.SubElement(obj, "properties")
+            props.set("context", "")
+            props.append(deepcopy(relation))
+
+            table_objects.append(
+                {
+                    "name": table_name,
+                    "id": table_object_id,
+                    "relation": relation,
+                    "fields": table["fields"],
+                    "is_primary": table["is_primary"],
+                }
+            )
+
+        # Infer relationships from shared field names, preferring the primary table.
+        if table_objects:
+            primary = table_objects[0]
+            primary_field_map = {field["name"]: field["local_name"] for field in primary["fields"]}
+            for secondary in table_objects[1:]:
+                secondary_field_map = {field["name"]: field["local_name"] for field in secondary["fields"]}
+                shared_field_name = None
+                for field in primary["fields"]:
+                    if field["name"] in secondary_field_map:
+                        shared_field_name = field["name"]
+                        break
+                if not shared_field_name:
+                    continue
+                rel_el = etree.SubElement(relationships_el, "relationship")
+                expr = etree.SubElement(rel_el, "expression")
+                expr.set("op", "=")
+                left_expr = etree.SubElement(expr, "expression")
+                left_expr.set("op", primary_field_map[shared_field_name])
+                right_expr = etree.SubElement(expr, "expression")
+                right_expr.set("op", secondary_field_map[shared_field_name])
+                first_end = etree.SubElement(rel_el, "first-end-point")
+                first_end.set("object-id", primary["id"])
+                second_end = etree.SubElement(rel_el, "second-end-point")
+                second_end.set("object-id", secondary["id"])
+
+        # Rebuild shared <cols> mappings and metadata records.
+        cols_el = etree.SubElement(fed_conn, "cols")
+        metadata_records = etree.SubElement(fed_conn, "metadata-records")
+        top_level_columns: list[etree._Element] = []
+
+        existing_top_level_columns = [
+            deepcopy(col)
+            for col in self._datasource.findall("column")
+            if col.find("calculation") is None
+        ]
+        top_level_templates = {
+            col.get("name", ""): deepcopy(col)
+            for col in existing_top_level_columns
+            if col.get("name")
+        }
+
+        insertion_anchor = None
+        for tag in (
+            "column-instance",
+            "group",
+            "layout",
+            "semantic-values",
+            "date-options",
+            "object-graph",
+        ):
+            candidate = self._datasource.find(tag)
+            if candidate is not None:
+                insertion_anchor = candidate
+                break
+
+        for table in normalized_tables:
+            table_name = table["name"]
+            table_object_id = table["id"]
+            capability_record = etree.SubElement(metadata_records, "metadata-record")
+            capability_record.set("class", "capability")
+            etree.SubElement(capability_record, "remote-name")
+            etree.SubElement(capability_record, "remote-type").text = "0"
+            etree.SubElement(capability_record, "parent-name").text = f"[{table_name}]"
+            etree.SubElement(capability_record, "remote-alias")
+            etree.SubElement(capability_record, "aggregation").text = "Count"
+            etree.SubElement(capability_record, "contains-null").text = "true"
+            capability_attributes = etree.SubElement(capability_record, "attributes")
+            attr_context = etree.SubElement(capability_attributes, "attribute")
+            attr_context.set("datatype", "integer")
+            attr_context.set("name", "context")
+            attr_context.text = "0"
+            attr_grid = etree.SubElement(capability_attributes, "attribute")
+            attr_grid.set("datatype", "string")
+            attr_grid.set("name", "gridOrigin")
+            attr_grid.text = f"\"{table.get('grid_origin', 'A1:A1:no:A1:A1:0')}\""
+            attr_header = etree.SubElement(capability_attributes, "attribute")
+            attr_header.set("datatype", "boolean")
+            attr_header.set("name", "header")
+            attr_header.text = "true"
+            attr_outcome = etree.SubElement(capability_attributes, "attribute")
+            attr_outcome.set("datatype", "integer")
+            attr_outcome.set("name", "outcome")
+            attr_outcome.text = str(table.get("outcome", "6"))
+
+            for field in table["fields"]:
+                map_el = etree.SubElement(cols_el, "map")
+                map_el.set("key", field["local_name"])
+                map_el.set("value", f"[{table_name}].[{field['name']}]")
+
+                metadata_record = etree.SubElement(metadata_records, "metadata-record")
+                metadata_record.set("class", "column")
+                etree.SubElement(metadata_record, "remote-name").text = field["name"]
+                etree.SubElement(metadata_record, "remote-type").text = _REMOTE_TYPE_BY_DATATYPE[field["datatype"]]
+                etree.SubElement(metadata_record, "local-name").text = field["local_name"]
+                etree.SubElement(metadata_record, "parent-name").text = f"[{table_name}]"
+                etree.SubElement(metadata_record, "remote-alias").text = field["name"]
+                etree.SubElement(metadata_record, "ordinal").text = str(field["ordinal"])
+                etree.SubElement(metadata_record, "local-type").text = field["datatype"]
+                etree.SubElement(metadata_record, "aggregation").text = _default_aggregation(field["datatype"])
+                if field["datatype"] == "real":
+                    etree.SubElement(metadata_record, "precision").text = "15"
+                etree.SubElement(metadata_record, "contains-null").text = "true"
+                if field["datatype"] == "string":
+                    collation = etree.SubElement(metadata_record, "collation")
+                    collation.set("flag", "1")
+                    collation.set("name", "LZH_RCN_S2")
+                attributes = etree.SubElement(metadata_record, "attributes")
+                debug_attr = etree.SubElement(attributes, "attribute")
+                debug_attr.set("datatype", "string")
+                debug_attr.set("name", "DebugRemoteType")
+                debug_attr.text = f"\"{_DEBUG_REMOTE_TYPE_BY_DATATYPE[field['datatype']]}\""
+                etree.SubElement(metadata_record, "object-id").text = f"[{table_object_id}]"
+
+                if field["is_primary"] or field["is_shared"]:
+                    template = top_level_templates.get(field["local_name"])
+                    if template is None:
+                        col = etree.Element("column")
+                        col.set("name", field["local_name"])
+                    else:
+                        col = template
+                        col.set("name", field["local_name"])
+                    col.set("datatype", field["datatype"])
+                    col.set("role", field["role"])
+                    col.set("type", field["field_type"])
+                    if field["semantic_role"]:
+                        col.set("semantic-role", field["semantic_role"])
+                        if field["semantic_role"] == "[ZipCode].[Name]":
+                            col.set("default-format", "*00000")
+                    elif "semantic-role" in col.attrib:
+                        del col.attrib["semantic-role"]
+                    if not field["is_primary"]:
+                        col.set("hidden", "true")
+                    elif "hidden" in col.attrib:
+                        del col.attrib["hidden"]
+                    col.attrib.pop("caption", None)
+                    top_level_columns.append(col)
+
+        for table in normalized_tables:
+            internal_col = etree.Element("column")
+            internal_col.set("caption", table["name"])
+            internal_col.set(
+                "name",
+                f"[__tableau_internal_object_id__].[{table['id']}]",
+            )
+            internal_col.set("datatype", "table")
+            internal_col.set("role", "measure")
+            internal_col.set("type", "quantitative")
+            top_level_columns.append(internal_col)
+
+        # Restore calculated fields and top-level columns.
+        for col in calculated_columns + top_level_columns:
+            if insertion_anchor is not None:
+                insertion_anchor.addprevious(col)
+            else:
+                self._datasource.append(col)
+
+        # Re-register fields so calculation rewriting keeps working.
+        self._reinit_fields()
+        for table in normalized_tables:
+            for field in table["fields"]:
+                display_name = field["local_name"].strip("[]")
+                self.field_registry.register(
+                    display_name=display_name,
+                    local_name=field["local_name"],
+                    datatype=field["datatype"],
+                    role=field["role"],
+                    field_type=field["field_type"],
+                    is_calculated=False,
+                )
+        self.field_registry.set_unknown_field_policy(allow_unknown_fields=True)
+
     def _register_external_fields(self, fields: list[dict[str, Any]] | None) -> None:
         """Replace datasource field stubs from an inspected external schema."""
 
@@ -945,42 +1468,54 @@ class ConnectionsMixin:
         excel_conn.set("server", "")
         excel_conn.set("validate", "no")
 
+        table_specs: list[dict[str, Any]] = []
+        if not fields:
+            table_specs = self._introspect_excel_tables(filepath, sheet_name)
         normalized_fields = self._normalize_external_fields(fields, source_object=sheet_name)
-        if not normalized_fields:
-            sheet_name, introspected_fields = self._introspect_excel_fields(filepath, sheet_name)
-            normalized_fields = self._normalize_external_fields(
-                introspected_fields,
-                source_object=sheet_name,
-            )
-        elif not sheet_name:
+        if not normalized_fields and table_specs:
+            sheet_name = table_specs[0]["name"]
+        elif not sheet_name and normalized_fields:
             sheet_name = str(normalized_fields[0].get("source_object", "")).strip()
 
         if not sheet_name:
             sheet_name = "Sheet1"
 
-        relation = fed_conn.find("relation")
-        if relation is None:
-            relation = etree.SubElement(fed_conn, "relation")
-        relation.set("connection", conn_name)
-        relation.set("name", sheet_name)
-        relation.set("table", f"[{sheet_name}$]")
-        relation.set("type", "table")
-
-        for og_rel in self._datasource.findall(".//object-graph//relation"):
-            og_rel.set("connection", conn_name)
-            og_rel.set("name", sheet_name)
-            og_rel.set("table", f"[{sheet_name}$]")
-            og_rel.set("type", "table")
-
-        if normalized_fields:
-            self._rebuild_external_datasource_metadata(
-                source_object=sheet_name,
-                fields=normalized_fields,
-                relation=relation,
+        if table_specs and len(table_specs) > 1:
+            self._rebuild_excel_multi_table_metadata(
+                conn_name=conn_name,
+                tables=table_specs,
             )
         else:
-            self._reinit_fields()
-            self.field_registry.set_unknown_field_policy(allow_unknown_fields=True)
+            if not normalized_fields:
+                sheet_name, introspected_fields = self._introspect_excel_fields(filepath, sheet_name)
+                normalized_fields = self._normalize_external_fields(
+                    introspected_fields,
+                    source_object=sheet_name,
+                )
+
+            relation = fed_conn.find("relation")
+            if relation is None:
+                relation = etree.SubElement(fed_conn, "relation")
+            relation.set("connection", conn_name)
+            relation.set("name", sheet_name)
+            relation.set("table", f"[{sheet_name}$]")
+            relation.set("type", "table")
+
+            for og_rel in self._datasource.findall(".//object-graph//relation"):
+                og_rel.set("connection", conn_name)
+                og_rel.set("name", sheet_name)
+                og_rel.set("table", f"[{sheet_name}$]")
+                og_rel.set("type", "table")
+
+            if normalized_fields:
+                self._rebuild_external_datasource_metadata(
+                    source_object=sheet_name,
+                    fields=normalized_fields,
+                    relation=relation,
+                )
+            else:
+                self._reinit_fields()
+                self.field_registry.set_unknown_field_policy(allow_unknown_fields=True)
         return f"Configured Excel connection to {filepath} (sheet: {sheet_name})"
 
     def set_csv_connection(

@@ -251,10 +251,15 @@ class FieldRegistry:
         if name in self._fields:
             return self._fields[name]
 
+        # Cleaned match (strip brackets and optional table/datasource prefix like [Orders].[Sales])
+        clean_name = name.split(".")[-1].strip("[]")
+        if clean_name in self._fields:
+            return self._fields[clean_name]
+
         # Case-insensitive match
         name_lower = name.lower()
         for k, v in self._fields.items():
-            if k.lower() == name_lower:
+            if k.lower() == name_lower or k.strip("[]").lower() == clean_name.lower():
                 return v
 
         if not self.allow_unknown_fields:

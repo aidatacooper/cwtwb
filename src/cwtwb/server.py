@@ -21,6 +21,7 @@ from .mcp.tools_support import (
     analyze_twb,
     describe_capability,
     diff_template_gap,
+    inspect_excel_connection,
     list_capabilities,
     validate_workbook,
 )

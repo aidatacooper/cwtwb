@@ -33,14 +33,32 @@ TOOL INVENTORY
       Validate a saved .twb/.twbx file — or the current in-memory editor —
       against the official Tableau XSD schema (2026.1).  Failures are
       informational: Tableau Desktop is the true validator.
+
+  inspect_excel_connection(file_path, sheet_name="")
+      Preview how cwtwb will interpret an Excel workbook before mutating the
+      active workbook.  Reports per-sheet fields, inferred datatypes, and any
+      shared-field relationships that would trigger multi-table Excel support.
 """
 
 from __future__ import annotations
 
+import json
+from collections import Counter
 from typing import Optional
 
 from ..authoring_contract import review_authoring_contract_payload
 from ..capability_registry import format_capability_catalog, format_capability_detail
+from ..connections import (
+    _column_values_from_rows,
+    _excel_grid_origin,
+    _infer_external_field_type,
+    _infer_external_role,
+    _infer_excel_datatype,
+    _list_excel_sheet_names,
+    _read_excel_sheet_rows,
+    _sanitize_headers,
+    infer_tableau_semantic_role,
+)
 from ..twb_analyzer import analyze_workbook
 from ..validator import TWBValidationError, load_workbook_root, validate_against_schema
 from .app import server
@@ -61,6 +79,7 @@ def list_capabilities() -> str:
         "- This output is a capability catalog, not a list of callable MCP tools.",
         "- Recommended workbook flow: create_workbook/open_workbook -> list_fields -> add_worksheet/configure_chart -> add_dashboard -> save_workbook.",
         "- add_dashboard and save_workbook are default MCP tools. If they seem missing, refresh the MCP client session and uvx cache.",
+        "- inspect_excel_connection is the read-only preview helper for multi-table Excel workbooks.",
     ]
     return "\n".join(guardrails) + "\n\n" + format_capability_catalog()
 
@@ -158,6 +177,98 @@ def validate_workbook(file_path: Optional[str] = None) -> str:
         + "Note: validate_workbook only validates the in-memory workbook; it does not save files. "
         + "Use save_workbook(output_path=...) to write a .twb/.twbx file."
     )
+
+
+@server.tool()
+def inspect_excel_connection(file_path: str, sheet_name: str = "") -> str:
+    """Preview how an Excel workbook will be interpreted before connection setup."""
+
+    sheet_names = _list_excel_sheet_names(file_path)
+    if not sheet_names:
+        return json.dumps(
+            {
+                "file_path": file_path,
+                "multi_table": False,
+                "tables": [],
+                "relationships": [],
+                "note": "No readable sheets were found.",
+            },
+            ensure_ascii=False,
+            indent=2,
+        )
+
+    ordered_sheet_names = sheet_names
+    if sheet_name and sheet_name in sheet_names:
+        ordered_sheet_names = [sheet_name] + [name for name in sheet_names if name != sheet_name]
+
+    tables: list[dict] = []
+    for index, candidate_sheet in enumerate(ordered_sheet_names):
+        actual_sheet_name, rows = _read_excel_sheet_rows(file_path, sheet_name=candidate_sheet)
+        if not rows:
+            continue
+
+        headers = _sanitize_headers(rows[0])
+        value_rows = rows[1:]
+        fields: list[dict] = []
+        for ordinal, header in enumerate(headers):
+            values = _column_values_from_rows(value_rows, ordinal)
+            datatype = _infer_excel_datatype(header, values)
+            role = _infer_external_role(header, datatype)
+            fields.append(
+                {
+                    "name": header,
+                    "ordinal": ordinal,
+                    "datatype": datatype,
+                    "role": role,
+                    "field_type": _infer_external_field_type(role, datatype),
+                    "semantic_role": infer_tableau_semantic_role(header),
+                }
+            )
+
+        tables.append(
+            {
+                "name": actual_sheet_name,
+                "grid_origin": _excel_grid_origin(rows),
+                "outcome": "6" if len(rows) > 1 else "2",
+                "row_count": max(len(rows) - 1, 0),
+                "column_count": len(headers),
+                "fields": fields,
+            }
+        )
+
+    shared_name_counts = Counter(
+        field["name"]
+        for table in tables
+        for field in table["fields"]
+    )
+    relationships: list[dict] = []
+    if tables:
+        primary = tables[0]
+        primary_field_names = {field["name"] for field in primary["fields"]}
+        for secondary in tables[1:]:
+            shared_fields = [
+                field["name"]
+                for field in secondary["fields"]
+                if field["name"] in primary_field_names and shared_name_counts[field["name"]] > 1
+            ]
+            if shared_fields:
+                relationships.append(
+                    {
+                        "from_table": primary["name"],
+                        "to_table": secondary["name"],
+                        "shared_fields": shared_fields,
+                    }
+                )
+
+    preview = {
+        "file_path": file_path,
+        "sheet_name_hint": sheet_name,
+        "sheet_count": len(sheet_names),
+        "multi_table": len(tables) > 1,
+        "tables": tables,
+        "relationships": relationships,
+    }
+    return json.dumps(preview, ensure_ascii=False, indent=2)
 
 
 def review_authoring_contract(contract_json: str) -> str:
