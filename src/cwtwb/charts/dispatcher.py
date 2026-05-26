@@ -115,6 +115,7 @@ def configure_chart(
             tooltip,
             filters,
             measure_values,
+            label_extra=label_extra,
             label_runs=label_runs,
             label_param=label_param,
         )

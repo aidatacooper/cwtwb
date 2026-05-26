@@ -31,6 +31,7 @@ class TextChartBuilder(BaseChartBuilder):
         tooltip: Optional[Union[str, list[str]]] = None,
         filters: Optional[list[dict]] = None,
         measure_values: Optional[list[str]] = None,
+        label_extra: Optional[list[str]] = None,
         label_runs: Optional[list[dict]] = None,
         label_param: Optional[str] = None,
     ) -> None:
@@ -48,6 +49,7 @@ class TextChartBuilder(BaseChartBuilder):
         self.tooltip = tooltip
         self.filters = filters
         self.measure_values = measure_values or []
+        self.label_extra = label_extra or []
         self.label_runs = label_runs or []
         self.label_param = label_param
 
@@ -78,6 +80,9 @@ class TextChartBuilder(BaseChartBuilder):
             None,
             self.measure_values,
         )
+        for extra_field in self.label_extra:
+            if extra_field not in all_exprs:
+                all_exprs.append(extra_field)
         instances = self._parse_and_prepare_instances(all_exprs, self.filters)
         self._setup_datasource_dependencies(view, ds_name, instances, all_exprs)
 
