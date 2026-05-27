@@ -137,7 +137,7 @@ class TestFieldRuns:
 # ── fontalignment ─────────────────────────────────────────────────────────────
 
 class TestFontalignment:
-    def test_default_fontalignment_is_2(self, lr_editor):
+    def test_default_fontalignment_is_omitted(self, lr_editor):
         lr_editor.configure_chart(
             "LRSheet",
             mark_type="Text",
@@ -146,7 +146,8 @@ class TestFontalignment:
         )
         cl = _get_customized_label(lr_editor, "LRSheet")
         runs = _runs(cl)
-        assert runs[0].get("fontalignment") == "2"
+        # fontalignment should not be set when not explicitly provided
+        assert runs[0].get("fontalignment") is None
 
     def test_fontalignment_suppressed_when_none(self, lr_editor):
         lr_editor.configure_chart(

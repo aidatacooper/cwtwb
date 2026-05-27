@@ -87,6 +87,7 @@ class TextChartBuilder(BaseChartBuilder):
         self._setup_datasource_dependencies(view, ds_name, instances, all_exprs)
 
         pane = self._get_or_create_pane(table)
+        pane.set("selection-relaxation-option", "selection-relaxation-disallow")
         self._setup_pane(
             pane,
             "Text",
@@ -103,6 +104,18 @@ class TextChartBuilder(BaseChartBuilder):
             None,
             ds_name,
         )
+
+        # Add label_extra fields as text encodings so Tableau can resolve
+        # field references in the customized-label.
+        if self.label_extra:
+            encodings_el = pane.find("encodings")
+            if encodings_el is None:
+                encodings_el = etree.SubElement(pane, "encodings")
+            for extra_field in self.label_extra:
+                ci = self._instance_for_expression(instances, extra_field)
+                if ci is not None:
+                    text_el = etree.SubElement(encodings_el, "text")
+                    text_el.set("column", self.field_registry.resolve_full_reference(ci.instance_name))
 
         # If label_param is set, add the parameter as the text encoding directly
         if self.label_param:

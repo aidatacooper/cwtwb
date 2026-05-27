@@ -316,48 +316,74 @@ class BaseChartBuilder:
 
         ft = etree.SubElement(cl, "formatted-text")
 
-        for run_spec in label_runs:
-            r = etree.SubElement(ft, "run")
+        def _run_attrs(spec: dict) -> tuple:
+            _S = object()
+            fa = spec.get("fontalignment", _S)
+            fa_val = str(fa) if fa is not _S and fa is not None else None
+            return (
+                "true" if spec.get("bold") else None,
+                spec.get("fontcolor"),
+                spec.get("fontname"),
+                str(spec["fontsize"]) if spec.get("fontsize") is not None else None,
+                fa_val,
+            )
 
-            # Font attributes
-            fontalignment = run_spec.get("fontalignment", "2")
-            if fontalignment is not None:
-                r.set("fontalignment", str(fontalignment))
-            if run_spec.get("bold"):
-                r.set("bold", "true")
-            if run_spec.get("fontcolor"):
-                r.set("fontcolor", run_spec["fontcolor"])
-            if run_spec.get("fontname"):
-                r.set("fontname", run_spec["fontname"])
-            if run_spec.get("fontsize") is not None:
-                r.set("fontsize", str(run_spec["fontsize"]))
-
-            # Text content
-            if "param" in run_spec:
-                param_name = run_spec["param"]
-                param_info = self._parameters.get(param_name)
+        def _resolve_run_text(spec: dict) -> str:
+            if "param" in spec:
+                param_info = self._parameters.get(spec["param"])
                 if param_info:
-                    internal = param_info["internal_name"]  # e.g. "[Parameter 1]"
-                    param_ref = f"[Parameters].{internal}"  # [Parameters].[Parameter 1]
-                    prefix = run_spec.get("prefix", "")
-                    r.text = etree.CDATA(f"{prefix}<{param_ref}>")
-            elif "field" in run_spec:
-                field_expr = run_spec["field"]
-                ci = self._instance_for_expression(instances, field_expr)
+                    internal = param_info["internal_name"]
+                    prefix = spec.get("prefix", "")
+                    return f"{prefix}<[Parameters].{internal}>"
+                return ""
+            if "field" in spec:
+                ci = self._instance_for_expression(instances, spec["field"])
                 if ci:
                     full_ref = self.field_registry.resolve_full_reference(ci.instance_name)
-                    prefix = run_spec.get("prefix", "")
-                    r.text = etree.CDATA(f"{prefix}<{full_ref}>")
-                else:
-                    r.text = run_spec.get("text", "")
-            elif "text" in run_spec:
-                text = run_spec["text"]
-                if text == "\n":
-                    # Tableau paragraph separator (Æ + newline)
-                    r.text = "\u00c6\n"
-                else:
-                    r.text = text
+                    prefix = spec.get("prefix", "")
+                    return f"{prefix}<{full_ref}>"
+                return spec.get("text", "")
+            if "text" in spec:
+                text = spec["text"]
+                return "\u00c6\n" if text == "\n" else text
+            return ""
 
+        resolved: list[tuple[dict, str]] = []
+        for spec in label_runs:
+            text = _resolve_run_text(spec)
+            if text:
+                resolved.append((spec, text))
+
+        merged: list[tuple[dict, list[str]]] = []
+        for spec, text in resolved:
+            is_separator = text == "\u00c6\n"
+            if merged and not is_separator:
+                prev_spec, prev_texts = merged[-1]
+                prev_is_sep = len(prev_texts) == 1 and prev_texts[0] == "\u00c6\n"
+                if not prev_is_sep and _run_attrs(spec) == _run_attrs(prev_spec):
+                    merged[-1] = (prev_spec, prev_texts + [text])
+                    continue
+            merged.append((spec, [text]))
+
+        for spec, texts in merged:
+            r = etree.SubElement(ft, "run")
+            _S = object()
+            fontalignment = spec.get("fontalignment", _S)
+            if fontalignment is not _S and fontalignment is not None:
+                r.set("fontalignment", str(fontalignment))
+            if spec.get("bold"):
+                r.set("bold", "true")
+            if spec.get("fontcolor"):
+                r.set("fontcolor", spec["fontcolor"])
+            if spec.get("fontname"):
+                r.set("fontname", spec["fontname"])
+            if spec.get("fontsize") is not None:
+                r.set("fontsize", str(spec["fontsize"]))
+            combined = "".join(texts)
+            if "<" in combined:
+                r.text = etree.CDATA(combined)
+            else:
+                r.text = combined
     def _ensure_mark_style(self, pane_style: etree._Element, mark_type: str, original_mark_type: str = None) -> None:
         """Ensure pane style has a mark rule with required default formats."""
         for sr in pane_style.findall("style-rule"):
