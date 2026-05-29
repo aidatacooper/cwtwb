@@ -132,6 +132,7 @@ def add_calculated_field(
     role: str = "",
     field_type: str = "",
     default_format: str = "",
+    internal_name: str = "",
 ) -> str:
     """Add a calculated field to the datasource."""
 
@@ -143,6 +144,7 @@ def add_calculated_field(
         role=role or None,
         field_type=field_type or None,
         default_format=default_format,
+        internal_name=internal_name or None,
     )
 
 
@@ -165,6 +167,9 @@ def add_parameter(
     granularity: str = "",
     allowed_values: list[str] | None = None,
     default_format: str = "",
+    internal_name: str = "",
+    alias: str = "",
+    allowed_aliases: dict[str, str] | None = None,
 ) -> str:
     """Add a parameter to the workbook."""
 
@@ -179,6 +184,9 @@ def add_parameter(
         granularity=granularity,
         allowed_values=allowed_values,
         default_format=default_format,
+        internal_name=internal_name or None,
+        alias=alias or None,
+        allowed_aliases=allowed_aliases,
     )
 
 

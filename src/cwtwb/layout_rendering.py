@@ -34,6 +34,7 @@ def render_flex_node(
     if node.type == "container":
         _render_container(node, zone, get_id_fn, context)
     elif node.type == "worksheet":
+        zone.set("type-v2", "NONE")
         if node.name:
             zone.set("name", node.name)
         zone.set("show-title", "false")

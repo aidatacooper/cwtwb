@@ -83,7 +83,7 @@ class TestParameters(unittest.TestCase):
         self.assertIsNotNone(members)
         member_list = members.findall("member")
         self.assertEqual(len(member_list), 4)
-        self.assertEqual(member_list[0].get("value"), "East")
+        self.assertEqual(member_list[0].get("value"), '"East"')
 
     def test_add_multiple_parameters(self):
         """Adding multiple parameters creates separate columns."""

@@ -512,7 +512,7 @@ def apply_measure_values(
             member = etree.SubElement(gf, "groupfilter")
             member.set("function", "member")
             member.set("level", "[:Measure Names]")
-            member.set("member", f'"{ref}"')
+            member.set("member", f'"{ref}"')  # Measure names are always strings
 
         insert_before = None
         for tag in ("sort", "perspectives", "slices", "aggregation"):

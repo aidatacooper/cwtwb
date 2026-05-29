@@ -283,9 +283,30 @@ class DualAxisChartBuilder(BaseChartBuilder):
                         all_measure_refs = [ref_m1, ref_m2] + extra_refs
                         cols_el.text = _build_measures_shelf(all_measure_refs)
                     else:
-                        cols_el.text = self.editor._build_dimension_shelf(instances, self.columns[:-2])
-                        if cols_el.text:
-                            cols_el.text += f" ({ref_m1} + {ref_m2})"
+                        dim_text = self.editor._build_dimension_shelf(instances, self.columns[:-2])
+                        # Check if the leading columns are actually measures
+                        # (not dimensions). If all are measures, use the nested
+                        # measures shelf format: (A + (B + C))
+                        dim_exprs = self.columns[:-2]
+                        all_measures = True
+                        dim_refs = []
+                        for expr in dim_exprs:
+                            ci = instances.get(expr)
+                            if ci is None:
+                                norm = self.field_registry.default_view_expression(expr)
+                                ci = instances.get(norm)
+                            if ci and ci.ci_type == "quantitative":
+                                dim_refs.append(
+                                    self.field_registry.resolve_full_reference(ci.instance_name)
+                                )
+                            else:
+                                all_measures = False
+                                break
+                        if all_measures and dim_refs:
+                            all_refs = dim_refs + [ref_m1, ref_m2]
+                            cols_el.text = _build_measures_shelf(all_refs)
+                        elif dim_text:
+                            cols_el.text = f"({dim_text} + ({ref_m1} + {ref_m2}))"
                         else:
                             cols_el.text = f"({ref_m1} + {ref_m2})"
                     # Rows become dimension-only when dual_axis_shelf is cols

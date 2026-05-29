@@ -118,7 +118,7 @@ class FieldRegistry:
         is_calculated: bool = False,
     ) -> None:
         """Register one field and its Tableau metadata in the lookup table."""
-        self._fields[display_name] = FieldInfo(
+        info = FieldInfo(
             display_name=display_name,
             local_name=local_name,
             datatype=datatype,
@@ -126,6 +126,14 @@ class FieldRegistry:
             field_type=field_type,
             is_calculated=is_calculated,
         )
+        self._fields[display_name] = info
+        # Also register under local_name (stripped of brackets) so that
+        # formula resolution can find fields by their internal TWB name.
+        # This is critical for calculated fields whose formulas reference
+        # other calculated fields by source-side names.
+        clean_local = local_name.strip("[]")
+        if clean_local != display_name and clean_local not in self._fields:
+            self._fields[clean_local] = info
 
     def unregister(self, display_name: str) -> None:
         """Remove a field mapping if it exists."""

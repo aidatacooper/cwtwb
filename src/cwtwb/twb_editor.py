@@ -142,7 +142,7 @@ class TWBEditor(ParametersMixin, ConnectionsMixin, ChartsMixin, DashboardsMixin)
         return Path(template_path)
 
     def _sanitize_workbook_tree(self) -> None:
-        """Remove noisy top-level nodes that should never be persisted."""
+        """Remove noisy top-level nodes and ensure required elements exist."""
 
         while True:
             thumbnails = self.root.find("thumbnails")
@@ -152,6 +152,27 @@ class TWBEditor(ParametersMixin, ConnectionsMixin, ChartsMixin, DashboardsMixin)
 
         for tag in ("actions", "worksheets", "dashboards", "mapsources"):
             self._remove_empty_top_level_container(tag)
+
+        self._ensure_xsd_required_elements()
+
+    def _ensure_xsd_required_elements(self) -> None:
+        """Add top-level elements the XSD schema expects (external)."""
+        from lxml import etree as _etree
+
+        # datagraph is NOT part of the TWB schema — remove if present
+        self._remove_empty_top_level_container("datagraph")
+        dg = self.root.find("datagraph")
+        if dg is not None:
+            self.root.remove(dg)
+
+        # Ensure external exists and is after windows
+        ext = self.root.find("external")
+        if ext is not None:
+            self.root.remove(ext)
+        else:
+            ext = _etree.Element("external")
+            _etree.SubElement(ext, "shapes")
+        self.root.append(ext)
 
     def _remove_empty_top_level_container(self, tag: str) -> None:
         """Drop empty top-level containers that violate Tableau's schema."""
@@ -239,13 +260,22 @@ class TWBEditor(ParametersMixin, ConnectionsMixin, ChartsMixin, DashboardsMixin)
                 datatype = col.get("datatype", "string")
                 role = col.get("role", "dimension")
                 field_type = col.get("type", "nominal")
+                formula = calc.get("formula", "")
+                # Constants (formula is just a number) are not true calculated
+                # fields — they should not get "User" derivation.
+                is_constant = False
+                try:
+                    float(formula.strip())
+                    is_constant = True
+                except (ValueError, AttributeError):
+                    pass
                 self.field_registry.register(
                     display_name=caption,
                     local_name=name,
                     datatype=datatype,
                     role=role,
                     field_type=field_type,
-                    is_calculated=True,
+                    is_calculated=not is_constant,
                 )
             else:
                 # Register semantic-role columns (e.g. geographic columns)
@@ -321,6 +351,7 @@ class TWBEditor(ParametersMixin, ConnectionsMixin, ChartsMixin, DashboardsMixin)
         field_type: Optional[str] = None,
         table_calc: Optional[str] = None,
         default_format: str = "",
+        internal_name: Optional[str] = None,
     ) -> str:
         """Add a calculated field to the datasource.
 
@@ -331,6 +362,7 @@ class TWBEditor(ParametersMixin, ConnectionsMixin, ChartsMixin, DashboardsMixin)
             role: Optional explicit Tableau role override (dimension/measure)
             field_type: Optional explicit Tableau field type override
             default_format: Optional Tableau number format string, e.g. 'c"$"#,##0,K'
+            internal_name: Optional explicit internal name, e.g. "[Calculation_12345]".
 
         Returns:
             Confirmation message.
@@ -375,7 +407,8 @@ class TWBEditor(ParametersMixin, ConnectionsMixin, ChartsMixin, DashboardsMixin)
         col = etree.Element("column")
         col.set("caption", field_name)
         col.set("datatype", datatype)
-        internal_name = f"[Calculation_{_generate_uuid().strip('{}').replace('-','')}]"
+        if internal_name is None:
+            internal_name = f"[Calculation_{_generate_uuid().strip('{}').replace('-','')}]"
         col.set("name", internal_name)
         col.set("role", role)
         col.set("type", field_type)
@@ -450,31 +483,7 @@ class TWBEditor(ParametersMixin, ConnectionsMixin, ChartsMixin, DashboardsMixin)
 
         windows = self.root.find("windows")
         if windows is not None:
-            wins = list(windows)
-            for win in wins[1:]:
-                windows.remove(win)
-            if not wins:
-                win = etree.SubElement(windows, "window")
-                win.set("class", "worksheet")
-                win.set("maximized", "true")
-                win.set("name", "Sheet 1")
-                cards = etree.SubElement(win, "cards")
-                edge = etree.SubElement(cards, "edge")
-                edge.set("name", "left")
-                strip = etree.SubElement(edge, "strip")
-                strip.set("size", "160")
-                for card_type in ("pages", "filters", "marks"):
-                    card = etree.SubElement(strip, "card")
-                    card.set("type", card_type)
-                top_edge = etree.SubElement(cards, "edge")
-                top_edge.set("name", "top")
-                for card_type in ("columns", "rows", "title"):
-                    strip = etree.SubElement(top_edge, "strip")
-                    strip.set("size", "2147483647")
-                    card = etree.SubElement(strip, "card")
-                    card.set("type", card_type)
-                simple_id = etree.SubElement(win, "simple-id")
-                simple_id.set("uuid", "{5779C54A-2B31-48F9-A30A-90313B7D4CA9}")
+            self.root.remove(windows)
 
         # Clear model-level columns references
         for mc in self.root.findall(".//model-columns"):
@@ -1443,6 +1452,14 @@ class TWBEditor(ParametersMixin, ConnectionsMixin, ChartsMixin, DashboardsMixin)
         from .validator import SchemaValidationResult, validate_against_schema
         return validate_against_schema(self.root)
 
+    @staticmethod
+    def _fix_namespace_prefix(xml_bytes: bytes) -> bytes:
+        """Replace lxml's auto-generated ns0 prefix with Tableau's 'user:' prefix."""
+        text = xml_bytes.decode("utf-8")
+        text = text.replace('xmlns:ns0="http://www.tableausoftware.com/xml/user"', 'xmlns:user="http://www.tableausoftware.com/xml/user"')
+        text = text.replace("ns0:", "user:")
+        return text.encode("utf-8")
+
     def _write_workbook_file(self, output_path: Path, write_path: Path) -> None:
         """Write the current workbook XML using output_path for format decisions."""
 
@@ -1450,7 +1467,7 @@ class TWBEditor(ParametersMixin, ConnectionsMixin, ChartsMixin, DashboardsMixin)
             # Serialize the XML into memory
             buf = io.BytesIO()
             self.tree.write(buf, xml_declaration=True, encoding="utf-8", pretty_print=False)
-            twb_bytes = buf.getvalue()
+            twb_bytes = self._fix_namespace_prefix(buf.getvalue())
 
             # Name for the .twb entry inside the ZIP
             inner_twb_name = self._twbx_twb_name or output_path.with_suffix(".twb").name
@@ -1465,12 +1482,9 @@ class TWBEditor(ParametersMixin, ConnectionsMixin, ChartsMixin, DashboardsMixin)
                             if info.filename != self._twbx_twb_name:
                                 zout.writestr(info, zsrc.read(info.filename))
         else:
-            self.tree.write(
-                str(write_path),
-                xml_declaration=True,
-                encoding="utf-8",
-                pretty_print=False,
-            )
+            buf = io.BytesIO()
+            self.tree.write(buf, xml_declaration=True, encoding="utf-8", pretty_print=False)
+            write_path.write_bytes(self._fix_namespace_prefix(buf.getvalue()))
 
     def save(self, output_path: str | Path, validate: bool = True) -> str:
         """Save the workbook as a .twb or .twbx file.
@@ -1509,8 +1523,14 @@ class TWBEditor(ParametersMixin, ConnectionsMixin, ChartsMixin, DashboardsMixin)
         try:
             self._write_workbook_file(output_path, tmp_path)
             if validate:
-                from .validator import validate_workbook_file
-                validate_workbook_file(tmp_path)
+                from .validator import load_workbook_root, validate_twb
+                root = load_workbook_root(tmp_path)
+                errors = validate_twb(root)
+                if errors:
+                    details = "\n".join(f"  * {e}" for e in errors)
+                    raise TWBValidationError(
+                        "Saved workbook failed validation:\n" + details
+                    )
             os.replace(tmp_path, output_path)
         finally:
             if _watermark.getparent() is not None:

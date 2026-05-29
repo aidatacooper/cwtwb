@@ -25,6 +25,9 @@ class ParametersMixin:
         granularity: str = "",
         allowed_values: Optional[list[str]] = None,
         default_format: str = "",
+        internal_name: Optional[str] = None,
+        alias: Optional[str] = None,
+        allowed_aliases: Optional[dict[str, str]] = None,
     ) -> str:
         """Add a parameter to the workbook.
 
@@ -42,6 +45,11 @@ class ParametersMixin:
             granularity: Step size (range mode).
             allowed_values: List of allowed values (list mode).
             default_format: Optional Tableau number format string.
+            internal_name: Optional explicit internal name, e.g. "[Parameter 4]".
+                If not provided, auto-generated as "[Parameter N]".
+            alias: Optional column-level alias (displayed in data pane).
+            allowed_aliases: Optional dict mapping allowed_values to their aliases,
+                e.g. {"1": "Sales Metrics", "2": "Order Details"}.
 
         Returns:
             Confirmation message.
@@ -63,17 +71,20 @@ class ParametersMixin:
             params_ds.set("inline", "true")
             params_ds.set("name", "Parameters")
             params_ds.set("version", "18.1")
-            aliases = etree.SubElement(params_ds, "aliases")
-            aliases.set("enabled", "yes")
+            aliases_el = etree.SubElement(params_ds, "aliases")
+            aliases_el.set("enabled", "yes")
             # Insert as the FIRST datasource (Tableau convention)
             datasources.insert(0, params_ds)
 
-        # Generate internal name
-        param_counter = len(params_ds.findall("column")) + 1
-        internal_name = f"[Parameter {param_counter}]"
+        # Use provided internal name or auto-generate
+        if internal_name is None:
+            param_counter = len(params_ds.findall("column")) + 1
+            internal_name = f"[Parameter {param_counter}]"
 
         # Create column element
         col = etree.Element("column")
+        if alias:
+            col.set("alias", alias)
         col.set("caption", name)
         col.set("datatype", datatype)
         if default_format:
@@ -81,13 +92,22 @@ class ParametersMixin:
         col.set("name", internal_name)
         col.set("param-domain-type", domain_type)
         col.set("role", "measure")
-        col.set("type", "quantitative")
-        col.set("value", default_value)
+        col.set("type", "quantitative" if datatype != "boolean" else "nominal")
+        if datatype in ("string", "boolean"):
+            col.set("datatype-customized", "true")
+        # For string parameters, value must be quoted: '"Shipping"'
+        if datatype == "string" and not default_value.startswith('"'):
+            col.set("value", f'"{default_value}"')
+        else:
+            col.set("value", default_value)
 
         # Add calculation (default value formula)
         calc = etree.SubElement(col, "calculation")
         calc.set("class", "tableau")
-        calc.set("formula", default_value)
+        if datatype == "string" and not default_value.startswith('"'):
+            calc.set("formula", f'"{default_value}"')
+        else:
+            calc.set("formula", default_value)
 
         if domain_type == "range":
             range_el = etree.SubElement(col, "range")
@@ -98,10 +118,24 @@ class ParametersMixin:
             if min_value:
                 range_el.set("min", min_value)
         elif domain_type == "list" and allowed_values:
+            # Add aliases child if any aliases provided
+            if allowed_aliases:
+                col_aliases = etree.SubElement(col, "aliases")
+                for val, al in allowed_aliases.items():
+                    a = etree.SubElement(col_aliases, "alias")
+                    key_val = f'"{val}"' if datatype == "string" else val
+                    a.set("key", key_val)
+                    a.set("value", al)
             members = etree.SubElement(col, "members")
             for v in allowed_values:
                 member = etree.SubElement(members, "member")
-                member.set("value", v)
+                if allowed_aliases and v in allowed_aliases:
+                    member.set("alias", allowed_aliases[v])
+                # String member values must be quoted in Tableau XML
+                if datatype == "string":
+                    member.set("value", f'"{v}"')
+                else:
+                    member.set("value", v)
 
         params_ds.append(col)
 

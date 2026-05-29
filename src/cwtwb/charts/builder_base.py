@@ -76,6 +76,18 @@ class BaseChartBuilder:
         """Orchestrates the chart creation. Must be implemented by subclasses."""
         raise NotImplementedError("Subclasses must implement build().")
 
+    @staticmethod
+    def _format_filter_value(value) -> str:
+        """Format a filter member value for Tableau XML.
+
+        Boolean values (true/false) are written unquoted.  All other values
+        are wrapped in double quotes to match Tableau's expected format.
+        """
+        s = str(value).strip().lower()
+        if s in ("true", "false"):
+            return s
+        return f'"{value}"'
+
     def _gather_expressions(self, columns, rows, color, size, label, detail, wedge_size, sort_descending, tooltip, filters, geographic_field, measure_values) -> list[str]:
         """Collect all field expressions needed for dependencies and encodings."""
         all_exprs: list[str] = []
@@ -508,6 +520,8 @@ class BaseChartBuilder:
                 continue
             
             filter_el = etree.Element("filter")
+            if f.get("context"):
+                filter_el.set("context", "true")
             filter_type = f.get("type")
             if not filter_type:
                 if ci.ci_type == "quantitative" or ci.instance_name.endswith(":qk]"):
@@ -562,9 +576,7 @@ class BaseChartBuilder:
                 gf_level = etree.SubElement(gf_order, "groupfilter")
                 gf_level.set("function", "level-members")
                 gf_level.set("level", ci.instance_name)
-                gf_level.set(f"{USER_NS}ui-manual-selection", "true")
-                gf_level.set(f"{USER_NS}ui-manual-selection-all-when-empty", "true")
-                gf_level.set(f"{USER_NS}ui-manual-selection-is-empty", "true")
+                gf_level.set(f"{USER_NS}ui-enumeration", "all")
                 gf_level.set(f"{USER_NS}ui-marker", "enumerate")
 
                 # Add dimension to <slices> — required for Tableau to apply Top N correctly
@@ -585,7 +597,7 @@ class BaseChartBuilder:
                     gf = etree.SubElement(filter_el, "groupfilter")
                     gf.set("function", "member")
                     gf.set("level", ci.instance_name)
-                    gf.set("member", f'"{values[0]}"')
+                    gf.set("member", self._format_filter_value(values[0]))
                     gf.set(f"{USER_NS}ui-domain", "database")
                     gf.set(f"{USER_NS}ui-enumeration", "inclusive")
                     gf.set(f"{USER_NS}ui-marker", "enumerate")
@@ -599,7 +611,7 @@ class BaseChartBuilder:
                         member_el = etree.SubElement(gf, "groupfilter")
                         member_el.set("function", "member")
                         member_el.set("level", ci.instance_name)
-                        member_el.set("member", f'"{v}"')
+                        member_el.set("member", self._format_filter_value(v))
                 else:
                     gf = etree.SubElement(filter_el, "groupfilter")
                     gf.set("function", "level-members")
