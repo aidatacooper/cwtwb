@@ -1460,14 +1460,83 @@ class TWBEditor(ParametersMixin, ConnectionsMixin, ChartsMixin, DashboardsMixin)
         text = text.replace("ns0:", "user:")
         return text.encode("utf-8")
 
+    def _collect_external_data_files(self) -> list[Path]:
+        """Scan datasource connections for external file references (CSV, Excel, Hyper).
+
+        Returns:
+            List of absolute paths to external data files referenced by connections.
+        """
+        from .connections import FILE_CONN_CLASSES
+
+        external_files: list[Path] = []
+
+        # Walk all datasource elements
+        for datasource in self.root.iter("datasource"):
+            # Skip generated datasources
+            if datasource.get("name") == "":
+                continue
+
+            # Find all connection elements
+            for conn in datasource.iter("connection"):
+                conn_class = conn.get("class", "")
+
+                # Only process file-based connection types
+                if conn_class not in FILE_CONN_CLASSES:
+                    continue
+
+                # Get the file path from connection attributes
+                directory = conn.get("directory", "")
+                filename = conn.get("filename", "")
+
+                if not filename:
+                    continue
+
+                # If directory is empty, check if filename is an absolute path
+                if not directory:
+                    filepath = Path(filename)
+                    if filepath.is_absolute() and filepath.exists():
+                        external_files.append(filepath)
+                    continue
+
+                # Construct full path
+                filepath = Path(directory) / filename
+                if filepath.exists():
+                    external_files.append(filepath)
+
+        return external_files
+
     def _write_workbook_file(self, output_path: Path, write_path: Path) -> None:
         """Write the current workbook XML using output_path for format decisions."""
 
         if output_path.suffix.lower() == ".twbx":
+            from .connections import FILE_CONN_CLASSES
+
             # Serialize the XML into memory
+            # Temporarily update connection paths to be relative for TWBX packaging
+            original_paths: list[tuple[etree._Element, str, str]] = []
+            external_files = self._collect_external_data_files()
+
+            if external_files:
+                # Store original paths and update to relative (filename only)
+                for datasource in self.root.iter("datasource"):
+                    if datasource.get("name") == "":
+                        continue
+                    for conn in datasource.iter("connection"):
+                        conn_class = conn.get("class", "")
+                        if conn_class in FILE_CONN_CLASSES:
+                            filename = conn.get("filename", "")
+                            if filename:
+                                original_paths.append((conn, conn.get("directory", ""), filename))
+                                conn.set("directory", "")
+
             buf = io.BytesIO()
             self.tree.write(buf, xml_declaration=True, encoding="utf-8", pretty_print=False)
             twb_bytes = self._fix_namespace_prefix(buf.getvalue())
+
+            # Restore original paths after serialization
+            for conn, orig_dir, _ in original_paths:
+                if orig_dir:
+                    conn.set("directory", orig_dir)
 
             # Name for the .twb entry inside the ZIP
             inner_twb_name = self._twbx_twb_name or output_path.with_suffix(".twb").name
@@ -1481,6 +1550,9 @@ class TWBEditor(ParametersMixin, ConnectionsMixin, ChartsMixin, DashboardsMixin)
                         for info in zsrc.infolist():
                             if info.filename != self._twbx_twb_name:
                                 zout.writestr(info, zsrc.read(info.filename))
+                # Bundle external data files (CSV, Excel, Hyper)
+                for data_file in external_files:
+                    zout.write(data_file, data_file.name)
         else:
             buf = io.BytesIO()
             self.tree.write(buf, xml_declaration=True, encoding="utf-8", pretty_print=False)

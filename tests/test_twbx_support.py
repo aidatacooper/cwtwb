@@ -180,14 +180,18 @@ class TestTwbSourceSaveAsTwbx:
         # When no source .twbx, inner name is derived from output filename
         assert "converted.twb" in names
 
-    def test_plain_to_twbx_only_twb_entry(self, tmp_path):
-        """No extracts when source was a plain .twb."""
+    def test_plain_to_twbx_bundles_external_data(self, tmp_path):
+        """External data files are bundled when converting .twb to .twbx."""
         editor = TWBEditor(TWB_FILE)
         out = tmp_path / "converted.twbx"
         editor.save(out)
         with zipfile.ZipFile(out) as zf:
             names = zf.namelist()
-        assert len(names) == 1, f"Expected only .twb entry, got: {names}"
+        # TWB entry should be present
+        assert "converted.twb" in names
+        # External data file (Excel) should also be bundled
+        assert any(n.endswith((".xls", ".xlsx", ".csv", ".hyper")) for n in names), \
+            f"Expected external data file in TWBX, got: {names}"
 
 
 # ---------------------------------------------------------------------------

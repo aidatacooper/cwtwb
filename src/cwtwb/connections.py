@@ -27,6 +27,10 @@ except ImportError:  # pragma: no cover - optional dependency
 
 
 _VALID_EXTERNAL_DATATYPES = {"string", "integer", "real", "boolean", "date", "datetime"}
+
+# File-based connection classes that reference external data files
+# Used by _write_workbook_file to bundle data files into TWBX
+FILE_CONN_CLASSES = {"textscan", "excel-direct", "hyper"}
 _SEMANTIC_ROLE_BY_FIELD_NAME = {
     "city": "[City].[Name]",
     "country": "[Country].[ISO3166_2]",

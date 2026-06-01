@@ -1,0 +1,19 @@
+Category,Sub-Category,Region,Sales,Profit,Quantity,Order Date
+Furniture,Chairs,East,12500,2500,150,2024-01-15
+Furniture,Tables,West,8900,1200,80,2024-02-20
+Furniture,Bookcases,South,6700,800,60,2024-03-10
+Furniture,Furnishings,North,4500,900,120,2024-04-05
+Office Supplies,Phones,East,18900,3800,200,2024-01-25
+Office Supplies,Binders,West,12300,2400,350,2024-02-15
+Office Supplies,Storage,South,9800,1900,180,2024-03-20
+Office Supplies,Art,North,5600,1100,280,2024-04-10
+Technology,Laptops,East,25000,5000,100,2024-01-05
+Technology,Phones,West,19800,3900,160,2024-02-25
+Technology,Accessories,South,14500,2900,220,2024-03-15
+Technology,Copiers,North,8900,1800,30,2024-04-20
+Furniture,Chairs,West,11200,2200,140,2024-05-10
+Furniture,Tables,East,9500,1900,85,2024-06-15
+Office Supplies,Phones,South,16700,3300,190,2024-05-20
+Office Supplies,Binders,North,10500,2100,300,2024-06-25
+Technology,Laptops,West,22000,4400,90,2024-05-05
+Technology,Accessories,East,13200,2600,210,2024-06-10
