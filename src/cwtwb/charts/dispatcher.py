@@ -30,11 +30,8 @@ from dataclasses import dataclass
 from typing import Optional, Union
 
 from ..capability_registry import CapabilityLevel, get_capability
-from .builder_basic import BasicChartBuilder
+from .builder_base import BasicChartBuilder, MapChartBuilder, PieChartBuilder, TextChartBuilder
 from .builder_dual_axis import DualAxisChartBuilder
-from .builder_maps import MapChartBuilder
-from .builder_pie import PieChartBuilder
-from .builder_text import TextChartBuilder
 
 
 # ---------------------------------------------------------------------------

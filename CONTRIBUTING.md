@@ -20,7 +20,7 @@ section in `tests/README.md` first.
 ## Architecture overview
 
 ```
-MCP tool call  (tools_workbook.py / tools_migration.py / tools_support.py)
+MCP tool call  (tools_workbook.py)
       │
       ▼
 ChartsMixin method  (src/cwtwb/charts/__init__.py)

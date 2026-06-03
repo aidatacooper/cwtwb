@@ -39,10 +39,37 @@ TOOL INVENTORY
 
 from __future__ import annotations
 
+import json
+from collections import Counter
+from pathlib import Path
 from typing import Optional
 
+from ..authoring_run import review_authoring_contract_payload
+from ..capability_registry import format_capability_catalog, format_capability_detail
 from ..charts.showcase_recipes import configure_chart_recipe as configure_chart_recipe_impl
+from ..connections import (
+    _column_values_from_rows,
+    _excel_grid_origin,
+    _infer_external_field_type,
+    _infer_external_role,
+    _infer_excel_datatype,
+    _list_excel_sheet_names,
+    _read_excel_sheet_rows,
+    _sanitize_headers,
+    infer_tableau_semantic_role,
+)
+from ..dashboards import normalize_dashboard_layout
+from ..migration import (
+    apply_twb_migration_json,
+    inspect_target_schema as inspect_target_schema_impl,
+    migrate_twb_guided_json,
+    profile_twb_for_migration_json,
+    propose_field_mapping_json,
+    preview_twb_migration_json,
+)
+from ..twb_analyzer import analyze_workbook
 from ..twb_editor import TWBEditor
+from ..validator import TWBValidationError, load_workbook_root, validate_against_schema
 from .app import get_editor, server, set_editor
 
 
@@ -602,3 +629,363 @@ def save_workbook(output_path: str) -> str:
 
     editor = get_editor()
     return editor.save(output_path)
+
+
+# --- Layout tools ---
+
+
+@server.tool()
+def generate_layout_json(
+    output_path: str,
+    layout_tree: dict,
+    ascii_preview: str,
+) -> str:
+    """Generate and save a dashboard layout JSON file."""
+
+    try:
+        if not isinstance(layout_tree, dict):
+            return "Failed to generate layout JSON: layout_tree must be an object."
+
+        path = Path(output_path)
+        path.parent.mkdir(parents=True, exist_ok=True)
+
+        output_data = {}
+        if ascii_preview:
+            output_data["_ascii_layout_preview"] = ascii_preview.strip().split("\n")
+
+        # Validate and canonicalize to the exact declarative DSL expected by
+        # add_dashboard(layout=...).
+        output_data["layout_schema"] = normalize_dashboard_layout(layout_tree)
+
+        with open(path, "w", encoding="utf-8") as f:
+            json.dump(output_data, f, indent=2, ensure_ascii=False)
+
+        return (
+            f"Layout JSON successfully written to: {path.absolute()}\n"
+            f"You can now call `add_dashboard` and set the `layout` parameter to exactly this file path."
+        )
+    except ValueError as e:
+        return (
+            "Failed to generate layout JSON: layout_tree is not a supported add_dashboard layout DSL. "
+            f"{str(e)}"
+        )
+    except Exception as e:
+        return f"Failed to generate layout JSON: {str(e)}"
+
+
+# --- Migration tools ---
+
+
+@server.tool()
+def inspect_target_schema(target_source: str) -> str:
+    """Inspect the first-sheet schema of a target Excel datasource."""
+
+    path = Path(target_source)
+    suffix = path.suffix.lower()
+    if suffix not in (".xls", ".xlsx", ".xlsm", ".xlsb"):
+        return f"Unsupported file type '{suffix}'. Only Excel files (.xls, .xlsx, .xlsm, .xlsb) are supported."
+
+    try:
+        return json.dumps(inspect_target_schema_impl(target_source), ensure_ascii=False, indent=2)
+    except Exception as exc:
+        return f"Unsupported or unreadable file: {exc}"
+
+
+@server.tool()
+def profile_twb_for_migration(
+    file_path: str,
+    scope: str = "workbook",
+    target_source: str = "",
+) -> str:
+    """Profile workbook datasources and worksheet scope before migration."""
+
+    return profile_twb_for_migration_json(
+        file_path=file_path,
+        scope=scope,
+        target_source=target_source or None,
+    )
+
+
+@server.tool()
+def propose_field_mapping(
+    file_path: str,
+    target_source: str,
+    scope: str = "workbook",
+    mapping_overrides: dict[str, str] | None = None,
+) -> str:
+    """Scan source and target schema and propose a field mapping."""
+
+    return propose_field_mapping_json(
+        file_path=file_path,
+        target_source=target_source,
+        scope=scope,
+        mapping_overrides=mapping_overrides,
+    )
+
+
+@server.tool()
+def preview_twb_migration(
+    file_path: str,
+    target_source: str,
+    scope: str = "workbook",
+    mapping_overrides: dict[str, str] | None = None,
+) -> str:
+    """Preview a workbook migration onto a target datasource."""
+
+    return preview_twb_migration_json(
+        file_path=file_path,
+        target_source=target_source,
+        scope=scope,
+        mapping_overrides=mapping_overrides,
+    )
+
+
+@server.tool()
+def apply_twb_migration(
+    file_path: str,
+    target_source: str,
+    output_path: str,
+    scope: str = "workbook",
+    mapping_overrides: dict[str, str] | None = None,
+) -> str:
+    """Apply a workbook migration and write a migrated TWB plus reports."""
+
+    return apply_twb_migration_json(
+        file_path=file_path,
+        target_source=target_source,
+        scope=scope,
+        mapping_overrides=mapping_overrides,
+        output_path=output_path,
+    )
+
+
+def migrate_twb_guided(
+    file_path: str,
+    target_source: str,
+    output_path: str = "",
+    scope: str = "workbook",
+    mapping_overrides: dict[str, str] | None = None,
+    apply_if_no_blockers: bool = True,
+) -> str:
+    """Run the built-in migration workflow and pause for warning confirmation when needed."""
+
+    return migrate_twb_guided_json(
+        file_path=file_path,
+        target_source=target_source,
+        output_path=output_path or None,
+        scope=scope,
+        mapping_overrides=mapping_overrides,
+        apply_if_no_blockers=apply_if_no_blockers,
+    )
+
+
+# --- Support tools ---
+
+
+@server.tool()
+def list_capabilities() -> str:
+    """List cwtwb's declared capability boundary.
+
+    This reports what workbook features/charts are supported by cwtwb. It does
+    not enumerate callable MCP tools and should not be used to infer whether a
+    tool like add_dashboard or save_workbook exists.
+    """
+
+    guardrails = [
+        "Workflow guardrails:",
+        "- This output is a capability catalog, not a list of callable MCP tools.",
+        "- Recommended workbook flow: create_workbook/open_workbook -> list_fields -> add_worksheet/configure_chart -> add_dashboard -> save_workbook.",
+        "- add_dashboard and save_workbook are default MCP tools. If they seem missing, refresh the MCP client session and uvx cache.",
+        "- inspect_excel_connection is the read-only preview helper for multi-table Excel workbooks.",
+    ]
+    return "\n".join(guardrails) + "\n\n" + format_capability_catalog()
+
+
+@server.tool()
+def describe_capability(kind: str, name: str) -> str:
+    """Describe one declared capability and its support tier."""
+
+    return format_capability_detail(kind, name)
+
+
+@server.tool()
+def analyze_twb(file_path: str) -> str:
+    """Analyze an existing TWB/TWBX file against cwtwb's declared capabilities.
+
+    This tool requires a file_path that already exists on disk. It cannot
+    analyze the active in-memory workbook directly and it does not save the
+    current workbook. For a newly generated workbook, call save_workbook first,
+    then pass that saved path to analyze_twb.
+    """
+
+    schema_note = (
+        "Schema check: SKIPPED (analysis only). "
+        "Important: analyze_twb reports capability fit, not loadability."
+    )
+    try:
+        root = load_workbook_root(file_path)
+        schema_result = validate_against_schema(root)
+        if schema_result.valid:
+            schema_note = "Schema check: PASS."
+        else:
+            schema_note = (
+                f"Schema check: FAIL ({len(schema_result.errors)} error(s)). "
+                "Important: capability analysis can still run on invalid workbooks."
+            )
+    except TWBValidationError as exc:
+        schema_note = (
+            "Schema check: FAIL (unable to parse workbook structure). "
+            f"Details: {exc}"
+        )
+
+    report = analyze_workbook(file_path)
+    return schema_note + "\n\n" + report.to_text() + "\n\n" + report.to_gap_text()
+
+
+@server.tool()
+def diff_template_gap(file_path: str) -> str:
+    """Summarize the non-core capability gap of a TWB template."""
+
+    report = analyze_workbook(file_path)
+    return report.to_gap_text()
+
+
+@server.tool()
+def validate_workbook(file_path: Optional[str] = None) -> str:
+    """Validate a workbook against the official Tableau TWB XSD schema (2026.1).
+
+    Checks whether the generated XML conforms to Tableau's published schema.
+    This tool does not save or export the active workbook. If file_path is
+    omitted, it validates the current in-memory workbook before save; if
+    file_path is provided, it validates an existing .twb/.twbx file on disk.
+    Call save_workbook when you need to write the workbook to a file.
+
+    Args:
+        file_path: Path to a .twb or .twbx file to validate. If omitted,
+                   validates the currently open workbook (in memory, before save).
+
+    Returns:
+        PASS/FAIL summary with error details.
+    """
+
+    if file_path:
+        p = Path(file_path)
+        if not p.exists():
+            return f"ERROR  File not found: {file_path}"
+
+        try:
+            root = load_workbook_root(p)
+        except TWBValidationError as exc:
+            return f"ERROR  {exc}"
+        result = validate_against_schema(root)
+    else:
+        editor = get_editor()
+        result = validate_against_schema(editor.root)
+
+    result_text = result.to_text()
+    if file_path:
+        return result_text
+    return (
+        result_text
+        + "\n\n"
+        + "Note: validate_workbook only validates the in-memory workbook; it does not save files. "
+        + "Use save_workbook(output_path=...) to write a .twb/.twbx file."
+    )
+
+
+@server.tool()
+def inspect_excel_connection(file_path: str, sheet_name: str = "") -> str:
+    """Preview how an Excel workbook will be interpreted before connection setup."""
+
+    sheet_names = _list_excel_sheet_names(file_path)
+    if not sheet_names:
+        return json.dumps(
+            {
+                "file_path": file_path,
+                "multi_table": False,
+                "tables": [],
+                "relationships": [],
+                "note": "No readable sheets were found.",
+            },
+            ensure_ascii=False,
+            indent=2,
+        )
+
+    ordered_sheet_names = sheet_names
+    if sheet_name and sheet_name in sheet_names:
+        ordered_sheet_names = [sheet_name] + [name for name in sheet_names if name != sheet_name]
+
+    tables: list[dict] = []
+    for index, candidate_sheet in enumerate(ordered_sheet_names):
+        actual_sheet_name, rows = _read_excel_sheet_rows(file_path, sheet_name=candidate_sheet)
+        if not rows:
+            continue
+
+        headers = _sanitize_headers(rows[0])
+        value_rows = rows[1:]
+        fields: list[dict] = []
+        for ordinal, header in enumerate(headers):
+            values = _column_values_from_rows(value_rows, ordinal)
+            datatype = _infer_excel_datatype(header, values)
+            role = _infer_external_role(header, datatype)
+            fields.append(
+                {
+                    "name": header,
+                    "ordinal": ordinal,
+                    "datatype": datatype,
+                    "role": role,
+                    "field_type": _infer_external_field_type(role, datatype),
+                    "semantic_role": infer_tableau_semantic_role(header),
+                }
+            )
+
+        tables.append(
+            {
+                "name": actual_sheet_name,
+                "grid_origin": _excel_grid_origin(rows),
+                "outcome": "6" if len(rows) > 1 else "2",
+                "row_count": max(len(rows) - 1, 0),
+                "column_count": len(headers),
+                "fields": fields,
+            }
+        )
+
+    shared_name_counts = Counter(
+        field["name"]
+        for table in tables
+        for field in table["fields"]
+    )
+    relationships: list[dict] = []
+    if tables:
+        primary = tables[0]
+        primary_field_names = {field["name"] for field in primary["fields"]}
+        for secondary in tables[1:]:
+            shared_fields = [
+                field["name"]
+                for field in secondary["fields"]
+                if field["name"] in primary_field_names and shared_name_counts[field["name"]] > 1
+            ]
+            if shared_fields:
+                relationships.append(
+                    {
+                        "from_table": primary["name"],
+                        "to_table": secondary["name"],
+                        "shared_fields": shared_fields,
+                    }
+                )
+
+    preview = {
+        "file_path": file_path,
+        "sheet_name_hint": sheet_name,
+        "sheet_count": len(sheet_names),
+        "multi_table": len(tables) > 1,
+        "tables": tables,
+        "relationships": relationships,
+    }
+    return json.dumps(preview, ensure_ascii=False, indent=2)
+
+
+def review_authoring_contract(contract_json: str) -> str:
+    """Review a draft authoring contract and apply profile-aware defaults."""
+
+    return review_authoring_contract_payload(contract_json).to_json()

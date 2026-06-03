@@ -47,6 +47,8 @@ XML structure written by builders (inside editor.root):
   </workbook>
 """
 
+from __future__ import annotations
+
 import copy
 import logging
 import re
@@ -56,6 +58,7 @@ from typing import Optional, Union
 from lxml import etree
 
 from ..field_registry import FieldRegistry, ColumnInstance, _DERIVATION_ABBR, _EXPR_RE
+from .helpers import _get_or_create_table_style
 
 logger = logging.getLogger(__name__)
 
@@ -770,3 +773,841 @@ class BaseChartBuilder:
             agg.addprevious(shelf_sorts)
         else:
             view.append(shelf_sorts)
+
+
+# --- BasicChartBuilder ---
+
+
+class BasicChartBuilder(BaseChartBuilder):
+    """Builder for basic charts (Bar, Line, Circle, Square)."""
+
+    def __init__(self, editor, worksheet_name: str, mark_type: str,
+                 columns: Optional[list[str]] = None,
+                 rows: Optional[list[str]] = None,
+                 color: Optional[str] = None,
+                 size: Optional[str] = None,
+                 label: Optional[str] = None,
+                 detail: Optional[str] = None,
+                 sort_descending: Optional[str] = None,
+                 tooltip: Optional[Union[str, list[str]]] = None,
+                 filters: Optional[list[dict]] = None,
+                 mark_sizing_off: bool = False,
+                 axis_fixed_range: Optional[dict] = None,
+                 customized_label: Optional[str] = None,
+                 color_map: Optional[dict[str, str]] = None,
+                 text_format: Optional[dict[str, str]] = None,
+                 label_extra: Optional[list[str]] = None,
+                 label_runs: Optional[list[dict]] = None) -> None:
+        """Capture chart configuration for one single-pane worksheet mutation."""
+        super().__init__(editor)
+        self.worksheet_name = worksheet_name
+        self.mark_type = mark_type
+        self.columns = columns or []
+        self.rows = rows or []
+        self.color = color
+        self.size = size
+        self.label = label
+        self.detail = detail
+        self.sort_descending = sort_descending
+        self.tooltip = tooltip
+        self.filters = filters
+        self.mark_sizing_off = mark_sizing_off
+        self.axis_fixed_range = axis_fixed_range
+        self.customized_label = customized_label
+        self.color_map = color_map
+        self.text_format = text_format
+        self.label_extra = label_extra or []
+        self.label_runs = label_runs or []
+
+    def build(self) -> str:
+        """Create/update worksheet XML for a standard single-pane chart."""
+        # Macro processing
+        mark_type, columns, rows = self.editor._apply_chart_macros(
+            self.mark_type, self.columns, self.rows, self.color
+        )
+
+        ws = self.editor._find_worksheet(self.worksheet_name)
+        table = ws.find("table")
+        if table is None:
+            raise ValueError(f"Worksheet '{self.worksheet_name}' is malformed: missing <table>")
+        view = table.find("view")
+        if view is None:
+            raise ValueError("Malformed structure: missing <view>")
+
+        ds_name = self._datasource.get("name", "")
+
+        all_exprs = self._gather_expressions(
+            columns, rows, self.color, self.size, self.label, self.detail, None,
+            self.sort_descending, self.tooltip, self.filters, None, None
+        )
+        for extra_field in self.label_extra:
+            if extra_field not in all_exprs:
+                all_exprs.append(extra_field)
+        instances = self._parse_and_prepare_instances(all_exprs, self.filters)
+        self._add_tooltip_instances(instances, all_exprs, self.tooltip)
+        self._setup_datasource_dependencies(view, ds_name, instances, all_exprs)
+
+        pane = self._get_or_create_pane(table)
+        pane.set("selection-relaxation-option", "selection-relaxation-disallow")
+        self._setup_pane(
+            pane, mark_type, self.mark_type, instances,
+            self.color, self.size, self.label, self.detail, None, self.tooltip,
+            False, None, None, ds_name
+        )
+
+        # Add extra text encodings for label_extra fields
+        if self.label_extra:
+            encodings_el = pane.find("encodings")
+            if encodings_el is None:
+                encodings_el = etree.SubElement(pane, "encodings")
+            for extra_field in self.label_extra:
+                ci_extra = instances.get(extra_field)
+                if ci_extra:
+                    extra_ref = self.field_registry.resolve_full_reference(ci_extra.instance_name)
+                    text_el = etree.SubElement(encodings_el, "text")
+                    text_el.set("column", extra_ref)
+
+        # Mark sizing off
+        if self.mark_sizing_off:
+            mark_el = pane.find("mark")
+            ms_el = etree.Element("mark-sizing")
+            ms_el.set("mark-sizing-setting", "marks-scaling-off")
+            if mark_el is not None:
+                mark_el.addnext(ms_el)
+            else:
+                pane.append(ms_el)
+
+        # Customized label template (multi-field version)
+        if self.customized_label and (self.label or self.label_extra):
+            # Build field_map: field name -> full_ref
+            field_map = {}
+            all_label_fields = ([self.label] if self.label else []) + list(self.label_extra)
+            for lf in all_label_fields:
+                ci_lf = instances.get(lf)
+                if ci_lf:
+                    field_map[lf] = self.field_registry.resolve_full_reference(ci_lf.instance_name)
+
+            old_cl = pane.find("customized-label")
+            if old_cl is not None:
+                pane.remove(old_cl)
+            cl = etree.Element("customized-label")
+
+            # Ensure <customized-label> is inserted BEFORE <style> to satisfy DTD
+            pane_style = pane.find("style")
+            if pane_style is not None:
+                pane_style.addprevious(cl)
+            else:
+                pane.append(cl)
+
+            ft = etree.SubElement(cl, "formatted-text")
+
+            def _add_run(text_value: str) -> None:
+                """Append a default-formatted run to customized label text."""
+                r = etree.SubElement(ft, "run")
+                r.set("fontalignment", "2")
+                r.set("fontname", "Tableau Medium")
+                r.set("fontsize", "8")
+                r.text = text_value
+
+            template = self.customized_label
+            segments = re.split(r'(<[^>]+>)', template)
+            pending_prefix = ""
+            for segment in segments:
+                # Check if segment looks like <FieldName> and matches a known field
+                m = re.match(r'^<([^>]+)>$', segment)
+                if m and m.group(1) in field_map:
+                    field_name = m.group(1)
+                    # Combine pending prefix with "<"
+                    _add_run(pending_prefix + "<")
+                    _add_run(field_map[field_name])
+                    pending_prefix = ">"
+                else:
+                    pending_prefix += segment
+            if pending_prefix:
+                _add_run(pending_prefix)
+
+        # Rich-text label runs (takes precedence over customized_label if both set)
+        if self.label_runs:
+            self._build_rich_label(pane, instances, self.label_runs)
+
+        rows_el = table.find("rows")
+        if rows_el is not None:
+            rows_el.text = self.editor._build_dimension_shelf(instances, rows) if rows else None
+
+        cols_el = table.find("cols")
+        if cols_el is not None:
+            cols_el.text = self.editor._build_dimension_shelf(instances, columns) if columns else None
+
+        if self.sort_descending:
+             self._add_shelf_sort(view, ds_name, instances, rows, self.sort_descending)
+
+        if self.filters:
+            self._add_filters(view, instances, self.filters)
+
+        self.editor._setup_table_style(table, self.mark_type)
+
+        # Axis fixed range
+        if self.axis_fixed_range:
+            table_style = _get_or_create_table_style(table)
+            # Find or create axis style-rule
+            axis_rule = None
+            for sr in table_style.findall("style-rule"):
+                if sr.get("element") == "axis":
+                    axis_rule = sr
+                    break
+            if axis_rule is None:
+                axis_rule = etree.SubElement(table_style, "style-rule")
+                axis_rule.set("element", "axis")
+
+            # Determine which field to apply the range to (first column measure)
+            range_field = self.axis_fixed_range.get("field")
+            range_scope = self.axis_fixed_range.get("scope", "cols")
+            if not range_field and columns:
+                ci = instances.get(columns[0])
+                if ci:
+                    range_field = self.field_registry.resolve_full_reference(ci.instance_name)
+            if range_field:
+                enc = etree.SubElement(axis_rule, "encoding")
+                enc.set("attr", "space")
+                enc.set("class", "0")
+                enc.set("field", range_field)
+                enc.set("field-type", "quantitative")
+                if "min" in self.axis_fixed_range:
+                    enc.set("min", str(self.axis_fixed_range["min"]))
+                if "max" in self.axis_fixed_range:
+                    enc.set("max", str(self.axis_fixed_range["max"]))
+                enc.set("range-type", "fixed")
+                enc.set("scope", range_scope)
+                enc.set("type", "space")
+
+        # Text format (e.g. percentage)
+        if self.text_format:
+            table_style = _get_or_create_table_style(table)
+            cell_rule = etree.SubElement(table_style, "style-rule")
+            cell_rule.set("element", "cell")
+            for field_expr, fmt_str in self.text_format.items():
+                ci = instances.get(field_expr)
+                if ci:
+                    full_ref = self.field_registry.resolve_full_reference(ci.instance_name)
+                    fmt = etree.SubElement(cell_rule, "format")
+                    fmt.set("attr", "text-format")
+                    fmt.set("field", full_ref)
+                    fmt.set("value", fmt_str)
+
+        # Color map (datasource-level palette mapping)
+        if self.color_map and self.color:
+            ci = instances.get(self.color)
+            if ci:
+                full_ref = self.field_registry.resolve_full_reference(ci.instance_name)
+                ds_style = self._datasource.find("style")
+                if ds_style is None:
+                    ds_style = etree.Element("style")
+                    # DTD requires <style> before semantic-values, date-options, object-graph
+                    insert_before = None
+                    for tag in ("semantic-values", "date-options", "default-date-format", "object-graph"):
+                        insert_before = self._datasource.find(tag)
+                        if insert_before is not None:
+                            break
+                    if insert_before is not None:
+                        insert_before.addprevious(ds_style)
+                    else:
+                        self._datasource.append(ds_style)
+                        
+                mark_rule = None
+                for sr in ds_style.findall("style-rule"):
+                    if sr.get("element") == "mark":
+                        mark_rule = sr
+                        break
+                if mark_rule is None:
+                    mark_rule = etree.SubElement(ds_style, "style-rule")
+                    mark_rule.set("element", "mark")
+                color_enc = etree.SubElement(mark_rule, "encoding")
+                color_enc.set("attr", "color")
+                color_enc.set("field", full_ref)
+                color_enc.set("type", "palette")
+                for bucket_val, hex_color in self.color_map.items():
+                    map_el = etree.SubElement(color_enc, "map")
+                    map_el.set("to", hex_color)
+                    bucket_el = etree.SubElement(map_el, "bucket")
+                    bucket_el.text = f'"{bucket_val}"'
+
+        return f"Configured worksheet '{self.worksheet_name}' as {self.mark_type} chart"
+
+
+# --- PieChartBuilder ---
+
+
+class PieChartBuilder(BaseChartBuilder):
+    """Builder for Pie charts."""
+
+    def __init__(self, editor, worksheet_name: str,
+                 color: Optional[str] = None,
+                 wedge_size: Optional[str] = None,
+                 label: Optional[str] = None,
+                 detail: Optional[str] = None,
+                 tooltip: Optional[Union[str, list[str]]] = None,
+                 filters: Optional[list[dict]] = None) -> None:
+        """Capture pie-chart specific encodings for one worksheet."""
+        super().__init__(editor)
+        self.worksheet_name = worksheet_name
+        self.mark_type = "Pie"
+        self.color = color
+        self.wedge_size = wedge_size
+        self.label = label
+        self.detail = detail
+        self.tooltip = tooltip
+        self.filters = filters
+
+    def build(self) -> str:
+        """Build pie mark XML including wedge-size, label, and filter wiring."""
+        ws = self.editor._find_worksheet(self.worksheet_name)
+        table = ws.find("table")
+        if table is None:
+            raise ValueError(f"Worksheet '{self.worksheet_name}' is malformed: missing <table>")
+        view = table.find("view")
+        if view is None:
+            raise ValueError("Malformed structure: missing <view>")
+
+        ds_name = self._datasource.get("name", "")
+        
+        all_exprs = self._gather_expressions(
+            None, None, self.color, None, self.label, self.detail, self.wedge_size,
+            None, self.tooltip, self.filters, None, None
+        )
+        instances = self._parse_and_prepare_instances(all_exprs, self.filters)
+        self._add_tooltip_instances(instances, all_exprs, self.tooltip)
+        self._setup_datasource_dependencies(view, ds_name, instances, all_exprs)
+
+        pane = self._get_or_create_pane(table)
+        self._setup_pane(
+            pane, "Pie", "Pie", instances,
+            self.color, None, self.label, self.detail, self.wedge_size, self.tooltip,
+            False, None, None, ds_name
+        )
+
+        rows_el = table.find("rows")
+        if rows_el is not None:
+            rows_el.text = None
+            
+        cols_el = table.find("cols")
+        if cols_el is not None:
+            cols_el.text = None
+
+        if self.color:
+            color_ref = self.field_registry.resolve_full_reference(instances[self.color].instance_name)
+            windows = self.editor.root.find("windows")
+            if windows is not None:
+                for window in windows.findall("window"):
+                    if window.get("name") == self.worksheet_name:
+                        old_vp = window.find("viewpoint")
+                        if old_vp is not None:
+                            window.remove(old_vp)
+                        
+                        vp = etree.Element("viewpoint")
+                        highlight = etree.SubElement(vp, "highlight")
+                        color_viewpoint = etree.SubElement(highlight, "color-one-way")
+                        etree.SubElement(color_viewpoint, "field").text = color_ref
+                        
+                        simple_id = window.find("simple-id")
+                        if simple_id is not None:
+                            simple_id.addprevious(vp)
+                        else:
+                            window.append(vp)
+                        break
+
+        if self.filters:
+            self._add_filters(view, instances, self.filters)
+            
+        self.editor._setup_table_style(table, "Pie")
+
+        return f"Configured worksheet '{self.worksheet_name}' as Pie chart"
+
+
+# --- TextChartBuilder ---
+
+
+class TextChartBuilder(BaseChartBuilder):
+    """Builder for Text marks, including measure-values KPI mode."""
+
+    def __init__(
+        self,
+        editor,
+        worksheet_name: str,
+        columns: Optional[list[str]] = None,
+        rows: Optional[list[str]] = None,
+        color: Optional[str] = None,
+        size: Optional[str] = None,
+        label: Optional[str] = None,
+        detail: Optional[str] = None,
+        sort_descending: Optional[str] = None,
+        tooltip: Optional[Union[str, list[str]]] = None,
+        filters: Optional[list[dict]] = None,
+        measure_values: Optional[list[str]] = None,
+        label_extra: Optional[list[str]] = None,
+        label_runs: Optional[list[dict]] = None,
+        label_param: Optional[str] = None,
+    ) -> None:
+        """Capture text-table/KPI options, including measure-values configuration."""
+        super().__init__(editor)
+        self.worksheet_name = worksheet_name
+        self.mark_type = "Text"
+        self.columns = columns or []
+        self.rows = rows or []
+        self.color = color
+        self.size = size
+        self.label = label
+        self.detail = detail
+        self.sort_descending = sort_descending
+        self.tooltip = tooltip
+        self.filters = filters
+        self.measure_values = measure_values or []
+        self.label_extra = label_extra or []
+        self.label_runs = label_runs or []
+        self.label_param = label_param
+
+    def build(self) -> str:
+        """Build text mark worksheet XML and optional measure-values overlays."""
+        ws = self.editor._find_worksheet(self.worksheet_name)
+        table = ws.find("table")
+        if table is None:
+            raise ValueError(f"Worksheet '{self.worksheet_name}' is malformed: missing <table>")
+        view = table.find("view")
+        if view is None:
+            raise ValueError("Malformed structure: missing <view>")
+
+        ds_name = self._datasource.get("name", "")
+        # When label_param is set, the label field is not used as a datasource encoding
+        label_for_exprs = None if self.label_param else self.label
+        all_exprs = self._gather_expressions(
+            self.columns,
+            self.rows,
+            self.color,
+            self.size,
+            label_for_exprs,
+            self.detail,
+            None,
+            self.sort_descending,
+            self.tooltip,
+            self.filters,
+            None,
+            self.measure_values,
+        )
+        for extra_field in self.label_extra:
+            if extra_field not in all_exprs:
+                all_exprs.append(extra_field)
+        instances = self._parse_and_prepare_instances(all_exprs, self.filters)
+        self._add_tooltip_instances(instances, all_exprs, self.tooltip)
+        self._setup_datasource_dependencies(view, ds_name, instances, all_exprs)
+
+        pane = self._get_or_create_pane(table)
+        pane.set("selection-relaxation-option", "selection-relaxation-disallow")
+        self._setup_pane(
+            pane,
+            "Text",
+            "Text",
+            instances,
+            self.color,
+            self.size,
+            label_for_exprs,
+            self.detail,
+            None,
+            self.tooltip,
+            False,
+            None,
+            None,
+            ds_name,
+        )
+
+        # Add label_extra fields as text encodings so Tableau can resolve
+        # field references in the customized-label.
+        if self.label_extra:
+            encodings_el = pane.find("encodings")
+            if encodings_el is None:
+                encodings_el = etree.SubElement(pane, "encodings")
+            for extra_field in self.label_extra:
+                ci = self._instance_for_expression(instances, extra_field)
+                if ci is not None:
+                    text_el = etree.SubElement(encodings_el, "text")
+                    text_el.set("column", self.field_registry.resolve_full_reference(ci.instance_name))
+
+        # If label_param is set, add the parameter as the text encoding directly
+        if self.label_param:
+            param_info = self._parameters.get(self.label_param)
+            if param_info:
+                internal = param_info["internal_name"]  # e.g. "[Parameter 1]"
+                # Add Parameters datasource to view's <datasources>
+                datasources_el = view.find("datasources")
+                if datasources_el is not None:
+                    if not any(d.get("name") == "Parameters" for d in datasources_el.findall("datasource")):
+                        # Get caption from the actual Parameters datasource
+                        params_ds = self.editor.root.find(".//datasource[@name='Parameters']")
+                        caption = params_ds.get("caption", "Parameters") if params_ds is not None else "Parameters"
+                        param_ds_el = etree.SubElement(datasources_el, "datasource")
+                        param_ds_el.set("caption", caption)
+                        param_ds_el.set("name", "Parameters")
+                # Add parameter datasource-dependencies to view
+                self.editor._add_parameter_deps(view)
+                # Add text encoding pointing to the parameter
+                encodings_el = pane.find("encodings")
+                if encodings_el is None:
+                    encodings_el = etree.Element("encodings")
+                    cl = pane.find("customized-label")
+                    style_el = pane.find("style")
+                    insert_before = cl or style_el
+                    if insert_before is not None:
+                        insert_before.addprevious(encodings_el)
+                    else:
+                        pane.append(encodings_el)
+                text_enc = etree.SubElement(encodings_el, "text")
+                text_enc.set("column", f"[Parameters].{internal}")
+
+        # Rich-text label runs
+        if self.label_runs:
+            self._build_rich_label(pane, instances, self.label_runs)
+
+        if self.measure_values:
+            self.editor._apply_measure_values(
+                view,
+                table,
+                pane,
+                ds_name,
+                instances,
+                self.measure_values,
+            )
+        else:
+            rows_el = table.find("rows")
+            if rows_el is not None:
+                rows_el.text = self.editor._build_dimension_shelf(instances, self.rows) if self.rows else None
+
+            cols_el = table.find("cols")
+            if cols_el is not None:
+                cols_el.text = self.editor._build_dimension_shelf(instances, self.columns) if self.columns else None
+
+            if self.sort_descending:
+                self._add_shelf_sort(view, ds_name, instances, self.rows, self.sort_descending)
+
+            self.editor._setup_table_style(table, "Text")
+
+        if self.filters:
+            self._add_filters(view, instances, self.filters)
+
+        return f"Configured worksheet '{self.worksheet_name}' as Text chart"
+
+
+# --- MapChartBuilder ---
+
+
+class MapChartBuilder(BaseChartBuilder):
+    """Builder for Map charts (Automatic mark over geography).
+
+    Supports single-layer (default Multipolygon) and multi-layer maps via
+    ``map_layers``.  When *map_layers* is provided the ``<panes>`` element
+    receives ``customization-axis='layer'`` and each list entry becomes an
+    independent pane / layer.
+
+    Layer dict keys
+    ---------------
+    mark_type       : str   – e.g. "Automatic", "Multipolygon"
+    color           : str   – field expression for color encoding
+    size            : str   – field expression for size encoding
+    tooltip         : str | list[str]
+    mark_color      : str   – fixed mark colour hex (style format)
+    mark_sizing_off : bool  – disable mark size scaling
+    has_stroke      : bool  – show stroke on marks
+    stroke_color    : str   – stroke colour hex
+    mark_size_value : str   – explicit size style value
+    """
+
+    def __init__(self, editor, worksheet_name: str,
+                 geographic_field: str,
+                 color: Optional[str] = None,
+                 size: Optional[str] = None,
+                 label: Optional[str] = None,
+                 detail: Optional[str] = None,
+                 tooltip: Optional[Union[str, list[str]]] = None,
+                 map_fields: Optional[list[str]] = None,
+                 filters: Optional[list[dict]] = None,
+                 map_layers: Optional[list[dict]] = None) -> None:
+        """Capture map-specific encodings and layer settings."""
+        super().__init__(editor)
+        self.worksheet_name = worksheet_name
+        self.mark_type = "Map"
+        self.geographic_field = geographic_field
+        self.color = color
+        self.size = size
+        self.label = label
+        self.detail = detail
+        self.tooltip = tooltip
+        self.map_fields = map_fields
+        self.filters = filters
+        self.map_layers = map_layers
+
+    # ------------------------------------------------------------------
+    # Public entry point
+    # ------------------------------------------------------------------
+    def build(self) -> str:
+        """Build map worksheet XML, including optional multi-layer panes."""
+        ws = self.editor._find_worksheet(self.worksheet_name)
+        table = ws.find("table")
+        if table is None:
+            raise ValueError(f"Worksheet '{self.worksheet_name}' is malformed: missing <table>")
+        view = table.find("view")
+        if view is None:
+            raise ValueError("Malformed structure: missing <view>")
+
+        ds_name = self._datasource.get("name", "")
+
+        # Gather all field expressions across all layers for dependency setup
+        all_exprs = self._collect_all_expressions()
+        instances = self._parse_and_prepare_instances(all_exprs, self.filters)
+        # Augment with tooltip-specific aggregations (Attribute for dimensions,
+        # Sum for measures) so the encoding references resolve correctly.
+        tooltip_for_deps = self._collect_tooltip_expressions()
+        self._add_tooltip_instances(instances, all_exprs, tooltip_for_deps)
+        self._setup_datasource_dependencies(view, ds_name, instances, all_exprs)
+
+        if self.map_layers:
+            self._build_multi_layer(table, ds_name, instances)
+        else:
+            self._build_single_layer(table, ds_name, instances)
+
+        # rows / cols: Latitude / Longitude
+        rows_el = table.find("rows")
+        if rows_el is not None:
+            rows_el.text = f"[{ds_name}].[Latitude (generated)]"
+
+        cols_el = table.find("cols")
+        if cols_el is not None:
+            cols_el.text = f"[{ds_name}].[Longitude (generated)]"
+
+        self.editor._setup_mapsources(view)
+
+        if self.filters:
+            self._add_filters(view, instances, self.filters)
+
+        self.editor._setup_table_style(table, "Map")
+
+        return f"Configured worksheet '{self.worksheet_name}' as Map chart"
+
+    # ------------------------------------------------------------------
+    # Field expression collection
+    # ------------------------------------------------------------------
+    def _collect_tooltip_expressions(self) -> list[str]:
+        """Flatten top-level and per-layer tooltip expressions for the map."""
+        out: list[str] = []
+        if self.tooltip:
+            if isinstance(self.tooltip, str):
+                out.append(self.tooltip)
+            else:
+                out.extend(self.tooltip)
+        if self.map_layers:
+            for layer in self.map_layers:
+                tt = layer.get("tooltip")
+                if not tt:
+                    continue
+                if isinstance(tt, str):
+                    if tt not in out:
+                        out.append(tt)
+                else:
+                    for t in tt:
+                        if t not in out:
+                            out.append(t)
+        return out
+
+    def _collect_all_expressions(self) -> list[str]:
+        """Gather every field expression used across all parameters."""
+        if not self.map_layers:
+            return self._gather_expressions(
+                None, None, self.color, self.size, self.label, self.detail, None,
+                None, self.tooltip, self.filters, self.geographic_field, None
+            )
+
+        exprs: list[str] = []
+        if self.geographic_field:
+            exprs.append(self.geographic_field)
+        if self.map_fields:
+            exprs.extend(self.map_fields)
+
+        for layer in self.map_layers:
+            for key in ("color", "size", "label", "detail"):
+                val = layer.get(key)
+                if val and val not in exprs:
+                    # Skip numeric literals (e.g. size="0.01") — not field expressions
+                    try:
+                        float(val)
+                    except (ValueError, TypeError):
+                        exprs.append(val)
+            tt = layer.get("tooltip")
+            if tt:
+                tt_list = [tt] if isinstance(tt, str) else tt
+                for t in tt_list:
+                    if t not in exprs:
+                        exprs.append(t)
+
+        # Also include top-level fields (they may be shared)
+        for val in (self.color, self.size, self.label, self.detail):
+            if val and val not in exprs:
+                exprs.append(val)
+        if self.tooltip:
+            tt_list = [self.tooltip] if isinstance(self.tooltip, str) else self.tooltip
+            for t in tt_list:
+                if t not in exprs:
+                    exprs.append(t)
+        # filter expressions
+        if self.filters:
+            for f in self.filters:
+                fld = f.get("field") or f.get("column")
+                if fld and fld not in exprs:
+                    exprs.append(fld)
+        return exprs
+
+    # ------------------------------------------------------------------
+    # Single-layer (legacy behaviour)
+    # ------------------------------------------------------------------
+    def _build_single_layer(self, table, ds_name, instances):
+        """Render the legacy single-layer map pane path."""
+        pane = self._get_or_create_pane(table)
+        self._setup_pane(
+            pane, "Multipolygon", "Map", instances,
+            self.color, self.size, self.label, self.detail, None, self.tooltip,
+            True, self.geographic_field, self.map_fields, ds_name
+        )
+
+    # ------------------------------------------------------------------
+    # Multi-layer map
+    # ------------------------------------------------------------------
+    def _build_multi_layer(self, table, ds_name, instances):
+        """Build multi-layer panes with ``customization-axis='layer'``."""
+        # Ensure Tableau knows this workbook uses layers
+        self._ensure_manifest_entry("Layers")
+        self._ensure_manifest_entry("MapboxVectorStylesAndLayers")
+
+        # Remove the existing empty <panes> and create a new one
+        old_panes = table.find("panes")
+        if old_panes is not None:
+            table.remove(old_panes)
+
+        panes_el = etree.SubElement(table, "panes")
+        panes_el.set("customization-axis", "layer")
+
+        for idx, layer_cfg in enumerate(self.map_layers):
+            mark_type = layer_cfg.get("mark_type", "Automatic")
+            is_multipolygon = mark_type == "Multipolygon"
+
+            pane = etree.SubElement(panes_el, "pane")
+            if idx > 0:
+                pane.set("generated-title", f"{self.geographic_field} ({idx + 1})" if idx > 1
+                         else self.geographic_field)
+            pane.set("id", str(idx))
+            pane.set("selection-relaxation-option",
+                     "selection-relaxation-disallow" if is_multipolygon
+                     else "selection-relaxation-allow")
+
+            # <view><breakdown value='auto' /></view>
+            pane_view = etree.SubElement(pane, "view")
+            etree.SubElement(pane_view, "breakdown").set("value", "auto")
+
+            # <mark class="..."/>
+            mark_el = etree.SubElement(pane, "mark")
+            mark_el.set("class", mark_type)
+
+            # Optional mark-sizing
+            if layer_cfg.get("mark_sizing_off"):
+                ms_el = etree.SubElement(pane, "mark-sizing")
+                ms_el.set("mark-sizing-setting", "marks-scaling-off")
+
+            # --- Encodings ---
+            l_color = layer_cfg.get("color")
+            l_size = layer_cfg.get("size")
+            l_tooltip = layer_cfg.get("tooltip")
+
+            has_enc = any(x is not None for x in (l_color, l_size, l_tooltip)) \
+                or is_multipolygon or self.geographic_field or self.map_fields
+            if has_enc:
+                enc_el = etree.SubElement(pane, "encodings")
+
+                if l_color and l_color in instances:
+                    ce = etree.SubElement(enc_el, "color")
+                    ce.set("column", self.field_registry.resolve_full_reference(
+                        instances[l_color].instance_name))
+
+                if l_size and l_size in instances:
+                    se = etree.SubElement(enc_el, "size")
+                    se.set("column", self.field_registry.resolve_full_reference(
+                        instances[l_size].instance_name))
+
+                if l_tooltip:
+                    tt_list = [l_tooltip] if isinstance(l_tooltip, str) else l_tooltip
+                    for tt in tt_list:
+                        # Prefer the tooltip-correct instance (Attribute for
+                        # dim, Sum for measure).  Fall back to the default
+                        # lookup for explicit aggregations like SUM(field).
+                        tt_ci = self._tooltip_instance_for_expression(tt)
+                        if tt_ci is None and tt in instances:
+                            tt_ci = instances[tt]
+                        if tt_ci is not None:
+                            te = etree.SubElement(enc_el, "tooltip")
+                            te.set("column", self.field_registry.resolve_full_reference(
+                                tt_ci.instance_name))
+
+                # LOD fields (geographic + map_fields) on every layer
+                if self.geographic_field and self.geographic_field in instances:
+                    lod = etree.SubElement(enc_el, "lod")
+                    lod.set("column", self.field_registry.resolve_full_reference(
+                        instances[self.geographic_field].instance_name))
+
+                if self.map_fields:
+                    for mf in self.map_fields:
+                        try:
+                            mf_ci = self.field_registry.parse_expression(mf)
+                            lod = etree.SubElement(enc_el, "lod")
+                            lod.set("column", self.field_registry.resolve_full_reference(
+                                mf_ci.instance_name))
+                        except (KeyError, ValueError):
+                            pass
+
+                # Geometry encoding only for Multipolygon layers
+                if is_multipolygon:
+                    geom = etree.SubElement(enc_el, "geometry")
+                    geom.set("column", f"[{ds_name}].[Geometry (generated)]")
+
+            # --- Pane style ---
+            pane_style = etree.SubElement(pane, "style")
+            sr = etree.SubElement(pane_style, "style-rule")
+            sr.set("element", "mark")
+
+            mark_color = layer_cfg.get("mark_color")
+            mark_size_value = layer_cfg.get("mark_size_value")
+            has_stroke = layer_cfg.get("has_stroke", False)
+            stroke_color = layer_cfg.get("stroke_color", "#000000")
+
+            if mark_size_value:
+                fmt = etree.SubElement(sr, "format")
+                fmt.set("attr", "size")
+                fmt.set("value", str(mark_size_value))
+
+            fmt_cull = etree.SubElement(sr, "format")
+            fmt_cull.set("attr", "mark-labels-cull")
+            fmt_cull.set("value", "true")
+
+            if mark_color:
+                fmt_mc = etree.SubElement(sr, "format")
+                fmt_mc.set("attr", "mark-color")
+                fmt_mc.set("value", mark_color)
+
+            if has_stroke:
+                fmt_hs = etree.SubElement(sr, "format")
+                fmt_hs.set("attr", "has-stroke")
+                fmt_hs.set("value", "true")
+                fmt_sc = etree.SubElement(sr, "format")
+                fmt_sc.set("attr", "stroke-color")
+                fmt_sc.set("value", stroke_color)
+
+            fmt_show = etree.SubElement(sr, "format")
+            fmt_show.set("attr", "mark-labels-show")
+            fmt_show.set("value", "false")
+
+        # Ensure <panes> is placed before <rows>/<cols> in the table
+        rows_el = table.find("rows")
+        if rows_el is not None:
+            rows_el.addprevious(panes_el)

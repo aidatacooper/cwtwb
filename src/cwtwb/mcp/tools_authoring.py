@@ -411,13 +411,13 @@ def build_execution_plan(run_id: str) -> str:
 
 
 def _tool_map():
-    from .tools_support import analyze_twb, validate_workbook
     from .tools_workbook import (
         add_calculated_field,
         add_dashboard,
         add_dashboard_action,
         add_parameter,
         add_worksheet,
+        analyze_twb,
         configure_chart,
         configure_chart_recipe,
         configure_dual_axis,
@@ -431,6 +431,7 @@ def _tool_map():
         set_mysql_connection,
         set_tableauserver_connection,
         set_worksheet_caption,
+        validate_workbook,
     )
 
     return {

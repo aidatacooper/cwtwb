@@ -7,7 +7,7 @@ import logging
 import pytest
 
 from cwtwb.field_registry import FieldRegistry
-from cwtwb.measure_intent import default_measure_expression, default_view_expression
+from cwtwb.field_registry import default_measure_expression, default_view_expression
 
 
 def _build_registry(*, allow_unknown_fields: bool = False) -> FieldRegistry:

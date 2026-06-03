@@ -10,8 +10,11 @@ from pathlib import Path
 
 import pytest
 
-from cwtwb.authoring_contract import review_authoring_contract_payload
-from cwtwb.authoring_run import _is_expression, validate_generated_workbook_semantics
+from cwtwb.authoring_run import (
+    _is_expression,
+    review_authoring_contract_payload,
+    validate_generated_workbook_semantics,
+)
 from cwtwb.mcp.resources import (
     read_dashboard_authoring_contract,
     read_profiles_index,

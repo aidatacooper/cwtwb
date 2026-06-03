@@ -12,7 +12,7 @@ from typing import Callable
 
 from lxml import etree
 
-from ..measure_intent import normalize_measure_args
+from ..field_registry import normalize_measure_args
 
 
 DEFAULT_CALENDAR_YEAR_MONTH = "202208"

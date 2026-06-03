@@ -405,7 +405,6 @@ cwtwb/
 |   |-- capability_registry.py
 |   |-- config.py
 |   |-- contracts/
-|   |-- authoring_contract.py
 |   |-- authoring_run.py
 |   |-- charts/
 |   |-- connections.py

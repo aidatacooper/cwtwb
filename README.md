@@ -100,9 +100,9 @@ This GIF shows the MCP tool flow that builds a dashboard step by step.
   │  ┌──────────────────────────┐  ┌───────────────────────────┐  │
   │  │        MCP Server        │  │      Python Library       │  │
   │  │  tools_workbook          │  │  from cwtwb.twb_editor    │  │
-  │  │  tools_layout            │  │  import TWBEditor         │  │
-  │  │  tools_migration         │  │                           │  │
-  │  │  tools_support           │  │  editor.add_...()         │  │
+  │  │                          │  │  import TWBEditor         │  │
+  │  │                          │  │                           │  │
+  │  │                          │  │  editor.add_...()         │  │
   │  │                          │  │  editor.configure_...()   │  │
   │  │  (Claude / Cursor /      │  │  editor.save(...)         │  │
   │  │   VSCode / Claude Code)  │  │                           │  │

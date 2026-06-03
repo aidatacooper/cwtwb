@@ -64,7 +64,7 @@ from urllib.parse import quote
 from lxml import etree
 
 from .config import _generate_uuid
-from .layout_rendering import generate_dashboard_zones
+from .layout import generate_dashboard_zones
 
 logger = logging.getLogger(__name__)
 

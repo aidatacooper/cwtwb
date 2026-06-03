@@ -7,6 +7,7 @@ import csv
 import json
 import xml.etree.ElementTree as ET
 from copy import deepcopy
+from dataclasses import dataclass
 from datetime import date, datetime
 from pathlib import Path
 from typing import Any
@@ -14,16 +15,683 @@ from zipfile import ZipFile
 
 import xlrd
 
-from .authoring_contract import review_authoring_contract_payload, suggest_profile_matches
-from .config import DEFAULT_AUTHORING_RUNS_DIR
+from .config import CONTRACTS_DIR, DEFAULT_AUTHORING_RUNS_DIR, iter_profile_files
 from .connections import infer_tableau_semantic_role, inspect_hyper_schema
-from .measure_intent import default_date_expression as _shared_default_date_expression
-from .measure_intent import default_measure_expression as _shared_default_measure_expression
+from .field_registry import default_date_expression as _shared_default_date_expression
+from .field_registry import default_measure_expression as _shared_default_measure_expression
 
 try:
     import yaml
 except ImportError:  # pragma: no cover - optional dependency
     yaml = None
+
+# --- Authoring contract (formerly authoring_contract.py) ---
+
+DEFAULT_CONTRACT_TEMPLATE = CONTRACTS_DIR / "dashboard_authoring_v1.json"
+RECOMMENDED_SKILLS = [
+    "authoring_workflow",
+    "calculation_builder",
+    "chart_builder",
+    "dashboard_designer",
+    "formatting",
+]
+
+WORKSHEET_EXECUTION_DEFAULTS = {
+    "dimensions": [],
+    "measures": [],
+    "kpi_fields": [],
+    "encodings": {
+        "columns": [],
+        "rows": [],
+        "color": "",
+        "label": "",
+        "detail": "",
+        "size": "",
+        "wedge_size": "",
+        "geographic_field": "",
+        "measure_values": [],
+        "tooltip": [],
+    },
+    "sort_descending": "",
+    "filters": [],
+}
+
+ACTION_EXECUTION_DEFAULTS = {
+    "type": "filter",
+    "source": "",
+    "target": "",
+    "targets": [],
+    "fields": [],
+    "url": "",
+    "caption": "",
+}
+CALCULATED_FIELD_DEFAULTS = {
+    "name": "",
+    "formula": "",
+    "datatype": "real",
+}
+
+@dataclass
+class ContractReviewResult:
+    """Structured result given by the contract review tool."""
+
+    valid: bool
+    summary: str
+    missing_required: list[str]
+    defaults_applied: dict[str, Any]
+    clarification_questions: list[str]
+    recommended_skills: list[str]
+    execution_outline: list[str]
+    normalized_contract: dict[str, Any]
+    detected_profile: str | None = None
+    parse_error: str | None = None
+
+    def to_json(self) -> str:
+        """Render the full review result as formatted JSON."""
+
+        payload = {
+            "valid": self.valid,
+            "summary": self.summary,
+            "missing_required": self.missing_required,
+            "defaults_applied": self.defaults_applied,
+            "clarification_questions": self.clarification_questions,
+            "recommended_skills": self.recommended_skills,
+            "execution_outline": self.execution_outline,
+            "normalized_contract": self.normalized_contract,
+            "detected_profile": self.detected_profile,
+        }
+        if self.parse_error:
+            payload["parse_error"] = self.parse_error
+        return json.dumps(payload, indent=2, ensure_ascii=False)
+
+
+def _read_json_file(path: Path) -> dict[str, Any]:
+    with path.open("r", encoding="utf-8") as handle:
+        payload = json.load(handle)
+    if not isinstance(payload, dict):
+        raise ValueError(f"Expected JSON object in {path}")
+    return payload
+
+
+def _load_base_contract_template() -> dict[str, Any]:
+    if not DEFAULT_CONTRACT_TEMPLATE.exists():
+        raise FileNotFoundError(
+            f"Contract template not found: {DEFAULT_CONTRACT_TEMPLATE}"
+        )
+    return _read_json_file(DEFAULT_CONTRACT_TEMPLATE)
+
+
+def _iter_profile_payloads() -> list[dict[str, Any]]:
+    payloads: list[dict[str, Any]] = []
+    for path in iter_profile_files():
+        payload = _read_json_file(path)
+        payload["_path"] = str(path)
+        payloads.append(payload)
+    return payloads
+
+
+def _normalize_token(value: str) -> str:
+    return " ".join(value.strip().casefold().replace("_", " ").replace("-", " ").split())
+
+
+def _is_blank(value: Any) -> bool:
+    if value is None:
+        return True
+    if isinstance(value, str):
+        return not value.strip()
+    if isinstance(value, (list, dict)):
+        return len(value) == 0
+    return False
+
+
+def _ensure_dict(parent: dict[str, Any], key: str, defaults_applied: dict[str, Any]) -> dict[str, Any]:
+    value = parent.get(key)
+    if isinstance(value, dict):
+        return value
+    parent[key] = {}
+    defaults_applied[key] = {}
+    return parent[key]
+
+
+def _set_if_blank(
+    parent: dict[str, Any],
+    key: str,
+    value: Any,
+    defaults_applied: dict[str, Any],
+    *,
+    path: str,
+) -> None:
+    if _is_blank(parent.get(key)):
+        parent[key] = deepcopy(value)
+        defaults_applied[path] = deepcopy(value)
+
+
+def _merge_profile_defaults(
+    contract: dict[str, Any],
+    profile_defaults: dict[str, Any],
+    defaults_applied: dict[str, Any],
+    *,
+    prefix: str = "",
+) -> None:
+    for key, value in profile_defaults.items():
+        path = f"{prefix}.{key}" if prefix else key
+        if isinstance(value, dict):
+            child = _ensure_dict(contract, key, defaults_applied)
+            _merge_profile_defaults(child, value, defaults_applied, prefix=path)
+            continue
+        _set_if_blank(contract, key, value, defaults_applied, path=path)
+
+
+def _normalize_string_list(value: Any) -> list[str]:
+    if not isinstance(value, list):
+        return []
+    normalized: list[str] = []
+    seen: set[str] = set()
+    for item in value:
+        text = str(item).strip()
+        if not text or text in seen:
+            continue
+        seen.add(text)
+        normalized.append(text)
+    return normalized
+
+
+def _normalize_encoding_spec(value: Any) -> dict[str, Any]:
+    normalized = deepcopy(WORKSHEET_EXECUTION_DEFAULTS["encodings"])
+    if not isinstance(value, dict):
+        return normalized
+    for key in normalized:
+        if key not in value:
+            continue
+        if isinstance(normalized[key], list):
+            normalized[key] = _normalize_string_list(value.get(key))
+        else:
+            normalized[key] = str(value.get(key, "")).strip()
+    return normalized
+
+
+def _normalize_worksheet_spec(value: Any) -> dict[str, Any] | None:
+    if not isinstance(value, dict):
+        return None
+    worksheet = deepcopy(value)
+    for key in ("dimensions", "measures", "kpi_fields", "filters"):
+        worksheet[key] = _normalize_string_list(worksheet.get(key))
+    encodings = _normalize_encoding_spec(worksheet.get("encodings"))
+
+    # Accept lightweight worksheet shorthands from agent/user overrides and
+    # promote them into the canonical encodings block used by execution.
+    for key in ("columns", "rows", "measure_values", "tooltip"):
+        if encodings.get(key):
+            continue
+        promoted = worksheet.get(key)
+        if isinstance(promoted, str):
+            promoted = [promoted]
+        encodings[key] = _normalize_string_list(promoted)
+    for key in ("color", "label", "detail", "size", "wedge_size", "geographic_field"):
+        if encodings.get(key):
+            continue
+        encodings[key] = str(worksheet.get(key, "")).strip()
+
+    worksheet["encodings"] = encodings
+    worksheet["sort_descending"] = str(worksheet.get("sort_descending", "")).strip()
+    return worksheet
+
+
+def _normalize_action_spec(value: Any) -> dict[str, Any] | None:
+    if not isinstance(value, dict):
+        return None
+    action = deepcopy(ACTION_EXECUTION_DEFAULTS)
+    action.update(deepcopy(value))
+    action["type"] = str(action.get("type", "filter")).strip() or "filter"
+    action["source"] = str(action.get("source", "")).strip()
+    action["target"] = str(action.get("target", "")).strip()
+    action["targets"] = _normalize_string_list(action.get("targets"))
+    if not action["targets"] and action["target"]:
+        action["targets"] = [action["target"]]
+    if not action["target"] and action["targets"]:
+        action["target"] = action["targets"][0]
+    action["fields"] = _normalize_string_list(action.get("fields"))
+    action["url"] = str(action.get("url", "")).strip()
+    action["caption"] = str(action.get("caption", "")).strip()
+    return action
+
+
+def _normalize_calculated_field_spec(value: Any) -> dict[str, Any] | None:
+    if not isinstance(value, dict):
+        return None
+    field = deepcopy(CALCULATED_FIELD_DEFAULTS)
+    field.update(deepcopy(value))
+    field["name"] = str(field.get("name", "")).strip()
+    field["formula"] = str(field.get("formula", "")).strip()
+    field["datatype"] = str(field.get("datatype", "real")).strip() or "real"
+    return field
+
+
+def _normalize_contract_shapes(contract: dict[str, Any]) -> None:
+    worksheets = []
+    for item in contract.get("worksheets", []):
+        normalized = _normalize_worksheet_spec(item)
+        if normalized is not None:
+            worksheets.append(normalized)
+    contract["worksheets"] = worksheets
+
+    actions = []
+    for item in contract.get("actions", []):
+        normalized = _normalize_action_spec(item)
+        if normalized is not None:
+            actions.append(normalized)
+    contract["actions"] = actions
+
+    calculated_fields = []
+    for item in contract.get("calculated_fields", []):
+        normalized = _normalize_calculated_field_spec(item)
+        if normalized is not None:
+            calculated_fields.append(normalized)
+    contract["calculated_fields"] = calculated_fields
+
+
+def _field_exists(field_name: str, available_fields: list[str]) -> bool:
+    normalized = _normalize_token(field_name)
+    return any(_normalize_token(candidate) == normalized for candidate in available_fields)
+
+
+def _is_geo_field(field_name: str, available_fields: list[str]) -> bool:
+    return _field_exists(field_name, available_fields) and bool(
+        infer_tableau_semantic_role(field_name)
+    )
+
+
+def _looks_like_date_field(field_name: str, available_fields: list[str]) -> bool:
+    if not _field_exists(field_name, available_fields):
+        return False
+    normalized = _normalize_token(field_name)
+    return any(token in normalized for token in ("date", "time", "month", "year", "week", "day"))
+
+
+def _collect_execution_clarifications(contract: dict[str, Any]) -> tuple[list[str], list[str]]:
+    missing_required: list[str] = []
+    clarification_questions: list[str] = []
+    available_fields = _extract_available_fields(contract)
+    worksheets = contract.get("worksheets", [])
+
+    if not worksheets:
+        missing_required.append("worksheets")
+        clarification_questions.append(
+            "Which worksheets or views should this dashboard contain? Please list each worksheet with its chart type."
+        )
+        return missing_required, clarification_questions
+
+    for index, worksheet in enumerate(worksheets, start=1):
+        if not isinstance(worksheet, dict):
+            missing_required.append(f"worksheets[{index}]")
+            clarification_questions.append(
+                f"Worksheet #{index} is not structured correctly. Please rewrite it as a worksheet object."
+            )
+            continue
+
+        name = str(worksheet.get("name", "")).strip() or f"Worksheet {index}"
+        mark_type = str(worksheet.get("mark_type", "")).strip()
+        dimensions = _normalize_string_list(worksheet.get("dimensions"))
+        measures = _normalize_string_list(worksheet.get("measures"))
+        kpi_fields = _normalize_string_list(worksheet.get("kpi_fields"))
+        encodings = _normalize_encoding_spec(worksheet.get("encodings"))
+
+        if not mark_type:
+            missing_required.append(f"worksheets[{index}].mark_type")
+            clarification_questions.append(
+                f"What chart type should '{name}' use?"
+            )
+            continue
+
+        if mark_type == "Text":
+            if not (encodings.get("measure_values") or kpi_fields or contract.get("constraints", {}).get("kpis")):
+                missing_required.append(f"worksheets[{index}].kpi_fields")
+                clarification_questions.append(
+                    f"Which KPI fields should '{name}' display?"
+                )
+        elif mark_type == "Pie":
+            if not (encodings.get("color") or dimensions):
+                missing_required.append(f"worksheets[{index}].dimensions")
+                clarification_questions.append(
+                    f"Which categorical field should '{name}' use to split the pie?"
+                )
+            if not (encodings.get("wedge_size") or measures):
+                missing_required.append(f"worksheets[{index}].measures")
+                clarification_questions.append(
+                    f"Which measure should '{name}' use for wedge size?"
+                )
+        elif mark_type == "Map":
+            explicit_geo = encodings.get("geographic_field", "")
+            if not explicit_geo and not any(_is_geo_field(field, available_fields) for field in dimensions):
+                missing_required.append(f"worksheets[{index}].encodings.geographic_field")
+                clarification_questions.append(
+                    f"Which geographic field should '{name}' plot on the map?"
+                )
+        elif mark_type == "Line":
+            if not encodings.get("columns") and not any(
+                _looks_like_date_field(field, available_fields) for field in dimensions
+            ):
+                missing_required.append(f"worksheets[{index}].dimensions")
+                clarification_questions.append(
+                    f"Which date or time field should '{name}' use on the x-axis?"
+                )
+            if not encodings.get("rows") and not measures:
+                missing_required.append(f"worksheets[{index}].measures")
+                clarification_questions.append(
+                    f"Which measure should '{name}' plot over time?"
+                )
+        else:
+            if not encodings.get("rows") and not dimensions:
+                missing_required.append(f"worksheets[{index}].dimensions")
+                clarification_questions.append(
+                    f"Which categorical field should '{name}' use on its row axis?"
+                )
+            if not encodings.get("columns") and not measures:
+                missing_required.append(f"worksheets[{index}].measures")
+                clarification_questions.append(
+                    f"Which measure should '{name}' use on its column axis?"
+                )
+
+    for index, calculated_field in enumerate(contract.get("calculated_fields", []), start=1):
+        if not isinstance(calculated_field, dict):
+            missing_required.append(f"calculated_fields[{index}]")
+            clarification_questions.append(
+                f"Calculated field #{index} is not structured correctly. Please rewrite it as a calculated field object."
+            )
+            continue
+        if not str(calculated_field.get("name", "")).strip():
+            missing_required.append(f"calculated_fields[{index}].name")
+            clarification_questions.append(
+                f"What name should calculated field #{index} use?"
+            )
+        if not str(calculated_field.get("formula", "")).strip():
+            missing_required.append(f"calculated_fields[{index}].formula")
+            clarification_questions.append(
+                f"What Tableau formula should calculated field '{calculated_field.get('name', f'#{index}')}' use?"
+            )
+
+    actions = contract.get("actions", [])
+    require_interaction = contract.get("require_interaction")
+    if require_interaction is True and not actions:
+        missing_required.append("actions")
+        clarification_questions.append(
+            "You asked for interaction. What dashboard action should be configured, and which source and target worksheets should it connect?"
+        )
+
+    for index, action in enumerate(actions, start=1):
+        if not isinstance(action, dict):
+            missing_required.append(f"actions[{index}]")
+            clarification_questions.append(
+                f"Action #{index} is not structured correctly. Please rewrite it as an action object."
+            )
+            continue
+        action_type = str(action.get("type", "filter")).strip() or "filter"
+        if not str(action.get("source", "")).strip():
+            missing_required.append(f"actions[{index}].source")
+            clarification_questions.append(
+                f"Which worksheet should trigger action #{index}?"
+            )
+        if action_type == "url":
+            if not str(action.get("url", "")).strip():
+                missing_required.append(f"actions[{index}].url")
+                clarification_questions.append(
+                    f"What URL should action #{index} open?"
+                )
+        else:
+            targets = _normalize_string_list(action.get("targets"))
+            if not targets and not str(action.get("target", "")).strip():
+                missing_required.append(f"actions[{index}].targets")
+                clarification_questions.append(
+                    f"Which worksheet targets should action #{index} affect?"
+                )
+
+    return missing_required, clarification_questions
+
+
+def _extract_available_fields(contract: dict[str, Any]) -> list[str]:
+    raw_fields = contract.get("available_fields", [])
+    if not isinstance(raw_fields, list):
+        return []
+    return [field for field in raw_fields if isinstance(field, str) and field.strip()]
+
+
+def _find_matching_profile(contract: dict[str, Any]) -> dict[str, Any] | None:
+    explicit_profile = contract.get("dataset_profile")
+    dataset_name = contract.get("dataset")
+    available_fields = {
+        _normalize_token(field)
+        for field in _extract_available_fields(contract)
+    }
+
+    for profile in _iter_profile_payloads():
+        profile_id = str(profile.get("id", "")).strip()
+        aliases = [_normalize_token(alias) for alias in profile.get("aliases", []) if isinstance(alias, str)]
+
+        if isinstance(explicit_profile, str) and profile_id and _normalize_token(explicit_profile) == _normalize_token(profile_id):
+            return profile
+
+        if isinstance(dataset_name, str) and dataset_name.strip():
+            normalized_dataset = _normalize_token(dataset_name)
+            if normalized_dataset == _normalize_token(profile_id) or normalized_dataset in aliases:
+                return profile
+
+        required_fields = {
+            _normalize_token(field)
+            for field in profile.get("match", {}).get("fields_all_of", [])
+            if isinstance(field, str)
+        }
+        if required_fields and required_fields.issubset(available_fields):
+            return profile
+
+    return None
+
+
+def suggest_profile_matches(
+    *,
+    available_fields: list[str] | None = None,
+    dataset_name: str = "",
+    explicit_profile: str = "",
+) -> list[dict[str, str]]:
+    """Return dataset profile suggestions for a field list or dataset name."""
+
+    contract = {
+        "dataset": dataset_name,
+        "dataset_profile": explicit_profile,
+        "available_fields": available_fields or [],
+    }
+    matched = _find_matching_profile(contract)
+    if matched is None:
+        return []
+    return [
+        {
+            "id": str(matched.get("id", "")).strip(),
+            "label": str(matched.get("label", "")).strip(),
+            "path": str(matched.get("_path", "")).strip(),
+        }
+    ]
+
+
+def _build_execution_outline(contract: dict[str, Any], profile_label: str | None) -> list[str]:
+    dashboard_name = contract.get("dashboard", {}).get("name") or "Analytical Dashboard"
+    dataset_name = contract.get("dataset") or "the active dataset"
+    profile_note = f" using profile '{profile_label}'" if profile_label else ""
+    return [
+        "Read resource: cwtwb://contracts/dashboard_authoring_v1",
+        "Optionally inspect cwtwb://profiles/index and a matching dataset profile",
+        "Review the draft contract with review_authoring_contract(contract_json)",
+        "Read skill: cwtwb://skills/authoring_workflow",
+        "Read phase skills in order: calculation_builder -> chart_builder -> dashboard_designer -> formatting",
+        f"Create a workbook for {dataset_name}{profile_note} and register any calculated fields first",
+        "Build worksheets from the contract questions and mark types",
+        f"Assemble dashboard '{dashboard_name}' and apply actions/captions",
+        "Validate the workbook and inspect capability fit before saving",
+    ]
+
+
+def review_authoring_contract_payload(
+    contract_json: str,
+    *,
+    allow_profile_defaults: bool = True,
+    strict_execution: bool = False,
+) -> ContractReviewResult:
+    """Review a contract JSON string and return a normalized, defaulted result."""
+
+    try:
+        parsed = json.loads(contract_json)
+    except json.JSONDecodeError as exc:
+        return ContractReviewResult(
+            valid=False,
+            summary="Contract JSON could not be parsed. Fix the JSON syntax before continuing.",
+            missing_required=["contract_json"],
+            defaults_applied={},
+            clarification_questions=[],
+            recommended_skills=RECOMMENDED_SKILLS,
+            execution_outline=[],
+            normalized_contract={},
+            parse_error=str(exc),
+        )
+
+    if not isinstance(parsed, dict):
+        return ContractReviewResult(
+            valid=False,
+            summary="Contract must be a JSON object at the top level.",
+            missing_required=["contract_json"],
+            defaults_applied={},
+            clarification_questions=[],
+            recommended_skills=RECOMMENDED_SKILLS,
+            execution_outline=[],
+            normalized_contract={},
+            parse_error="Top-level JSON value must be an object.",
+        )
+
+    contract = deepcopy(_load_base_contract_template())
+    defaults_applied: dict[str, Any] = {}
+
+    for key, value in parsed.items():
+        contract[key] = value
+
+    _set_if_blank(contract, "dataset", "", defaults_applied, path="dataset")
+    _set_if_blank(contract, "dataset_profile", "", defaults_applied, path="dataset_profile")
+    _set_if_blank(contract, "workbook_template", "", defaults_applied, path="workbook_template")
+    _set_if_blank(contract, "available_fields", [], defaults_applied, path="available_fields")
+    _set_if_blank(contract, "calculated_fields", [], defaults_applied, path="calculated_fields")
+    _set_if_blank(contract, "worksheets", [], defaults_applied, path="worksheets")
+    _set_if_blank(contract, "actions", [], defaults_applied, path="actions")
+
+    profile = _find_matching_profile(contract)
+    detected_profile = None
+    if profile is not None:
+        detected_profile = str(profile.get("id", "")).strip() or None
+        profile_defaults = profile.get("defaults", {})
+        if allow_profile_defaults and isinstance(profile_defaults, dict):
+            _merge_profile_defaults(contract, profile_defaults, defaults_applied)
+
+    constraints = _ensure_dict(contract, "constraints", defaults_applied)
+    _set_if_blank(
+        constraints,
+        "max_dashboards",
+        1,
+        defaults_applied,
+        path="constraints.max_dashboards",
+    )
+    _set_if_blank(
+        constraints,
+        "allowed_support_levels",
+        ["core", "advanced"],
+        defaults_applied,
+        path="constraints.allowed_support_levels",
+    )
+    _set_if_blank(
+        constraints,
+        "layout_pattern",
+        "executive overview",
+        defaults_applied,
+        path="constraints.layout_pattern",
+    )
+    _set_if_blank(constraints, "kpis", [], defaults_applied, path="constraints.kpis")
+    _set_if_blank(constraints, "filters", [], defaults_applied, path="constraints.filters")
+    _set_if_blank(
+        constraints,
+        "interaction_pattern",
+        "",
+        defaults_applied,
+        path="constraints.interaction_pattern",
+    )
+
+    dashboard = _ensure_dict(contract, "dashboard", defaults_applied)
+    _set_if_blank(dashboard, "name", "Analytical Dashboard", defaults_applied, path="dashboard.name")
+    _set_if_blank(
+        dashboard,
+        "layout_pattern",
+        contract.get("constraints", {}).get("layout_pattern", "executive overview"),
+        defaults_applied,
+        path="dashboard.layout_pattern",
+    )
+
+    _normalize_contract_shapes(contract)
+
+    missing_required: list[str] = []
+    clarification_questions: list[str] = []
+
+    if _is_blank(contract.get("goal")):
+        missing_required.append("goal")
+        clarification_questions.append("What is the main business goal of this dashboard?")
+    if _is_blank(contract.get("audience")):
+        missing_required.append("audience")
+        clarification_questions.append("Who is the primary audience for this dashboard?")
+    if _is_blank(contract.get("primary_question")):
+        missing_required.append("primary_question")
+        clarification_questions.append("What is the primary analytical question this dashboard must answer?")
+    if contract.get("require_interaction") is None:
+        missing_required.append("require_interaction")
+        clarification_questions.append("Do you want interactive drill-down or filtering actions in the dashboard?")
+
+    if strict_execution:
+        execution_missing, execution_questions = _collect_execution_clarifications(contract)
+        missing_required.extend(execution_missing)
+        clarification_questions.extend(execution_questions)
+
+    missing_required = _normalize_string_list(missing_required)
+    clarification_questions = _normalize_string_list(clarification_questions)[:3]
+    valid = not clarification_questions
+
+    profile_label = None
+    if profile is not None:
+        profile_label = str(profile.get("label", "")).strip() or detected_profile
+
+    if valid:
+        summary = (
+            "Contract is ready for execution. "
+            + (
+                f"Profile '{profile_label}' was applied to enrich defaults."
+                if profile_label and allow_profile_defaults
+                else "No dataset profile was applied; generic defaults were kept."
+            )
+        )
+    else:
+        summary = (
+            "Contract needs lightweight clarification before execution. "
+            + (
+                f"Profile '{profile_label}' supplied dataset-aware defaults."
+                if profile_label and allow_profile_defaults
+                else "Generic defaults were applied because no dataset profile matched yet."
+            )
+        )
+
+    return ContractReviewResult(
+        valid=valid,
+        summary=summary,
+        missing_required=missing_required,
+        defaults_applied=defaults_applied,
+        clarification_questions=clarification_questions,
+        recommended_skills=RECOMMENDED_SKILLS,
+        execution_outline=_build_execution_outline(contract, profile_label),
+        normalized_contract=contract,
+        detected_profile=detected_profile,
+    )
+
+
+# --- End authoring contract ---
 
 RUN_INDEX_NAME = "index.json"
 MANIFEST_NAME = "manifest.json"
