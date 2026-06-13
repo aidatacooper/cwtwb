@@ -5,6 +5,27 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.19.0] - 2026-06-13
+
+### Added
+
+- **TWBX packaging bundles external data on save**: added automatic detection and embedding of local CSV or Excel files referenced by the workbook datasource directly into the output packaged workbook (.twbx).
+- **Rich-text tooltips and label aggregation enhancements**:
+  - Combined TextChartBuilder and builder loops to parse and merge consecutive `label_runs`.
+  - Added support for multiple tooltip measures and custom expressions under SUM/ATTR aggregations to ensure consistent tooltip resolution.
+  - Enabled support for `label_extra` on the text shelf inside `TextChartBuilder`.
+
+### Changed
+
+- **Consolidated modules for AI-friendly codebase**: restructured internal codebase to reduce files from 44 to 24 by grouping related logic, improving context limits for AI agents without affecting public API signatures.
+
+### Fixed
+
+- **Tableau workbook publishing and schema validation compatibility**:
+  - Replaced incorrect mark classes at the SDK layer (e.g. "Scatter" normalized to "Circle") so generated workbooks conform to Tableau 18.1 strict DTD schemas.
+  - Resolved viewpoint element structural violations in worksheet and dashboard windows.
+  - Filtered numeric literals (such as size dimensions in BAN maps) so they are no longer misidentified as field names.
+
 ## [0.18.9] - 2026-05-16
 
 ### Changed
