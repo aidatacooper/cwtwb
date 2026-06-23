@@ -90,193 +90,6 @@ VALID_LAYOUT_NODE_TYPES = {
 }
 
 
-def _generate_auto_layout(worksheet_names: list[str]) -> dict[str, Any]:
-    """Generate an intelligent mixed layout based on the number of worksheets.
-
-    Layout strategy:
-    - 1 worksheet: simple vertical
-    - 2 worksheets: side-by-side (horizontal)
-    - 3 worksheets: top 1 + bottom 2 side-by-side
-    - 4 worksheets: 2x2 grid
-    - 5 worksheets: top 2 + middle 2 + bottom 1
-    - 6 worksheets: top 2 + middle 2 + bottom 2
-    - 7+ worksheets: top row (up to 4) + remaining in grid
-    """
-    n = len(worksheet_names)
-
-    if n == 0:
-        return normalize_dashboard_layout({
-            "type": "container",
-            "direction": "vertical",
-            "layout_strategy": "distribute-evenly",
-            "children": [],
-        })
-
-    if n == 1:
-        return normalize_dashboard_layout({
-            "type": "container",
-            "direction": "vertical",
-            "layout_strategy": "distribute-evenly",
-            "children": [{"type": "worksheet", "name": worksheet_names[0]}],
-        })
-
-    if n == 2:
-        return normalize_dashboard_layout({
-            "type": "container",
-            "direction": "horizontal",
-            "layout_strategy": "distribute-evenly",
-            "children": [{"type": "worksheet", "name": w} for w in worksheet_names],
-        })
-
-    if n == 3:
-        return normalize_dashboard_layout({
-            "type": "container",
-            "direction": "vertical",
-            "layout_strategy": "distribute-evenly",
-            "children": [
-                {"type": "worksheet", "name": worksheet_names[0]},
-                {
-                    "type": "container",
-                    "direction": "horizontal",
-                    "layout_strategy": "distribute-evenly",
-                    "children": [
-                        {"type": "worksheet", "name": worksheet_names[1]},
-                        {"type": "worksheet", "name": worksheet_names[2]},
-                    ],
-                },
-            ],
-        })
-
-    if n == 4:
-        return normalize_dashboard_layout({
-            "type": "container",
-            "direction": "vertical",
-            "layout_strategy": "distribute-evenly",
-            "children": [
-                {
-                    "type": "container",
-                    "direction": "horizontal",
-                    "layout_strategy": "distribute-evenly",
-                    "children": [
-                        {"type": "worksheet", "name": worksheet_names[0]},
-                        {"type": "worksheet", "name": worksheet_names[1]},
-                    ],
-                },
-                {
-                    "type": "container",
-                    "direction": "horizontal",
-                    "layout_strategy": "distribute-evenly",
-                    "children": [
-                        {"type": "worksheet", "name": worksheet_names[2]},
-                        {"type": "worksheet", "name": worksheet_names[3]},
-                    ],
-                },
-            ],
-        })
-
-    if n == 5:
-        return normalize_dashboard_layout({
-            "type": "container",
-            "direction": "vertical",
-            "layout_strategy": "distribute-evenly",
-            "children": [
-                {
-                    "type": "container",
-                    "direction": "horizontal",
-                    "layout_strategy": "distribute-evenly",
-                    "children": [
-                        {"type": "worksheet", "name": worksheet_names[0]},
-                        {"type": "worksheet", "name": worksheet_names[1]},
-                    ],
-                },
-                {
-                    "type": "container",
-                    "direction": "horizontal",
-                    "layout_strategy": "distribute-evenly",
-                    "children": [
-                        {"type": "worksheet", "name": worksheet_names[2]},
-                        {"type": "worksheet", "name": worksheet_names[3]},
-                    ],
-                },
-                {"type": "worksheet", "name": worksheet_names[4]},
-            ],
-        })
-
-    if n == 6:
-        return normalize_dashboard_layout({
-            "type": "container",
-            "direction": "vertical",
-            "layout_strategy": "distribute-evenly",
-            "children": [
-                {
-                    "type": "container",
-                    "direction": "horizontal",
-                    "layout_strategy": "distribute-evenly",
-                    "children": [
-                        {"type": "worksheet", "name": worksheet_names[0]},
-                        {"type": "worksheet", "name": worksheet_names[1]},
-                    ],
-                },
-                {
-                    "type": "container",
-                    "direction": "horizontal",
-                    "layout_strategy": "distribute-evenly",
-                    "children": [
-                        {"type": "worksheet", "name": worksheet_names[2]},
-                        {"type": "worksheet", "name": worksheet_names[3]},
-                    ],
-                },
-                {
-                    "type": "container",
-                    "direction": "horizontal",
-                    "layout_strategy": "distribute-evenly",
-                    "children": [
-                        {"type": "worksheet", "name": worksheet_names[4]},
-                        {"type": "worksheet", "name": worksheet_names[5]},
-                    ],
-                },
-            ],
-        })
-
-    # 7+ worksheets: top row (up to 4 KPIs) + remaining in 2-column grid
-    top_count = min(4, n // 2)  # Use up to 4 for top row
-    remaining = worksheet_names[top_count:]
-
-    children: list[dict[str, Any]] = []
-
-    # Top row (KPI cards)
-    if top_count > 0:
-        children.append({
-            "type": "container",
-            "direction": "horizontal",
-            "layout_strategy": "distribute-evenly",
-            "children": [{"type": "worksheet", "name": w} for w in worksheet_names[:top_count]],
-        })
-
-    # Remaining worksheets in 2-column grid
-    for i in range(0, len(remaining), 2):
-        row_children = [{"type": "worksheet", "name": remaining[i]}]
-        if i + 1 < len(remaining):
-            row_children.append({"type": "worksheet", "name": remaining[i + 1]})
-
-        if len(row_children) == 1:
-            children.append(row_children[0])
-        else:
-            children.append({
-                "type": "container",
-                "direction": "horizontal",
-                "layout_strategy": "distribute-evenly",
-                "children": row_children,
-            })
-
-    return normalize_dashboard_layout({
-        "type": "container",
-        "direction": "vertical",
-        "layout_strategy": "distribute-evenly",
-        "children": children,
-    })
-
-
 def resolve_dashboard_layout(
     layout: str | dict[str, Any],
     worksheet_names: list[str],
@@ -284,9 +97,9 @@ def resolve_dashboard_layout(
     """Normalize simple layout shorthands and file-based layouts to a dict.
 
     Supported layout values:
-    - dict: Raw declarative layout tree
-    - str (file path): Path to JSON layout file
-    - "auto": Intelligent mixed layout based on worksheet count
+    - dict: Raw declarative layout tree (recommended for complex dashboards)
+    - str (file path): Path to JSON layout file (recommended, use generate_layout_json first)
+    - "auto": Simple vertical fallback (same as "vertical")
     - "vertical": All worksheets stacked vertically
     - "horizontal": All worksheets side-by-side
     - "grid-2x2": 2x2 grid layout
@@ -339,9 +152,7 @@ def resolve_dashboard_layout(
             )
         return normalize_dashboard_layout(layout_dict)
 
-    if layout == "auto":
-        return _generate_auto_layout(worksheet_names)
-
+    # "auto", "vertical", or any unrecognized string → simple vertical layout
     return normalize_dashboard_layout({
         "type": "container",
         "direction": "vertical",

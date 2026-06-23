@@ -139,24 +139,8 @@ def test_fallback_basic_layouts(tmp_superstore):
     assert len(list(rz_v.findall("zone"))) == 2
 
 
-def test_auto_layout_with_2_worksheets(tmp_superstore):
-    """Test that auto layout with 2 worksheets creates horizontal layout."""
-    editor = TWBEditor(tmp_superstore)
-    editor.clear_worksheets()
-
-    editor.add_worksheet("S1")
-    editor.add_worksheet("S2")
-
-    editor.add_dashboard("Dash Auto 2", layout="auto", worksheet_names=["S1", "S2"])
-    db = editor.root.find(".//dashboards/dashboard[@name='Dash Auto 2']")
-    root_zone = db.find("zones/zone")
-    # With 2 worksheets, auto should create horizontal layout
-    assert root_zone.get("param") == "horz"
-    assert len(list(root_zone.findall("zone"))) == 2
-
-
-def test_auto_layout_with_3_worksheets(tmp_superstore):
-    """Test that auto layout with 3 worksheets creates mixed layout (top 1 + bottom 2)."""
+def test_auto_layout_is_simple_vertical(tmp_superstore):
+    """Test that 'auto' layout is a simple vertical fallback."""
     editor = TWBEditor(tmp_superstore)
     editor.clear_worksheets()
 
@@ -164,88 +148,13 @@ def test_auto_layout_with_3_worksheets(tmp_superstore):
     editor.add_worksheet("S2")
     editor.add_worksheet("S3")
 
-    editor.add_dashboard("Dash Auto 3", layout="auto", worksheet_names=["S1", "S2", "S3"])
-    db = editor.root.find(".//dashboards/dashboard[@name='Dash Auto 3']")
+    editor.add_dashboard("Dash Auto", layout="auto",
+                         worksheet_names=["S1", "S2", "S3"])
+    db = editor.root.find(".//dashboards/dashboard[@name='Dash Auto']")
     root_zone = db.find("zones/zone")
-    # With 3 worksheets, auto should create vertical container with:
-    # - top: S1 (worksheet)
-    # - bottom: S2, S3 (horizontal container)
-    assert root_zone.get("param") == "vert"
-    children = list(root_zone.findall("zone"))
-    assert len(children) == 2
-    # First child should be worksheet S1
-    assert children[0].get("name") == "S1"
-    # Second child should be horizontal container with S2, S3
-    assert children[1].get("param") == "horz"
-    assert len(list(children[1].findall("zone"))) == 2
-
-
-def test_auto_layout_with_4_worksheets(tmp_superstore):
-    """Test that auto layout with 4 worksheets creates 2x2 grid."""
-    editor = TWBEditor(tmp_superstore)
-    editor.clear_worksheets()
-
-    editor.add_worksheet("S1")
-    editor.add_worksheet("S2")
-    editor.add_worksheet("S3")
-    editor.add_worksheet("S4")
-
-    editor.add_dashboard("Dash Auto 4", layout="auto", worksheet_names=["S1", "S2", "S3", "S4"])
-    db = editor.root.find(".//dashboards/dashboard[@name='Dash Auto 4']")
-    root_zone = db.find("zones/zone")
-    # With 4 worksheets, auto should create 2x2 grid
-    assert root_zone.get("param") == "vert"
-    children = list(root_zone.findall("zone"))
-    assert len(children) == 2
-    # Both children should be horizontal containers
-    assert children[0].get("param") == "horz"
-    assert children[1].get("param") == "horz"
-    assert len(list(children[0].findall("zone"))) == 2
-    assert len(list(children[1].findall("zone"))) == 2
-
-
-def test_auto_layout_with_6_worksheets(tmp_superstore):
-    """Test that auto layout with 6 worksheets creates 3 rows of 2."""
-    editor = TWBEditor(tmp_superstore)
-    editor.clear_worksheets()
-
-    for i in range(6):
-        editor.add_worksheet(f"S{i+1}")
-
-    editor.add_dashboard("Dash Auto 6", layout="auto",
-                        worksheet_names=[f"S{i+1}" for i in range(6)])
-    db = editor.root.find(".//dashboards/dashboard[@name='Dash Auto 6']")
-    root_zone = db.find("zones/zone")
-    # With 6 worksheets, auto should create 3 horizontal rows
     assert root_zone.get("param") == "vert"
     children = list(root_zone.findall("zone"))
     assert len(children) == 3
-    # All children should be horizontal containers with 2 worksheets each
-    for child in children:
-        assert child.get("param") == "horz"
-        assert len(list(child.findall("zone"))) == 2
-
-
-def test_auto_layout_with_9_worksheets(tmp_superstore):
-    """Test that auto layout with 9 worksheets creates top row + 2-column grid."""
-    editor = TWBEditor(tmp_superstore)
-    editor.clear_worksheets()
-
-    for i in range(9):
-        editor.add_worksheet(f"S{i+1}")
-
-    editor.add_dashboard("Dash Auto 9", layout="auto",
-                        worksheet_names=[f"S{i+1}" for i in range(9)])
-    db = editor.root.find(".//dashboards/dashboard[@name='Dash Auto 9']")
-    root_zone = db.find("zones/zone")
-    # With 9 worksheets, auto should create:
-    # - Top row: 4 KPI worksheets (horizontal)
-    # - Middle row: 2 worksheets (horizontal)
-    # - Bottom row: 2 worksheets (horizontal)
-    # - Last worksheet: standalone
-    assert root_zone.get("param") == "vert"
-    children = list(root_zone.findall("zone"))
-    assert len(children) == 4  # top row + 3 rows for remaining 5 worksheets
 
 
 def test_legacy_nested_layout_aliases_render_worksheets(tmp_superstore):

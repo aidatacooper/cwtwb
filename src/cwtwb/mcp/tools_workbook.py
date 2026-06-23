@@ -579,13 +579,19 @@ def add_dashboard(
 ) -> str:
     """Create a dashboard combining multiple worksheets.
 
+    Recommended workflow for complex dashboards:
+    1. Call list_worksheets to lock worksheet names
+    2. Design layout with the user (KPI row, main chart, detail views, filters)
+    3. Call generate_layout_json to save the layout as a JSON file
+    4. Call add_dashboard with layout=<json_file_path>
+
     Layout options:
-    - "auto" (default): Intelligent mixed layout based on worksheet count
+    - str (file path): Path to JSON layout file (recommended for complex layouts)
+    - dict: Custom declarative layout tree passed inline
+    - "auto" (default): Simple vertical fallback — use layout dict or JSON file for mixed layouts
     - "vertical": All worksheets stacked vertically
     - "horizontal": All worksheets side-by-side
     - "grid-2x2": 2x2 grid layout
-    - dict: Custom declarative layout tree
-    - str (file path): Path to JSON layout file
     """
 
     editor = get_editor()
@@ -649,7 +655,20 @@ def generate_layout_json(
     layout_tree: dict,
     ascii_preview: str,
 ) -> str:
-    """Generate and save a dashboard layout JSON file."""
+    """Generate and save a dashboard layout JSON file.
+
+    Recommended workflow:
+    1. Call list_worksheets to get available worksheet names
+    2. Design the layout with the user (show ASCII preview for confirmation)
+    3. Call this tool to save the layout as a JSON file
+    4. Call add_dashboard with layout=<this_file_path>
+
+    The layout_tree uses the declarative container DSL:
+    - {"type": "container", "direction": "vertical"|"horizontal", "children": [...]}
+    - {"type": "worksheet", "name": "<worksheet_name>"}
+    - Use "fixed_size" (int, pixels) for KPI rows and filter sidebars
+    - Use "weight" (int, relative) for main analytical areas
+    """
 
     try:
         if not isinstance(layout_tree, dict):
