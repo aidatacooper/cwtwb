@@ -198,12 +198,16 @@ def _read_csv_rows(
     return actual_delimiter, rows
 
 
-def _default_aggregation(datatype: str) -> str:
-    if datatype in {"date", "datetime"}:
-        return "Year"
+def _default_aggregation(datatype: str) -> str | None:
+    """Return default aggregation for a field type.
+
+    - numeric (integer/real) → "Sum"
+    - date/datetime → None (no aggregation, treated as dimension)
+    - other → None
+    """
     if datatype in {"integer", "real"}:
         return "Sum"
-    return "Count"
+    return None
 
 
 def _column_values_from_rows(rows: list[list[Any]], index: int) -> list[Any]:
@@ -793,7 +797,7 @@ class ConnectionsMixin:
 
         top_level_columns: list[etree._Element] = []
         for field in normalized_fields:
-            if field["role"] == "measure" or field["datatype"] == "date":
+            if field["role"] == "measure":
                 continue
             template = top_level_templates.get(field["local_name"])
             if template is None:
@@ -955,7 +959,9 @@ class ConnectionsMixin:
             etree.SubElement(metadata_record, "remote-alias").text = field["name"]
             etree.SubElement(metadata_record, "ordinal").text = str(field["ordinal"])
             etree.SubElement(metadata_record, "local-type").text = field["datatype"]
-            etree.SubElement(metadata_record, "aggregation").text = _default_aggregation(field["datatype"])
+            agg = _default_aggregation(field["datatype"])
+            if agg is not None:
+                etree.SubElement(metadata_record, "aggregation").text = agg
             if field["datatype"] == "real":
                 etree.SubElement(metadata_record, "precision").text = "15"
             etree.SubElement(metadata_record, "contains-null").text = "true"
@@ -1223,7 +1229,9 @@ class ConnectionsMixin:
                 etree.SubElement(metadata_record, "remote-alias").text = field["name"]
                 etree.SubElement(metadata_record, "ordinal").text = str(field["ordinal"])
                 etree.SubElement(metadata_record, "local-type").text = field["datatype"]
-                etree.SubElement(metadata_record, "aggregation").text = _default_aggregation(field["datatype"])
+                agg = _default_aggregation(field["datatype"])
+                if agg is not None:
+                    etree.SubElement(metadata_record, "aggregation").text = agg
                 if field["datatype"] == "real":
                     etree.SubElement(metadata_record, "precision").text = "15"
                 etree.SubElement(metadata_record, "contains-null").text = "true"
