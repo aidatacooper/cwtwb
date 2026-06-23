@@ -13,6 +13,18 @@ from dataclasses import dataclass
 from typing import Iterable, Optional
 
 
+# ---------- Aggregation function detection ----------
+
+# Regex to detect if a formula already contains aggregation functions.
+# Used to decide derivation for calculated fields:
+# - If formula has aggregation (e.g. SUM(...)) -> derivation="User" (don't aggregate again)
+# - If formula has no aggregation (e.g. [Profit] / [Sales]) -> derivation="Sum"
+_AGGREGATE_FUNCTION_RE = re.compile(
+    r"\b(SUM|AVG|COUNT|COUNTD|MIN|MAX|MEDIAN|ATTR)\s*\(",
+    re.IGNORECASE,
+)
+
+
 # ---------- Aggregation / Date-part -> TWB derivation mapping ----------
 
 _DERIVATION_MAP: dict[str, str] = {
@@ -98,6 +110,7 @@ AGGREGATE_FUNCTION_PREFIXES = (
 )
 
 DATE_FIELD_HINTS = (
+    # English
     "date",
     "time",
     "year",
@@ -109,6 +122,19 @@ DATE_FIELD_HINTS = (
     "hour",
     "minute",
     "second",
+    # Chinese
+    "日期",
+    "时间",
+    "年",
+    "月",
+    "季度",
+    "周",
+    "星期",
+    "日",
+    "天",
+    "小时",
+    "分钟",
+    "秒",
 )
 
 
@@ -227,6 +253,7 @@ class FieldInfo:
     role: str               # dimension / measure
     field_type: str         # nominal / quantitative / ordinal
     is_calculated: bool = False
+    formula: str = ""       # Calculation formula (only for calculated fields)
 
 
 @dataclass
@@ -264,6 +291,7 @@ class FieldRegistry:
         role: str,
         field_type: str,
         is_calculated: bool = False,
+        formula: str = "",
     ) -> None:
         """Register one field and its Tableau metadata in the lookup table."""
         info = FieldInfo(
@@ -273,6 +301,7 @@ class FieldRegistry:
             role=role,
             field_type=field_type,
             is_calculated=is_calculated,
+            formula=formula,
         )
         self._fields[display_name] = info
         # Also register under local_name (stripped of brackets) so that
@@ -336,11 +365,18 @@ class FieldRegistry:
         # Look up the field
         fi = self._find_field(field_name)
 
-        # Calculated measures use derivation="User" (abbr: usr).
+        # Calculated measures derivation logic:
+        # - If formula already contains aggregation functions (SUM, AVG, etc.),
+        #   use derivation="User" to avoid double-aggregation.
+        # - If formula has no aggregation (e.g. [Profit] / [Sales]),
+        #   use derivation="Sum" so Tableau applies default SUM aggregation.
         # Calculated dimensions (boolean, nominal) keep derivation="None" so they
         # are treated as plain dimension values rather than user-aggregated expressions.
         if fi.is_calculated and fi.role == "measure" and derivation == "None":
-            derivation = "User"
+            if fi.formula and _AGGREGATE_FUNCTION_RE.search(fi.formula):
+                derivation = "User"
+            else:
+                derivation = "Sum"
 
         # Determine type suffix
         if derivation in ("None", "User"):
@@ -375,14 +411,24 @@ class FieldRegistry:
         Bare, non-calculated measures are promoted to SUM(...) so chart builders
         can treat raw measures as aggregated values without the caller having to
         spell out the aggregation every time.
+
+        Date/datetime fields are automatically wrapped with MONTH() to produce
+        a proper temporal dimension binding.
         """
         text = str(expr).strip()
         if not text:
             return ""
+        # If already an explicit expression (contains parentheses or starts with [),
+        # return as-is.
+        if is_expression(text):
+            return text
         ci = self.parse_expression(text)
         if ci.derivation != "None":
             return text
         fi = self._find_field(text)
+        # Auto-wrap date/datetime fields with MONTH() when used as a bare field name.
+        if fi.datatype in ("date", "datetime") and looks_like_date_field_name(text):
+            return f"MONTH({text})"
         return default_view_expression(
             text,
             role=fi.role,

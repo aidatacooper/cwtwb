@@ -1275,13 +1275,28 @@ class TextChartBuilder(BaseChartBuilder):
                 self.measure_values,
             )
         else:
-            rows_el = table.find("rows")
-            if rows_el is not None:
-                rows_el.text = self.editor._build_dimension_shelf(instances, self.rows) if self.rows else None
+            # Detect if this is a simple KPI card (no dimensions, only measures).
+            # In KPI mode, measures should only appear in text encoding, not on shelves.
+            has_dimension = False
+            for expr in (self.columns or []) + (self.rows or []):
+                ci = instances.get(expr)
+                if ci is None:
+                    normalized = self.editor.field_registry.default_view_expression(expr)
+                    ci = instances.get(normalized)
+                if ci and ci.ci_type != "quantitative":
+                    has_dimension = True
+                    break
 
-            cols_el = table.find("cols")
-            if cols_el is not None:
-                cols_el.text = self.editor._build_dimension_shelf(instances, self.columns) if self.columns else None
+            is_kpi_mode = not has_dimension and not self.columns
+
+            if not is_kpi_mode:
+                rows_el = table.find("rows")
+                if rows_el is not None:
+                    rows_el.text = self.editor._build_dimension_shelf(instances, self.rows) if self.rows else None
+
+                cols_el = table.find("cols")
+                if cols_el is not None:
+                    cols_el.text = self.editor._build_dimension_shelf(instances, self.columns) if self.columns else None
 
             if self.sort_descending:
                 self._add_shelf_sort(view, ds_name, instances, self.rows, self.sort_descending)

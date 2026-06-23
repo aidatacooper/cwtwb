@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import csv
 import os
+import re
 import shutil
 import tempfile
 from copy import deepcopy
@@ -267,9 +268,20 @@ def _datetime_has_time_component(value: Any) -> bool:
     return value.time() != datetime.min.time()
 
 
-def _infer_excel_datatype(header: str, values: list[Any]) -> str:
+def _infer_excel_datatype(header: str, values: list[Any], number_format: str = "") -> str:
     lower = header.casefold()
     non_blank = [value for value in values if value not in ("", None)]
+
+    # Highest priority: Excel cell number_format — most reliable signal for dates.
+    # Even when values are stored as strings (e.g. '2018-11-30'), the format
+    # 'yyyy\-mm\-dd' tells us the column is a date.
+    if number_format and _EXCEL_DATE_FORMAT_PATTERNS.search(number_format):
+        # Distinguish datetime vs date by checking for time components in the format
+        fmt_lower = number_format.casefold()
+        if "hh" in fmt_lower or "am/pm" in fmt_lower or "a/p" in fmt_lower:
+            return "datetime"
+        return "date"
+
     if _is_string_like_field_name(header):
         return "string"
     if any(token in lower for token in ("datetime", "date & time", "date and time")):
@@ -399,6 +411,43 @@ def _read_excel_sheet_rows(filepath: str, sheet_name: str = "") -> tuple[str, li
         finally:
             workbook.close()
     raise ValueError(f"Unsupported Excel file type: {suffix}")
+
+
+# Excel date format patterns — if a cell's number_format matches any of these,
+# the column is almost certainly a date/datetime regardless of the stored value type.
+_EXCEL_DATE_FORMAT_PATTERNS = re.compile(
+    r"(?i)(yyyy|yy|mm{1,2}|dd|hh|am/pm|a/p)"
+)
+
+
+def _read_excel_column_formats(filepath: str, sheet_name: str = "") -> dict[int, str]:
+    """Read the number_format of the first data row for each column.
+
+    Returns a dict mapping column index (0-based) to the openpyxl number_format string.
+    This is used to detect date columns even when the stored values are strings
+    (e.g. '2018-11-30' stored as str with format 'yyyy\\-mm\\-dd').
+    """
+    path = Path(filepath)
+    suffix = path.suffix.lower()
+    if suffix not in {".xlsx", ".xlsm"}:
+        return {}
+    if load_workbook is None:
+        return {}
+    workbook = load_workbook(str(path), read_only=True, data_only=True)
+    try:
+        if sheet_name and sheet_name in workbook.sheetnames:
+            worksheet = workbook[sheet_name]
+        else:
+            worksheet = workbook[workbook.sheetnames[0]]
+        # Read the second row (first data row after header) to get cell formats
+        formats: dict[int, str] = {}
+        for row in worksheet.iter_rows(min_row=2, max_row=2):
+            for idx, cell in enumerate(row):
+                if cell.number_format and cell.number_format != "General":
+                    formats[idx] = cell.number_format
+        return formats
+    finally:
+        workbook.close()
 
 
 def _list_excel_sheet_names(filepath: str) -> list[str]:
@@ -557,12 +606,15 @@ class ConnectionsMixin:
         if not rows:
             return actual_sheet_name, []
 
+        # Read cell number_formats for reliable date detection
+        col_formats = _read_excel_column_formats(filepath, sheet_name=sheet_name)
+
         headers = _sanitize_headers(rows[0])
         value_rows = rows[1:]
         fields: list[dict[str, Any]] = []
         for index, header in enumerate(headers):
             values = _column_values_from_rows(value_rows, index)
-            datatype = _infer_excel_datatype(header, values)
+            datatype = _infer_excel_datatype(header, values, number_format=col_formats.get(index, ""))
             role = _infer_external_role(header, datatype)
             fields.append(
                 {
@@ -591,12 +643,15 @@ class ConnectionsMixin:
             if not rows:
                 continue
 
+            # Read cell number_formats for reliable date detection
+            col_formats = _read_excel_column_formats(filepath, sheet_name=candidate_sheet)
+
             headers = _sanitize_headers(rows[0])
             value_rows = rows[1:]
             fields: list[dict[str, Any]] = []
             for ordinal, header in enumerate(headers):
                 values = _column_values_from_rows(value_rows, ordinal)
-                datatype = _infer_excel_datatype(header, values)
+                datatype = _infer_excel_datatype(header, values, number_format=col_formats.get(ordinal, ""))
                 role = _infer_external_role(header, datatype)
                 fields.append(
                     {

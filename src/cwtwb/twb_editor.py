@@ -614,7 +614,7 @@ class TWBEditor(ParametersMixin, ConnectionsMixin, ChartsMixin, DashboardsMixin)
 
         self._insert_datasource_column(col)
 
-        # Register in field registry
+        # Register in field registry (store formula for aggregation detection)
         self.field_registry.register(
             display_name=field_name,
             local_name=internal_name,
@@ -622,6 +622,7 @@ class TWBEditor(ParametersMixin, ConnectionsMixin, ChartsMixin, DashboardsMixin)
             role=role,
             field_type=field_type,
             is_calculated=True,
+            formula=resolved_formula,
         )
 
         return f"Added calculated field '{field_name}' = {formula}"
