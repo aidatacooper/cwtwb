@@ -44,6 +44,24 @@ from collections import Counter
 from pathlib import Path
 from typing import Optional
 
+# Skill reference mapping: tool_name -> skill_name
+_SKILL_REFERENCES = {
+    "add_calculated_field": "calculation_builder",
+    "configure_chart": "chart_builder",
+    "configure_dual_axis": "chart_builder",
+    "configure_chart_recipe": "chart_builder",
+    "configure_worksheet_style": "formatting",
+    "add_dashboard": "dashboard_designer",
+}
+
+
+def _skill_hint(tool_name: str) -> str:
+    """Generate a skill reference hint for a tool."""
+    skill = _SKILL_REFERENCES.get(tool_name)
+    if not skill:
+        return ""
+    return f"\n\n📖 For best practices, read: read_resource('cwtwb://skills/{skill}')"
+
 from ..authoring_run import review_authoring_contract_payload
 from ..capability_registry import format_capability_catalog, format_capability_detail
 from ..charts.showcase_recipes import configure_chart_recipe as configure_chart_recipe_impl
@@ -160,10 +178,13 @@ def add_calculated_field(
     default_format: str = "",
     internal_name: str = "",
 ) -> str:
-    """Add a calculated field to the datasource."""
+    """Add a calculated field to the datasource.
+
+    For formula syntax and best practices, read: read_resource('cwtwb://skills/calculation_builder')
+    """
 
     editor = get_editor()
-    return editor.add_calculated_field(
+    result = editor.add_calculated_field(
         field_name,
         formula,
         datatype,
@@ -172,6 +193,7 @@ def add_calculated_field(
         default_format=default_format,
         internal_name=internal_name or None,
     )
+    return result + _skill_hint("add_calculated_field")
 
 
 @server.tool()
@@ -308,10 +330,13 @@ def configure_chart(
     label_runs: list[dict] | None = None,
     label_param: str | None = None,
 ) -> str:
-    """Configure chart type and field mappings for a worksheet."""
+    """Configure chart type and field mappings for a worksheet.
+
+    For chart type selection and encoding best practices, read: read_resource('cwtwb://skills/chart_builder')
+    """
 
     editor = get_editor()
-    return editor.configure_chart(
+    result = editor.configure_chart(
         worksheet_name=worksheet_name,
         mark_type=mark_type,
         columns=columns,
@@ -336,6 +361,7 @@ def configure_chart(
         label_runs=label_runs,
         label_param=label_param,
     )
+    return result + _skill_hint("configure_chart")
 
 
 @server.tool()
@@ -370,10 +396,13 @@ def configure_dual_axis(
     reverse_axis_1: bool = False,
     color_map_1: Optional[dict[str, str]] = None,
 ) -> str:
-    """Configure a dual-axis chart composition."""
+    """Configure a dual-axis chart composition.
+
+    For dual-axis chart patterns and best practices, read: read_resource('cwtwb://skills/chart_builder')
+    """
 
     editor = get_editor()
-    return editor.configure_dual_axis(
+    result = editor.configure_dual_axis(
         worksheet_name=worksheet_name,
         mark_type_1=mark_type_1,
         mark_type_2=mark_type_2,
@@ -404,6 +433,7 @@ def configure_dual_axis(
         reverse_axis_1=reverse_axis_1,
         color_map_1=color_map_1,
     )
+    return result + _skill_hint("configure_dual_axis")
 
 
 @server.tool()
@@ -430,10 +460,13 @@ def configure_worksheet_style(
     header_formats: list[dict] | None = None,
     axis_style: dict | None = None,
 ) -> str:
-    """Apply worksheet-level styling: background color, axis/grid/border visibility."""
+    """Apply worksheet-level styling: background color, axis/grid/border visibility.
+
+    For formatting best practices, read: read_resource('cwtwb://skills/formatting')
+    """
 
     editor = get_editor()
-    return editor.configure_worksheet_style(
+    result = editor.configure_worksheet_style(
         worksheet_name=worksheet_name,
         background_color=background_color,
         hide_axes=hide_axes,
@@ -456,6 +489,7 @@ def configure_worksheet_style(
         header_formats=header_formats,
         axis_style=axis_style,
     )
+    return result + _skill_hint("configure_worksheet_style")
 
 
 @server.tool()
@@ -465,16 +499,20 @@ def configure_chart_recipe(
     recipe_args: dict[str, str] | None = None,
     auto_ensure_prerequisites: bool = True,
 ) -> str:
-    """Configure a showcase recipe chart through the shared recipe registry."""
+    """Configure a showcase recipe chart through the shared recipe registry.
+
+    For recipe chart patterns, read: read_resource('cwtwb://skills/chart_builder')
+    """
 
     editor = get_editor()
-    return configure_chart_recipe_impl(
+    result = configure_chart_recipe_impl(
         editor,
         worksheet_name,
         recipe_name,
         recipe_args=recipe_args,
         auto_ensure_prerequisites=auto_ensure_prerequisites,
     )
+    return result + _skill_hint("configure_chart_recipe")
 
 
 @server.tool()
@@ -592,16 +630,19 @@ def add_dashboard(
     - "vertical": All worksheets stacked vertically
     - "horizontal": All worksheets side-by-side
     - "grid-2x2": 2x2 grid layout
+
+    For dashboard design best practices, read: read_resource('cwtwb://skills/dashboard_designer')
     """
 
     editor = get_editor()
-    return editor.add_dashboard(
+    result = editor.add_dashboard(
         dashboard_name=dashboard_name,
         width=width,
         height=height,
         layout=layout,
         worksheet_names=worksheet_names,
     )
+    return result + _skill_hint("add_dashboard")
 
 
 @server.tool()

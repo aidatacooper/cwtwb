@@ -1504,6 +1504,11 @@ class ConnectionsMixin:
     ) -> str:
         """Configure the datasource to use a local Excel file."""
 
+        # Update datasource caption to match the Excel filename (without extension)
+        from pathlib import Path as _Path
+        source_stem = _Path(filepath).stem
+        self._datasource.set("caption", source_stem)
+
         fed_conn = self._datasource.find("connection[@class='federated']")
         if fed_conn is None:
             for old_conn in self._datasource.findall("connection"):
@@ -1575,6 +1580,11 @@ class ConnectionsMixin:
                 og_rel.set("type", "table")
 
             if normalized_fields:
+                # Clean old metadata-records before rebuilding
+                old_metadata_records = fed_conn.find("metadata-records")
+                if old_metadata_records is not None:
+                    fed_conn.remove(old_metadata_records)
+
                 self._rebuild_external_datasource_metadata(
                     source_object=sheet_name,
                     fields=normalized_fields,
