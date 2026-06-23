@@ -1589,7 +1589,10 @@ class ConnectionsMixin:
                     source_object=sheet_name,
                     fields=normalized_fields,
                     relation=relation,
+                    local_name_source_object="",
                 )
+                self._reinit_fields()
+                self.field_registry.set_unknown_field_policy(allow_unknown_fields=True)
             else:
                 self._reinit_fields()
                 self.field_registry.set_unknown_field_policy(allow_unknown_fields=True)
