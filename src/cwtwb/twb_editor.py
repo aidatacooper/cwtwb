@@ -413,7 +413,6 @@ class TWBEditor(ParametersMixin, ConnectionsMixin, ChartsMixin, DashboardsMixin)
             remote_name_el = mr.find("remote-name")
             local_name_el = mr.find("local-name")
             local_type_el = mr.find("local-type")
-            remote_type_el = mr.find("remote-type")
 
             if remote_name_el is None or local_name_el is None:
                 continue
@@ -421,11 +420,16 @@ class TWBEditor(ParametersMixin, ConnectionsMixin, ChartsMixin, DashboardsMixin)
             remote_name = remote_name_el.text or ""
             local_name = local_name_el.text or ""
             local_type = (local_type_el.text or "string") if local_type_el is not None else "string"
-            remote_type = (remote_type_el.text or "0") if remote_type_el is not None else "0"
 
-            # Determine role/type from the remote integer type
-            numeric_types = {"5", "4", "131", "20", "3", "2", "14", "6", "7"}
-            if remote_type in numeric_types:
+            # Determine role/type from local_type (connector-agnostic).
+            # Do NOT rely on remote_type — its encoding varies across
+            # connectors and is not a reliable indicator of Tableau role.
+            _MEASURE_TYPES = {"integer", "real"}
+            _DATE_TYPES = {"date", "datetime"}
+            if local_type in _DATE_TYPES:
+                role = "dimension"
+                field_type = "ordinal"
+            elif local_type in _MEASURE_TYPES:
                 role = "measure"
                 field_type = "quantitative"
             else:
