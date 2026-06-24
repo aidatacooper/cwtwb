@@ -433,6 +433,7 @@ def _tool_map():
         set_worksheet_caption,
         validate_workbook,
     )
+    from .tools_validate import validate_workbook_api
 
     return {
         "create_workbook": create_workbook,
@@ -454,6 +455,7 @@ def _tool_map():
         "set_hyper_connection": set_hyper_connection,
         "save_workbook": save_workbook,
         "validate_workbook": validate_workbook,
+        "validate_workbook_api": validate_workbook_api,
         "analyze_twb": analyze_twb,
     }
 

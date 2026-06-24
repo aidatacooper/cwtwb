@@ -45,7 +45,7 @@ def upload_workbook(
 
 
 @server.tool()
-def validate_workbook(
+def validate_workbook_api(
     twb_path: str,
     validation_level: str = "semantic",
 ) -> dict:

@@ -68,6 +68,8 @@ server = FastMCP(
     "Generate layout files with generate_layout_json first for DSL validation, then pass the resulting file path to add_dashboard(layout=...). "
     "Prefer a small fixed layout template and fill worksheet names and sizes instead of free-form layout generation. "
     "Use validate_workbook after saving when the human asks for an explicit validation report. "
+    "For deeper semantic validation (formulas, field references, data connectivity), use "
+    "validate_workbook_api which calls the Tableau Cloud REST API (requires .env credentials). "
     "Prefer core primitives first, and use list_capabilities or describe_capability "
     "when you need to check whether a chart or feature is core, advanced, or recipe-only. "
     "For professional-quality output, optionally read the agent skills "
