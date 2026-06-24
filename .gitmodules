@@ -1,0 +1,3 @@
+[submodule "vendor/tableau-document-schemas"]
+	path = vendor/tableau-document-schemas
+	url = https://github.com/tableau/tableau-document-schemas.git

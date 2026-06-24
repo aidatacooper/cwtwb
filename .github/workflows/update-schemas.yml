@@ -1,0 +1,25 @@
+name: Check schema updates
+
+on:
+  schedule:
+    - cron: '0 9 * * 1' # 每周一早上 9 点 (UTC)
+  workflow_dispatch: # 手动触发
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: true
+
+      - name: Update submodule
+        run: git submodule update --remote vendor/tableau-document-schemas
+
+      - name: Create PR if changed
+        uses: peter-evans/create-pull-request@v6
+        with:
+          title: "chore: update tableau-document-schemas"
+          branch: auto/update-schemas
+          reviewers: imgwho
+          labels: dependencies
