@@ -8,18 +8,31 @@ on:
 jobs:
   check:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
     steps:
       - uses: actions/checkout@v4
-        with:
-          submodules: true
 
-      - name: Update submodule
-        run: git submodule update --remote vendor/tableau-document-schemas
+      - name: Fetch latest schemas
+        run: |
+          git clone --depth 1 https://github.com/tableau/tableau-document-schemas.git /tmp/tds
+          rm -rf vendor/tableau-document-schemas/schemas
+          mkdir -p vendor/tableau-document-schemas/schemas
+          cp -r /tmp/tds/schemas/* vendor/tableau-document-schemas/schemas/
+          rm -rf /tmp/tds
 
       - name: Create PR if changed
+        id: pr
         uses: peter-evans/create-pull-request@v6
         with:
           title: "chore: update tableau-document-schemas"
           branch: auto/update-schemas
           reviewers: imgwho
           labels: dependencies
+
+      - name: Auto merge PR
+        if: steps.pr.outputs.pull-request-number
+        run: gh pr merge --auto --squash ${{ steps.pr.outputs.pull-request-number }}
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
