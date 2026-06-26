@@ -1,6 +1,6 @@
-"""Run the cwtwb MCP server with `python -m cwtwb.mcp`."""
+"""Backward-compatible wrapper for ``python -m cwtwb.mcp``."""
 
-from .app import main
+from ..mcp_server import main
 
 
 if __name__ == "__main__":

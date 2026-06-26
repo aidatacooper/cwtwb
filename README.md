@@ -56,6 +56,8 @@ pip install "cwtwb[validate]"
 uvx cwtwb
 ```
 
+The short form above remains the simplest option and is the default config shown in this repository.
+
 Add the server to your MCP client with the same command. For example:
 
 ```json
@@ -76,6 +78,13 @@ claude mcp add cwtwb -- uvx cwtwb
 ```
 
 For VSCode, add `cwtwb` to your workspace or user `mcp.json` and use `uvx cwtwb` as the command.
+
+If you prefer an explicit script name, these equivalent launch styles also work:
+
+```bash
+uvx --from cwtwb cwtwb-mcp
+python -m cwtwb.mcp_server
+```
 
 For client-specific details and the full reference, see [https://github.com/imgwho/cwtwb/blob/master/docs/guide.md](https://github.com/imgwho/cwtwb/blob/master/docs/guide.md).
 
@@ -207,9 +216,11 @@ No. `validate_workbook()` validates via the Tableau Cloud REST API (requires `.e
 4. `save_workbook` will automatically run REST API semantic validation
 5. Or call `validate_workbook` directly for validation without saving
 
-### When should I use `uvx cwtwb` versus `python -m cwtwb.mcp`?
+### When should I use `uvx cwtwb` versus `python -m cwtwb.mcp_server`?
 
-Use `uvx cwtwb` for the normal MCP workflow. Use `python -m cwtwb.mcp` for local testing without `uvx`.
+Use `uvx cwtwb` for the normal MCP workflow. Use `python -m cwtwb.mcp_server` for local testing without `uvx`.
+
+For backward compatibility, `uvx --from cwtwb cwtwb-mcp`, `python -m cwtwb.server`, and `python -m cwtwb.mcp` continue to work.
 
 ### Where is the full guide?
 

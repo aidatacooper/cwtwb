@@ -17,7 +17,7 @@ The state is process-local and resets when the MCP server process restarts.
 
 Import order matters: app.py must be imported before tools_*.py and resources.py
 so that `server` exists when the decorators run.  The entry point (typically
-run via `mcp run` or `python -m cwtwb.mcp`) imports all tool modules, which
+run via `mcp run` or `python -m cwtwb.mcp_server`) imports all tool modules, which
 self-register, and then starts the server transport.
 
 The `instructions` string is what AI agents read when they first connect —

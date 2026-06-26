@@ -5,6 +5,18 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.22.1] - 2026-06-26
+
+### Added
+
+- **Canonical MCP module entrypoint**: added `cwtwb.mcp_server` as the single source of truth for launching the MCP server. `cwtwb`, `cwtwb-mcp`, `python -m cwtwb.mcp_server`, and older compatibility entrypoints now converge on the same tool-registration path.
+- **Backward-compatible resource shim**: restored `cwtwb.mcp.resources` imports for older tests and external callers while keeping resources implemented in `cwtwb.mcp.app`.
+
+### Fixed
+
+- **Calculated field removal now clears all registry aliases**: `remove_calculated_field()` now removes both the display-name and internal-name registry entries, so deleted calculated fields no longer appear in `list_fields()` after removal.
+- **Compatibility exports for legacy MCP callers**: `cwtwb.server` once again re-exports older migration and MCP helper symbols expected by existing tests and integrations.
+
 ## [0.22.0] - 2026-06-26
 
 ### Added

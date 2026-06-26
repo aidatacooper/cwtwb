@@ -314,11 +314,16 @@ class FieldRegistry:
 
     def unregister(self, display_name: str) -> None:
         """Remove a field mapping if it exists."""
-        self._fields.pop(display_name, None)
+        info = self._fields.pop(display_name, None)
+        if info is None:
+            return
+        stale_keys = [key for key, value in self._fields.items() if value is info]
+        for key in stale_keys:
+            self._fields.pop(key, None)
 
     def remove(self, display_name: str) -> None:
         """Alias of unregister() kept for API readability."""
-        self._fields.pop(display_name, None)
+        self.unregister(display_name)
 
     # ---- Queries ----
 
