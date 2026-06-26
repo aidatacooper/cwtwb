@@ -5,20 +5,26 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [0.22.0] - 2026-06-24
+## [0.22.0] - 2026-06-26
 
 ### Added
 
 - **REST API semantic validation**: 3 Tableau Cloud REST API v3.29 validation endpoints — `validate`, `validate_and_upload`, and `validate_uploaded`. Provides semantic validation that guarantees a workbook will open in Tableau (not just XML conformance). Requires Tableau Cloud June 2026+ or Server 2026.2+.
-- **`validate_workbook` MCP tool**: new MCP tool that validates `.twb` files via the Tableau Cloud REST API without publishing. Supports both syntactic and semantic validation levels.
+- **`validate_workbook_api` MCP tool**: new MCP tool that validates `.twb` files via the Tableau Cloud REST API without publishing. Supports both syntactic and semantic validation levels. Renamed from `validate_workbook` to avoid conflict with the existing local XSD validation tool.
 - **Version-aware XSD schema selection**: the local XSD validator now auto-detects the TWB version attribute and selects the matching schema (2026.1 or 2026.2). Legacy versions (18.0, 18.1) are mapped to 2026.1.
 - **`save()` enforces REST API validation**: when `.env` is configured and the server supports it (Tableau Cloud 2026.2+), `save()` automatically runs REST API semantic validation after local XSD validation passes. If validation fails, `TWBValidationError` is raised before the file is written. If `.env` is not configured, only local XSD validation runs.
 - **2026.2 XSD schema**: vendored `twb_2026.2.0.xsd` (7830 lines) from the official `tableau-document-schemas` repository.
 
 ### Changed
 
-- **`validate_workbook` MCP tool now calls REST API**: the tool was previously a wrapper around local XSD validation; it now validates via the Tableau Cloud REST API for semantic correctness.
+- **`validate_workbook_api` MCP tool now calls REST API**: the tool was previously a wrapper around local XSD validation; it now validates via the Tableau Cloud REST API for semantic correctness.
 - **`SchemaValidationResult` includes schema version**: the result object now has a `schema_version` field indicating which XSD schema was used (e.g. "2026.1", "2026.2").
+- **Vendored XSD schemas bundled in wheel**: `tableau-document-schemas` XSD files are now included in the built wheel under `cwtwb/vendor/`, ensuring `uvx cwtwb` and other packaged installs can run XSD validation without a repository checkout.
+
+### Fixed
+
+- **Date fields incorrectly registered as measures in `_init_fields`**: date fields from Excel/CSV connections were sometimes registered as measures instead of dimensions, causing incorrect default chart bindings. Fixed field type detection to properly classify date columns.
+- **Sheet-name suffix leaked into field names for single-sheet Excel connections**: when connecting a single-sheet Excel workbook, field names incorrectly included the sheet name suffix (e.g. `Sheet1$Field` instead of `Field`). Fixed to strip the suffix for single-sheet workbooks.
 
 ## [0.21.0] - 2026-06-23
 
