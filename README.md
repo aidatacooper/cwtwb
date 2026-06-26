@@ -1,13 +1,13 @@
 # cwtwb
 
 <p align="center">
-  <img src="https://raw.githubusercontent.com/imgwho/cwtwb/master/docs/assets/readme/logo.png" alt="Datacooper logo" width="220" />
+  <img src="https://raw.githubusercontent.com/imgwho/cwtwb/main/docs/assets/readme/logo.png" alt="Datacooper logo" width="220" />
 </p>
 
 > Tableau workbook engineering for reproducible `.twb` / `.twbx` generation, validation, and migration.
 
 <p align="center">
-  <img src="https://raw.githubusercontent.com/imgwho/cwtwb/master/docs/assets/readme/hero.png" alt="cwtwb hero image" width="1200" />
+  <img src="https://raw.githubusercontent.com/imgwho/cwtwb/main/docs/assets/readme/hero.png" alt="cwtwb hero image" width="1200" />
 </p>
 
 **cwtwb** is a Python toolkit and Model Context Protocol (MCP) server for building Tableau Desktop workbooks from code or agent tool calls.
@@ -19,16 +19,16 @@ The `cw` in `cwtwb` comes from `Cooper Wenhua`.
 
 **Author:** Cooper Wenhua &lt;imgwho@gmail.com&gt;
 
-[Website](https://datacooper.com) · [Source](https://github.com/imgwho/cwtwb) · [Changelog](https://github.com/imgwho/cwtwb/blob/master/CHANGELOG.md)
+[Website](https://datacooper.com) · [Source](https://github.com/imgwho/cwtwb) · [Changelog](https://github.com/imgwho/cwtwb/blob/main/CHANGELOG.md)
 
 [![Website](https://img.shields.io/badge/Website-datacooper.com-0A7CFF?style=flat-square)](https://datacooper.com)
 [![Source](https://img.shields.io/badge/Source-GitHub-181717?style=flat-square)](https://github.com/imgwho/cwtwb)
-[![License](https://img.shields.io/badge/License-AGPL--3.0--or--later-green?style=flat-square)](https://github.com/imgwho/cwtwb/blob/master/LICENSE)
+[![License](https://img.shields.io/badge/License-AGPL--3.0--or--later-green?style=flat-square)](https://github.com/imgwho/cwtwb/blob/main/LICENSE)
 [![Python](https://img.shields.io/badge/Python-3.10%2B-3776AB?style=flat-square)](https://www.python.org/)
 
 [![Star History Chart](https://api.star-history.com/svg?repos=imgwho/cwtwb&type=Date)](https://star-history.com/#imgwho/cwtwb&Date)
 
-[Try the example workflow](examples/scripts/demo_all_supported_charts.py) · [Read the guide](https://github.com/imgwho/cwtwb/blob/master/docs/guide.md)
+[Try the example workflow](examples/scripts/demo_all_supported_charts.py) · [Read the guide](https://github.com/imgwho/cwtwb/blob/main/docs/guide.md)
 
 ## Quick Start
 
@@ -86,7 +86,7 @@ uvx --from cwtwb cwtwb-mcp
 python -m cwtwb.mcp_server
 ```
 
-For client-specific details and the full reference, see [https://github.com/imgwho/cwtwb/blob/master/docs/guide.md](https://github.com/imgwho/cwtwb/blob/master/docs/guide.md).
+For client-specific details and the full reference, see [https://github.com/imgwho/cwtwb/blob/main/docs/guide.md](https://github.com/imgwho/cwtwb/blob/main/docs/guide.md).
 
 ## Highlights
 
@@ -104,7 +104,7 @@ For client-specific details and the full reference, see [https://github.com/imgw
 This GIF shows the MCP tool flow that builds a dashboard step by step.
 
 <p align="center">
-  <img src="https://raw.githubusercontent.com/imgwho/cwtwb/master/docs/assets/readme/output_compressed.gif" alt="cwtwb demo GIF" width="1200" />
+  <img src="https://raw.githubusercontent.com/imgwho/cwtwb/main/docs/assets/readme/output_compressed.gif" alt="cwtwb demo GIF" width="1200" />
 </p>
 
 ## Architecture
@@ -224,12 +224,12 @@ For backward compatibility, `uvx --from cwtwb cwtwb-mcp`, `python -m cwtwb.serve
 
 ### Where is the full guide?
 
-See [the online guide](https://github.com/imgwho/cwtwb/blob/master/docs/guide.md).
+See [the online guide](https://github.com/imgwho/cwtwb/blob/main/docs/guide.md).
 
 ## Documentation
 
-- [Guide](https://github.com/imgwho/cwtwb/blob/master/docs/guide.md)
-- [Changelog](https://github.com/imgwho/cwtwb/blob/master/CHANGELOG.md)
+- [Guide](https://github.com/imgwho/cwtwb/blob/main/docs/guide.md)
+- [Changelog](https://github.com/imgwho/cwtwb/blob/main/CHANGELOG.md)
 
 ## License
 

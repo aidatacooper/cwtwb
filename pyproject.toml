@@ -44,7 +44,7 @@ cwtwb-mcp = "cwtwb.mcp_server:main"
 [project.urls]
 Homepage = "https://datacooper.com"
 Repository = "https://github.com/imgwho/cwtwb"
-Changelog = "https://github.com/imgwho/cwtwb/blob/master/CHANGELOG.md"
+Changelog = "https://github.com/imgwho/cwtwb/blob/main/CHANGELOG.md"
 
 [build-system]
 requires = ["hatchling<1.27.0"]
