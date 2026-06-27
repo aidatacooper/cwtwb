@@ -20,8 +20,9 @@ def superstore_template():
 @pytest.fixture
 def sample_superstore_excel():
     candidates = [
-        Path(__file__).parent.parent / "examples" / "agentic_mcp_authoring" / "Sample - Superstore.xls",
+        Path(__file__).parent / "fixtures" / "Sample - Superstore.xls",
         Path(__file__).parent.parent / "examples" / "migrate_workflow" / "Sample - Superstore.xls",
+        Path(__file__).parent.parent / "templates" / "Sample - Superstore.xls",
     ]
     for candidate in candidates:
         if candidate.exists():

@@ -62,7 +62,6 @@ def _skill_hint(tool_name: str) -> str:
         return ""
     return f"\n\n📖 For best practices, read: read_resource('cwtwb://skills/{skill}')"
 
-from ..authoring_run import review_authoring_contract_payload
 from ..capability_registry import format_capability_catalog, format_capability_detail
 from ..charts.showcase_recipes import configure_chart_recipe as configure_chart_recipe_impl
 from ..connections import (
@@ -1053,8 +1052,3 @@ def inspect_excel_connection(file_path: str, sheet_name: str = "") -> str:
     }
     return json.dumps(preview, ensure_ascii=False, indent=2)
 
-
-def review_authoring_contract(contract_json: str) -> str:
-    """Review a draft authoring contract and apply profile-aware defaults."""
-
-    return review_authoring_contract_payload(contract_json).to_json()

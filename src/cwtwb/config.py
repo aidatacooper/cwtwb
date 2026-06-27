@@ -28,13 +28,9 @@ TABLEAU_FUNCTIONS_JSON = REFERENCES_DIR / "tableau_all_functions.json"
 # Directory containing skill files for AI agents
 SKILLS_DIR = Path(__file__).parent / "skills"
 
-# Directory containing authoring contract templates for AI agents
-CONTRACTS_DIR = Path(__file__).parent / "contracts"
-
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 EXAMPLES_DIR = PROJECT_ROOT / "examples"
 TMP_DIR = PROJECT_ROOT / "tmp"
-DEFAULT_AUTHORING_RUNS_DIR = TMP_DIR / "agentic_run"
 DEFAULT_PROFILE_DIRS = (
     EXAMPLES_DIR / "profiles",
 )

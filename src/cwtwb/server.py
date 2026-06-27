@@ -1,7 +1,8 @@
 """Backward-compatible MCP entrypoint for cwtwb.
 
 The canonical server entrypoint is now ``cwtwb.mcp_server``. This module stays
-as a compatibility shim for existing callers and test imports.
+as a compatibility shim for existing callers and test imports that want the
+stable default workbook-engineering surface.
 """
 __author__ = "Cooper Wenhua <imgwho@gmail.com>"
 

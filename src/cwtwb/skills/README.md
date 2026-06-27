@@ -7,7 +7,6 @@ how to build it well, phase by phase.
 ## Workflow Phases
 
 ```text
-Phase 0: authoring_workflow    -> Run the gated datasource -> schema -> analysis -> contract -> wireframe -> execution workflow
 Phase 1: calculation_builder   -> Define parameters, calculated fields, LOD logic
 Phase 2: chart_builder         -> Choose chart types, configure encodings, filters
 Phase 3: dashboard_designer    -> Layout, worksheet captions, interaction actions
@@ -17,40 +16,20 @@ Phase 4: formatting            -> Number formats, colors, sorting, tooltips
 ## Recommended Resource Flow
 
 ```text
-1. start_authoring_run(...)
-2. intake_datasource_schema(...)
-3. interactive_stage_confirmation(..., stage="schema")
-4. confirm_authoring_stage(..., stage="schema")  # only if chat fallback was required
-5. build_analysis_brief(...)
-6. finalize_analysis_brief(...)  # include 2-4 directions plus selected_direction_id
-7. interactive_stage_confirmation(..., stage="analysis")
-8. confirm_authoring_stage(..., stage="analysis")  # only if chat fallback was required
-9. read_resource("cwtwb://contracts/dashboard_authoring_v1")
-10. read_resource("cwtwb://profiles/index")
-11. draft_authoring_contract(...)
-12. review_authoring_contract_for_run(...)
-13. finalize_authoring_contract(...)
-14. interactive_stage_confirmation(..., stage="contract")
-15. confirm_authoring_stage(..., stage="contract")  # only if chat fallback was required
-16. build_wireframe(...)
-17. finalize_wireframe(...)
-18. interactive_stage_confirmation(..., stage="wireframe")
-19. confirm_authoring_stage(..., stage="wireframe")  # only if chat fallback was required
-20. build_execution_plan(...)
-21. read_resource("cwtwb://skills/authoring_workflow")
-22. read_resource("cwtwb://skills/calculation_builder")
-23. read_resource("cwtwb://skills/chart_builder")
-24. read_resource("cwtwb://skills/dashboard_designer")
-25. read_resource("cwtwb://skills/formatting")
-26. generate_workbook_from_run(...)
+1. read_resource("cwtwb://skills/calculation_builder")
+2. read_resource("cwtwb://skills/chart_builder")
+3. read_resource("cwtwb://skills/dashboard_designer")
+4. read_resource("cwtwb://skills/formatting")
+5. create_workbook(...) or open_workbook(...)
+6. list_fields(...)
+7. add_worksheet(...)
+8. configure_chart(...) / configure_dual_axis(...) / configure_chart_recipe(...)
+9. add_dashboard(...)
+10. save_workbook(...)
 ```
 
 ## Design Philosophy
 
 - Skills are phase-specific, not generic prompt stuffing.
 - Load only the skill needed for the current phase.
-- Keep the workflow contract-first, skill-guided, and self-validating.
-- Use light elicitation: ask follow-up questions only when the contract misses critical intent.
-- Prefer MCP form elicitation for the default approval gates (`schema`, `analysis`, `contract`, `wireframe`), with chat fallback when the client does not support it.
-- In `agent_first` mode, always present 2-4 candidate analysis directions and let the human choose before drafting the contract.
-- Treat `execution_plan` as internal-by-default unless the human explicitly wants to review it.
+- Keep the workflow direct, workbook-oriented, and self-validating.

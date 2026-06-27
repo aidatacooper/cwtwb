@@ -5,7 +5,6 @@ Resources now live in ``cwtwb.mcp.app``. This shim keeps imports like
 """
 
 from .app import (
-    read_dashboard_authoring_contract,
     read_dataset_profile,
     read_profiles_index,
     read_skill,
@@ -17,7 +16,6 @@ __all__ = [
     "read_tableau_functions",
     "read_skills_index",
     "read_skill",
-    "read_dashboard_authoring_contract",
     "read_profiles_index",
     "read_dataset_profile",
 ]

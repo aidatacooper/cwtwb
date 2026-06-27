@@ -1,8 +1,9 @@
-"""Canonical MCP server entrypoint for cwtwb.
+"""Canonical default MCP server entrypoint for cwtwb.
 
-This module is the single source of truth for launching the cwtwb MCP server.
-It imports the workbook and validation tool modules so their decorators
-register against the shared FastMCP server before the stdio transport starts.
+This module is the single source of truth for launching the stable default
+cwtwb MCP server. It imports the workbook and validation tool modules so their
+decorators register against the shared FastMCP server before the stdio
+transport starts.
 
 Supported launch styles:
     uvx cwtwb

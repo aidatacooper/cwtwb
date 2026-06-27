@@ -2,12 +2,8 @@
 
 This directory contains prompt examples for interacting with the `cwtwb` MCP server. You can copy and paste these prompts into an MCP-enabled assistant to automate Tableau workbook generation.
 
-These files are intentionally different from the newer server-side MCP prompts.
-For the guided datasource-first workflow, prefer the built-in MCP prompts
-`guided_dashboard_authoring`, `dashboard_brief_to_contract`,
-`light_elicitation`, `authoring_execution_plan`, and
-`worksheet_clone_refactor`. The markdown files in this folder remain useful as
-direct examples for one-shot or layout-oriented requests.
+These markdown files are useful as direct examples for one-shot or
+layout-oriented requests.
 
 The prompts span multiple support tiers. Prefer starting with the core-fit and advanced-fit prompts listed in `examples/README.md` before using the recipe-heavy or debugging prompts.
 

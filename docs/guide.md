@@ -179,16 +179,11 @@ Important save semantics for agents:
 
 The default MCP entrypoint currently registers no prompts. This is intentional: the default server is optimized for direct tool calling through the workbook engineering surface.
 
-### Guided Authoring Status
+### Rebuild Notes
 
-The datasource-first guided authoring implementation remains in the source tree for future use, but it is hidden from the default MCP entrypoint. In practical terms:
-
-- The Python modules such as `cwtwb.authoring_run` and `cwtwb.mcp.tools_authoring` still exist.
-- The default `cwtwb` MCP command does not import `tools_authoring.py`, so guided tools such as `start_authoring_run` and `generate_workbook_from_run` are not registered.
-- The default MCP command does not register guided prompts such as `guided_dashboard_authoring`.
-- The default MCP resources do not expose the guided authoring contract template or `authoring_workflow` skill.
-
-To restore guided authoring later, re-register the guided modules from an MCP entrypoint by importing `cwtwb.mcp.tools_authoring` and the guided prompt module. For now, keeping them hidden prevents agents from choosing a long guided workflow when the intended task is a direct workbook edit.
+The previous datasource-first guided authoring implementation has been removed
+from the codebase. If that workflow needs to return in the future, use the
+rebuild document in [guided-authoring-rebuild.md](/C:/Users/imgwho/Desktop/projects/20260227-cwtwb/backup/guided-authoring-rebuild.md).
 
 ## Capability Model
 
@@ -441,8 +436,6 @@ cwtwb/
 |   |-- __init__.py
 |   |-- capability_registry.py
 |   |-- config.py
-|   |-- contracts/
-|   |-- authoring_run.py
 |   |-- charts/
 |   |-- connections.py
 |   |-- dashboard_actions.py

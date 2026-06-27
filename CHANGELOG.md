@@ -5,6 +5,17 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.22.2] - 2026-06-27
+
+### Changed
+
+- **Guided authoring implementation removed from the package**: deleted the dormant datasource-first guided authoring runtime, prompts, contracts, dedicated tests, and example assets so the shipped surface stays focused on stable workbook engineering workflows.
+- **Guided authoring rebuild notes moved to backup**: preserved the future reconstruction plan as a non-runtime artifact under `backup/guided-authoring-rebuild.md` instead of shipping it in the active docs tree.
+
+### Fixed
+
+- **Connection regression tests no longer depend on removed guided examples**: Excel connection tests now read their checked-in sample workbook from `tests/fixtures/`, keeping the stable test path independent from deleted guided-authoring assets.
+
 ## [0.22.1] - 2026-06-26
 
 ### Added

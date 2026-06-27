@@ -118,12 +118,6 @@ most fundamental to most complex.
 | `test_existing_workbook_editing.py` | `open_workbook`, reconfigure worksheets, parameter restore, dashboard zone ID continuity, thumbnail stripping |
 | `test_worksheet_refactor.py` | Real-workbook worksheet clone + Sales→Profit refactor through both `TWBEditor` and `server.py` wrappers, including post-refactor `Calculation_*` identity normalization checks |
 
-### MCP Tool Layer — Guided Authoring Runs
-
-| File | Coverage |
-|------|----------|
-| `test_agentic_authoring_v1.py` | Run lifecycle (`start/list/status/resume`), prompt registration, Excel/Hyper schema intake, contract review/finalize/confirmation gates, rewrite-after-rejection flow, execution plan generation, end-to-end workbook generation, and `workbook_generation_failed` failure state |
-
 ### Analysis, Capability Registry & Migration
 
 | File | Coverage |
@@ -180,7 +174,7 @@ The table below maps each SDK/MCP public function to its primary test file.
 | `add_dashboard` | `test_declarative_dashboards.py`, `test_twb_structure.py`, `test_c2_replica.py` |
 | `add_dashboard_action` (filter) | `test_dashboard_actions.py` |
 | `add_dashboard_action` (highlight/url/go-to-sheet) | `test_dashboard_action_types.py` |
-| `set_worksheet_caption` | `test_agentic_authoring_v1.py` |
+| `set_worksheet_caption` | No dedicated regression test yet |
 | `clone_worksheet` / `preview_worksheet_refactor` / `apply_worksheet_refactor` | `test_worksheet_refactor.py`, `test_mcp_tools.py` |
 | `set_worksheet_hidden` | `test_mcp_tools.py` |
 | `generate_layout_json` | `test_layout_ascii.py` |
@@ -188,7 +182,6 @@ The table below maps each SDK/MCP public function to its primary test file.
 | `set_csv_connection` | `test_connections.py`, `test_mcp_tools.py` |
 | `set_tableauserver_connection` | `test_connections.py`, `test_mcp_tools.py` |
 | `set_hyper_connection` | `test_connections.py`, `test_mcp_tools.py` |
-| Guided authoring internals (`start_authoring_run`, `generate_workbook_from_run`, etc.) | `test_agentic_authoring_v1.py`; these remain tested as internal/experimental code but are hidden from the default MCP entrypoint |
 | `inspect_target_schema` | `test_mcp_tools.py` |
 | `list_fields` / `list_worksheets` / `list_dashboards` | `test_e2e.py`, `test_existing_workbook_editing.py` |
 | `list_capabilities` | `test_mcp_tools.py`, `test_capability_registry.py` |
@@ -203,9 +196,8 @@ The table below maps each SDK/MCP public function to its primary test file.
 
 ## Known Gaps & Out-of-Scope
 
-- **`intake_datasource_schema` on real `.hyper` files**: covered in `test_agentic_authoring_v1.py`, but the test is skipped when the local `tableauhyperapi` runtime is unavailable or cannot inspect the sample extract in the current environment.
 - **`set_excel_connection` / `set_csv_connection` coverage**: low-level XML verification now lives in `test_connections.py`, but there is still no Tableau Desktop openability test for these connected workbooks.
 - **`configure_chart` with `label_param`**: parameter-driven label content is not separately unit-tested (tested implicitly via `label_runs` with `param` key).
 - **`configure_chart` with `customized_label`** (raw string override): no dedicated test; simple text labels are covered by `test_label_runs.py`.
 - **Multi-table hyper connection** (`tables` parameter in `set_hyper_connection`): no unit test; requires a real multi-table `.hyper` file.
-- **MCP resources and prompts**: the default MCP entrypoint intentionally registers no prompts; guided prompt registration remains covered only through the internal guided-authoring tests.
+- **MCP resources and prompts**: the default MCP entrypoint intentionally registers no prompts.
