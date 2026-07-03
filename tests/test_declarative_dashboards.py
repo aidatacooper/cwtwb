@@ -2,6 +2,7 @@ import pytest
 from pathlib import Path
 from lxml import etree
 import shutil
+import yaml
 
 from cwtwb.twb_editor import TWBEditor
 
@@ -155,6 +156,47 @@ def test_auto_layout_is_simple_vertical(tmp_superstore):
     assert root_zone.get("param") == "vert"
     children = list(root_zone.findall("zone"))
     assert len(children) == 3
+
+
+def test_yaml_layout_file_is_supported(tmp_superstore, tmp_path):
+    editor = TWBEditor(tmp_superstore)
+    editor.clear_worksheets()
+
+    editor.add_worksheet("KPI")
+    editor.add_worksheet("Trend")
+
+    layout_path = tmp_path / "dashboard_layout.yaml"
+    layout_path.write_text(
+        yaml.safe_dump(
+            {
+                "_ascii_layout_preview": ["KPI over Trend"],
+                "layout_schema": {
+                    "type": "container",
+                    "direction": "vertical",
+                    "children": [
+                        {"type": "worksheet", "name": "KPI", "fixed_size": 120},
+                        {"type": "worksheet", "name": "Trend", "weight": 1},
+                    ],
+                },
+            },
+            sort_keys=False,
+            allow_unicode=True,
+        ),
+        encoding="utf-8",
+    )
+
+    editor.add_dashboard(
+        "YAML Layout Dashboard",
+        layout=str(layout_path),
+        worksheet_names=["KPI", "Trend"],
+    )
+
+    db = editor.root.find(".//dashboards/dashboard[@name='YAML Layout Dashboard']")
+    assert db is not None
+    root_zone = db.find("zones/zone")
+    assert root_zone is not None
+    assert root_zone.get("param") == "vert"
+    assert len(list(root_zone.findall("zone"))) == 2
 
 
 def test_legacy_nested_layout_aliases_render_worksheets(tmp_superstore):

@@ -62,6 +62,7 @@ from typing import Any, Optional
 from urllib.parse import quote
 
 from lxml import etree
+import yaml
 
 from .config import _generate_uuid
 from .layout import generate_dashboard_zones
@@ -89,6 +90,9 @@ VALID_LAYOUT_NODE_TYPES = {
     "empty",
 }
 
+LAYOUT_DOCUMENT_WRAPPER_KEY = "layout_schema"
+YAML_LAYOUT_SUFFIXES = {".yaml", ".yml"}
+
 
 def resolve_dashboard_layout(
     layout: str | dict[str, Any],
@@ -98,7 +102,7 @@ def resolve_dashboard_layout(
 
     Supported layout values:
     - dict: Raw declarative layout tree (recommended for complex dashboards)
-    - str (file path): Path to JSON layout file (recommended, use generate_layout_json first)
+    - str (file path): Path to JSON or YAML layout file
     - "auto": Simple vertical fallback (same as "vertical")
     - "vertical": All worksheets stacked vertically
     - "horizontal": All worksheets side-by-side
@@ -109,13 +113,7 @@ def resolve_dashboard_layout(
 
     layout_path = Path(layout)
     if layout_path.exists() and layout_path.is_file():
-        with open(layout_path, "r", encoding="utf-8") as f:
-            loaded_json = json.load(f)
-        if isinstance(loaded_json, dict) and "layout_schema" in loaded_json:
-            return normalize_dashboard_layout(loaded_json["layout_schema"])
-        if isinstance(loaded_json, dict):
-            return normalize_dashboard_layout(loaded_json)
-        raise ValueError("Dashboard layout JSON must contain an object layout tree.")
+        return load_dashboard_layout_file(layout_path)
 
     if layout == "horizontal":
         return normalize_dashboard_layout({
@@ -166,6 +164,55 @@ def normalize_dashboard_layout(node: dict[str, Any]) -> dict[str, Any]:
     if not isinstance(node, dict):
         raise ValueError("Dashboard layout nodes must be objects.")
     return _normalize_dashboard_layout_node(node, path="layout")
+
+
+def load_dashboard_layout_file(layout_path: str | Path) -> dict[str, Any]:
+    """Load a declarative dashboard layout from a JSON or YAML file."""
+    path = Path(layout_path)
+    suffix = path.suffix.lower()
+    with open(path, "r", encoding="utf-8") as handle:
+        if suffix in YAML_LAYOUT_SUFFIXES:
+            loaded = yaml.safe_load(handle)
+        else:
+            loaded = json.load(handle)
+
+    if isinstance(loaded, dict) and LAYOUT_DOCUMENT_WRAPPER_KEY in loaded:
+        loaded = loaded[LAYOUT_DOCUMENT_WRAPPER_KEY]
+
+    if not isinstance(loaded, dict):
+        raise ValueError("Dashboard layout files must contain an object layout tree.")
+    return normalize_dashboard_layout(loaded)
+
+
+def build_dashboard_layout_document(
+    layout_tree: dict[str, Any],
+    ascii_preview: str = "",
+) -> dict[str, Any]:
+    """Build the on-disk layout document wrapper around a canonical layout tree."""
+    document: dict[str, Any] = {
+        LAYOUT_DOCUMENT_WRAPPER_KEY: normalize_dashboard_layout(layout_tree),
+    }
+    if ascii_preview:
+        document["_ascii_layout_preview"] = ascii_preview.strip().splitlines()
+    return document
+
+
+def write_dashboard_layout_file(
+    output_path: str | Path,
+    layout_tree: dict[str, Any],
+    ascii_preview: str = "",
+) -> Path:
+    """Write a canonical layout document to JSON or YAML based on file suffix."""
+    path = Path(output_path)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    document = build_dashboard_layout_document(layout_tree, ascii_preview=ascii_preview)
+
+    with open(path, "w", encoding="utf-8") as handle:
+        if path.suffix.lower() in YAML_LAYOUT_SUFFIXES:
+            yaml.safe_dump(document, handle, sort_keys=False, allow_unicode=True)
+        else:
+            json.dump(document, handle, indent=2, ensure_ascii=False)
+    return path
 
 
 def _normalize_dashboard_layout_node(node: dict[str, Any], path: str) -> dict[str, Any]:

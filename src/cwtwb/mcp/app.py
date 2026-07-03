@@ -65,9 +65,9 @@ server = FastMCP(
     "or likely multi-table relationships before mutating the workbook. "
     "When authoring a dashboard layout, first call list_worksheets and lock the exact worksheet names; "
     "reuse those exact names in layout nodes to avoid name drift. "
-    "For layout JSON, use the canonical DSL: container nodes use type='container' with direction and children; "
+    "For layout files, use the canonical DSL: container nodes use type='container' with direction and children; "
     "do not use zones or absolute-position dashboard schemas. "
-    "Generate layout files with generate_layout_json first for DSL validation, then pass the resulting file path to add_dashboard(layout=...). "
+    "Generate layout files with generate_layout_json first for DSL validation, then pass the resulting JSON or YAML file path to add_dashboard(layout=...). "
     "Prefer a small fixed layout template and fill worksheet names and sizes instead of free-form layout generation. "
     "Use validate_workbook after saving when the human asks for an explicit validation report. "
     "For deeper semantic validation (formulas, field references, data connectivity), use "
@@ -152,7 +152,7 @@ def _tool_surface_text() -> str:
             "3. `list_fields` and `list_worksheets`",
             "4. `add_worksheet` plus `configure_chart`, `configure_dual_axis`, or `configure_chart_recipe`",
             "5. `list_worksheets` before dashboard authoring; reuse exact worksheet names",
-            "6. `generate_layout_json` for custom dashboard JSON, then `add_dashboard`",
+            "6. `generate_layout_json` or `generate_layout_yaml` for custom dashboard layout files, then `add_dashboard`",
             "7. `save_workbook` to write the `.twb` or `.twbx` file",
             "8. Optional: `validate_workbook`, `validate_workbook_api`, `upload_workbook`, `screenshot_workbook`",
             "",

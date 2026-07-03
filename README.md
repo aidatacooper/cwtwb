@@ -107,6 +107,20 @@ Compatibility aliases are also available for common guessed URIs such as `cwtwb:
 
 For client-specific details and the full reference, see [https://github.com/imgwho/cwtwb/blob/main/docs/guide.md](https://github.com/imgwho/cwtwb/blob/main/docs/guide.md).
 
+### Dashboard Layout Files
+
+Custom dashboard layouts can now be authored as either JSON or YAML using the same declarative DSL. For agent workflows, generate a layout file first, then pass that file path into `add_dashboard(layout=...)`.
+
+```text
+generate_layout_json("output/layout.json", layout_tree, ascii_preview)
+generate_layout_yaml("output/layout.yaml", layout_tree, ascii_preview)
+```
+
+Both formats support the same wrapper structure:
+
+- `layout_schema`: canonical dashboard layout tree
+- `_ascii_layout_preview`: optional human/agent review aid
+
 ## Highlights
 
 | Area | What you get |

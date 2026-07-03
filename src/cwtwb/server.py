@@ -23,6 +23,7 @@ from .mcp_server import (
     describe_capability,
     diff_template_gap,
     generate_layout_json,
+    generate_layout_yaml,
     inspect_excel_connection,
     inspect_target_schema,
     list_capabilities,

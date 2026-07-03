@@ -75,7 +75,7 @@ from ..connections import (
     _sanitize_headers,
     infer_tableau_semantic_role,
 )
-from ..dashboards import normalize_dashboard_layout
+from ..dashboards import write_dashboard_layout_file
 from ..migration import (
     apply_twb_migration_json,
     inspect_target_schema as inspect_target_schema_impl,
@@ -619,13 +619,13 @@ def add_dashboard(
     Recommended workflow for complex dashboards:
     1. Call list_worksheets to lock worksheet names
     2. Design layout with the user (KPI row, main chart, detail views, filters)
-    3. Call generate_layout_json to save the layout as a JSON file
-    4. Call add_dashboard with layout=<json_file_path>
+    3. Call generate_layout_json to save the layout as a JSON or YAML file
+    4. Call add_dashboard with layout=<layout_file_path>
 
     Layout options:
-    - str (file path): Path to JSON layout file (recommended for complex layouts)
+    - str (file path): Path to JSON or YAML layout file (recommended for complex layouts)
     - dict: Custom declarative layout tree passed inline
-    - "auto" (default): Simple vertical fallback — use layout dict or JSON file for mixed layouts
+    - "auto" (default): Simple vertical fallback — use layout dict or layout file for mixed layouts
     - "vertical": All worksheets stacked vertically
     - "horizontal": All worksheets side-by-side
     - "grid-2x2": 2x2 grid layout
@@ -695,12 +695,12 @@ def generate_layout_json(
     layout_tree: dict,
     ascii_preview: str,
 ) -> str:
-    """Generate and save a dashboard layout JSON file.
+    """Generate and save a dashboard layout file.
 
     Recommended workflow:
     1. Call list_worksheets to get available worksheet names
     2. Design the layout with the user (show ASCII preview for confirmation)
-    3. Call this tool to save the layout as a JSON file
+    3. Call this tool to save the layout as a JSON or YAML file
     4. Call add_dashboard with layout=<this_file_path>
 
     The layout_tree uses the declarative container DSL:
@@ -714,22 +714,14 @@ def generate_layout_json(
         if not isinstance(layout_tree, dict):
             return "Failed to generate layout JSON: layout_tree must be an object."
 
-        path = Path(output_path)
-        path.parent.mkdir(parents=True, exist_ok=True)
-
-        output_data = {}
-        if ascii_preview:
-            output_data["_ascii_layout_preview"] = ascii_preview.strip().split("\n")
-
-        # Validate and canonicalize to the exact declarative DSL expected by
-        # add_dashboard(layout=...).
-        output_data["layout_schema"] = normalize_dashboard_layout(layout_tree)
-
-        with open(path, "w", encoding="utf-8") as f:
-            json.dump(output_data, f, indent=2, ensure_ascii=False)
+        path = write_dashboard_layout_file(
+            output_path=output_path,
+            layout_tree=layout_tree,
+            ascii_preview=ascii_preview,
+        )
 
         return (
-            f"Layout JSON successfully written to: {path.absolute()}\n"
+            f"Layout file successfully written to: {path.absolute()}\n"
             f"You can now call `add_dashboard` and set the `layout` parameter to exactly this file path."
         )
     except ValueError as e:
@@ -739,6 +731,33 @@ def generate_layout_json(
         )
     except Exception as e:
         return f"Failed to generate layout JSON: {str(e)}"
+
+
+@server.tool()
+def generate_layout_yaml(
+    output_path: str,
+    layout_tree: dict,
+    ascii_preview: str,
+) -> str:
+    """Generate and save a dashboard layout YAML file.
+
+    Recommended workflow:
+    1. Call list_worksheets to get available worksheet names
+    2. Design the layout with the user (show ASCII preview for confirmation)
+    3. Call this tool to save the layout as a YAML file
+    4. Call add_dashboard with layout=<this_file_path>
+
+    The layout_tree uses the same declarative container DSL as generate_layout_json.
+    """
+
+    path = Path(output_path)
+    if path.suffix.lower() not in {".yaml", ".yml"}:
+        path = path.with_suffix(".yaml")
+    return generate_layout_json(
+        output_path=str(path),
+        layout_tree=layout_tree,
+        ascii_preview=ascii_preview,
+    )
 
 
 # --- Migration tools ---

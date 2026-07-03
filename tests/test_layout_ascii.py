@@ -1,9 +1,10 @@
 
 import sys
 from pathlib import Path
+import yaml
 sys.path.insert(0, str(Path(__file__).parent.parent / 'src'))
 
-from cwtwb.server import generate_layout_json
+from cwtwb.server import generate_layout_json, generate_layout_yaml
 from cwtwb.twb_editor import TWBEditor
 
 def test_new_layout_flow():
@@ -63,6 +64,50 @@ def test_generate_layout_json_rejects_non_dsl_schema(tmp_path):
     assert "Failed to generate layout JSON" in result
     assert "not a supported add_dashboard layout DSL" in result
     assert not json_out.exists()
+
+
+def test_generate_layout_json_writes_yaml_when_requested(tmp_path):
+    yaml_out = tmp_path / "valid_layout.yaml"
+    layout_tree = {
+        "type": "container",
+        "direction": "horizontal",
+        "children": [
+            {"type": "worksheet", "name": "Summary", "fixed_size": 240},
+            {"type": "worksheet", "name": "Detail", "weight": 1},
+        ],
+    }
+
+    result = generate_layout_json(str(yaml_out), layout_tree, "Summary | Detail")
+
+    assert "Layout file successfully written to:" in result
+    assert yaml_out.exists()
+
+    loaded = yaml.safe_load(yaml_out.read_text(encoding="utf-8"))
+    assert loaded["layout_schema"]["type"] == "container"
+    assert loaded["layout_schema"]["direction"] == "horizontal"
+    assert loaded["_ascii_layout_preview"] == ["Summary | Detail"]
+
+
+def test_generate_layout_yaml_writes_yaml_and_normalizes_suffix(tmp_path):
+    yaml_out = tmp_path / "valid_layout"
+    layout_tree = {
+        "type": "container",
+        "direction": "vertical",
+        "children": [
+            {"type": "worksheet", "name": "Top", "fixed_size": 100},
+            {"type": "worksheet", "name": "Bottom", "weight": 1},
+        ],
+    }
+
+    result = generate_layout_yaml(str(yaml_out), layout_tree, "Top / Bottom")
+
+    normalized_path = yaml_out.with_suffix(".yaml")
+    assert "Layout file successfully written to:" in result
+    assert normalized_path.exists()
+
+    loaded = yaml.safe_load(normalized_path.read_text(encoding="utf-8"))
+    assert loaded["layout_schema"]["direction"] == "vertical"
+    assert loaded["_ascii_layout_preview"] == ["Top / Bottom"]
 
 if __name__ == '__main__':
     test_new_layout_flow()

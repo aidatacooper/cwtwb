@@ -5,6 +5,17 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.22.3] - 2026-07-03
+
+### Added
+
+- **Explicit YAML layout generation**: added `generate_layout_yaml()` as a first-class MCP/Python entrypoint for writing dashboard layout files in YAML, including automatic `.yaml` suffix normalization when callers omit the extension.
+
+### Changed
+
+- **Dashboard layout files now support JSON and YAML end-to-end**: `add_dashboard(layout=...)` accepts `.json`, `.yaml`, and `.yml` layout files, while the existing `generate_layout_json()` helper now writes JSON or YAML based on the requested output suffix.
+- **Layout DSL documentation refreshed for AI workflows**: updated MCP guidance, regression tests, and backup design notes so agent prompts and local specs consistently describe layout files as JSON-or-YAML artifacts instead of JSON-only inputs.
+
 ## [0.22.2] - 2026-06-27
 
 ### Changed
