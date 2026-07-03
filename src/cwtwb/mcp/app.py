@@ -42,6 +42,10 @@ from ..twb_editor import TWBEditor
 server = FastMCP(
     "cwtwb",
     instructions="Tableau Workbook (.twb) generation MCP Server. "
+    "Call the exposed MCP tools directly through the connected client tool surface; "
+    "do not run shell commands like 'mcp call', 'mcp list-tools', or 'gh api' to discover "
+    "or invoke cwtwb tools. If tool discovery looks empty, ask the user to restart or "
+    "reconnect the MCP client instead of inventing a CLI command. "
     "Use manual workbook editing: create_workbook or open_workbook first, "
     "then list_fields, add_worksheet, configure_chart or configure_dual_axis, "
     "optionally add_dashboard and add_dashboard_action, and finally save_workbook. "
@@ -72,6 +76,8 @@ server = FastMCP(
     "when you need to check whether a chart or feature is core, advanced, or recipe-only. "
     "For professional-quality output, optionally read the agent skills "
     "(cwtwb://skills/index) before starting each phase. "
+    "If a guessed documentation resource such as cwtwb://docs/manual-editing is unavailable, "
+    "list resources and use cwtwb://tool-surface or cwtwb://skills/index. "
     "After save_workbook, use upload_workbook to validate the generated .twb on "
     "Tableau Cloud (requires .env with TABLEAU_PAT credentials). Upload success "
     "confirms the workbook is structurally valid. Optionally use screenshot_workbook "
@@ -130,6 +136,58 @@ _SKILL_NAMES = [
 ]
 
 
+def _tool_surface_text() -> str:
+    """Return a compact agent-facing contract for stable MCP usage."""
+
+    return "\n".join(
+        [
+            "# cwtwb MCP Tool Surface",
+            "",
+            "Use MCP tools directly from the connected client. Do not call a shell command named `mcp`; most client environments do not install one.",
+            "",
+            "## Stable workbook flow",
+            "",
+            "1. `create_workbook` or `open_workbook`",
+            "2. `set_excel_connection`, `set_csv_connection`, `set_hyper_connection`, `set_mysql_connection`, or `set_tableauserver_connection` when changing the datasource",
+            "3. `list_fields` and `list_worksheets`",
+            "4. `add_worksheet` plus `configure_chart`, `configure_dual_axis`, or `configure_chart_recipe`",
+            "5. `list_worksheets` before dashboard authoring; reuse exact worksheet names",
+            "6. `generate_layout_json` for custom dashboard JSON, then `add_dashboard`",
+            "7. `save_workbook` to write the `.twb` or `.twbx` file",
+            "8. Optional: `validate_workbook`, `validate_workbook_api`, `upload_workbook`, `screenshot_workbook`",
+            "",
+            "## Important boundaries",
+            "",
+            "- `save_workbook` is the default tool that writes the active workbook to disk.",
+            "- `validate_workbook` validates only; it does not save or export.",
+            "- `list_capabilities` describes supported chart/features; it is not a tool inventory.",
+            "- For phase guidance, read `cwtwb://skills/index` and then the relevant `cwtwb://skills/<skill_name>` resource.",
+            "- For Tableau calculation functions, read `file://docs/tableau_all_functions.json`.",
+            "",
+            "If a client cannot see tools such as `create_workbook`, the MCP client connection is misconfigured or stale. Reconnect/restart the client rather than trying `mcp call` in a terminal.",
+        ]
+    )
+
+
+def _manual_editing_text() -> str:
+    """Compatibility resource for agents that guess older docs-style URIs."""
+
+    return "\n".join(
+        [
+            "# cwtwb Manual Editing",
+            "",
+            "This compatibility resource exists because some AI clients guess `cwtwb://docs/manual-editing`.",
+            "The canonical guidance is the MCP tool surface plus skills:",
+            "",
+            "- Read `cwtwb://tool-surface` for the stable tool call order.",
+            "- Read `cwtwb://skills/index` for phase-specific Tableau authoring guidance.",
+            "- For dashboards, read `cwtwb://skills/dashboard_designer`.",
+            "",
+            _tool_surface_text(),
+        ]
+    )
+
+
 @server.resource("cwtwb://skills/index")
 def read_skills_index() -> str:
     """List all available cwtwb agent skills."""
@@ -154,6 +212,27 @@ def read_skills_index() -> str:
                     break
             lines.append(f"- **{name}**: {desc}")
     return "\n".join(lines)
+
+
+@server.resource("cwtwb://tool-surface")
+def read_tool_surface() -> str:
+    """Describe the stable MCP tool surface and correct client usage."""
+
+    return _tool_surface_text()
+
+
+@server.resource("cwtwb://docs/manual-editing")
+def read_manual_editing_compat() -> str:
+    """Compatibility alias for agents that guess a docs/manual-editing URI."""
+
+    return _manual_editing_text()
+
+
+@server.resource("cwtwb://docs/tool-surface")
+def read_docs_tool_surface_compat() -> str:
+    """Compatibility alias for agents that put docs under cwtwb://docs."""
+
+    return _tool_surface_text()
 
 
 @server.resource("cwtwb://profiles/index")

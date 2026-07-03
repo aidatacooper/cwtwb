@@ -88,6 +88,23 @@ uvx --from cwtwb cwtwb-mcp
 python -m cwtwb.mcp_server
 ```
 
+### MCP Client Stability
+
+When cwtwb is connected as an MCP server, agents should call the exposed MCP tools directly through their client. They should not run shell commands such as `mcp call cwtwb ...`, `mcp list-tools cwtwb`, or `gh api .../mcp/...`; those commands are not part of cwtwb and are usually unavailable in normal Claude, Codex, Cursor, or VSCode environments.
+
+If an agent cannot see tools such as `create_workbook`, `add_worksheet`, or `save_workbook`, restart or reconnect the MCP client and verify the server config. Clearing the `uv` cache only refreshes installed packages; it does not fix a stale client tool surface.
+
+Useful resources for agents:
+
+```text
+cwtwb://tool-surface
+cwtwb://skills/index
+cwtwb://skills/dashboard_designer
+file://docs/tableau_all_functions.json
+```
+
+Compatibility aliases are also available for common guessed URIs such as `cwtwb://docs/manual-editing`, but new prompts should prefer `cwtwb://tool-surface` and `cwtwb://skills/index`.
+
 For client-specific details and the full reference, see [https://github.com/imgwho/cwtwb/blob/main/docs/guide.md](https://github.com/imgwho/cwtwb/blob/main/docs/guide.md).
 
 ## Highlights

@@ -135,6 +135,51 @@ editor.save("output/superstore.twbx")  # produces a single-entry ZIP with the .t
 
 ## MCP Reference
 
+### Stable Agent Contract
+
+The cwtwb MCP server is designed for direct tool calls through the connected MCP client. Agents should not try to invoke cwtwb through ad-hoc terminal commands such as:
+
+```bash
+mcp list-tools cwtwb
+mcp call cwtwb create_workbook '{"name": "Example"}'
+gh api /orgs/.../mcp/servers/cwtwb/tools
+```
+
+Those commands are not part of cwtwb, and most user machines do not have an `mcp` CLI installed. If a client cannot see tools such as `create_workbook`, `list_fields`, `add_worksheet`, or `save_workbook`, the correct fix is to reconnect/restart the MCP client and verify the server config, not to invent a shell command.
+
+Recommended diagnostic order:
+
+1. Confirm the server starts: `uvx cwtwb` or `uvx --from cwtwb cwtwb-mcp`
+2. Confirm the MCP client config points to the same command
+3. Fully restart the client so it reloads the tool surface
+4. Ask the client to list available MCP tools/resources from its own MCP UI or tool interface
+5. Read `cwtwb://tool-surface` and `cwtwb://skills/index`
+
+`uv cache clean` only clears package artifacts. It can help when an old wheel is being reused, but it does not repair a stale Claude/Cursor/VSCode MCP tool registry.
+
+### MCP Resources
+
+| Resource | Purpose |
+|---|---|
+| `cwtwb://tool-surface` | Stable tool call order, save semantics, and client usage rules |
+| `cwtwb://skills/index` | Lists phase-specific cwtwb authoring skills |
+| `cwtwb://skills/calculation_builder` | Tableau calculation syntax and calculated-field guidance |
+| `cwtwb://skills/chart_builder` | Chart selection and encoding guidance |
+| `cwtwb://skills/dashboard_designer` | Dashboard layout and composition guidance |
+| `cwtwb://skills/formatting` | Formatting and styling guidance |
+| `cwtwb://skills/validation` | Validation workflow guidance |
+| `file://docs/tableau_all_functions.json` | Tableau calculation function reference |
+| `cwtwb://profiles/index` | Dataset profile index, when profiles are configured |
+
+Compatibility aliases are provided for common guessed resource names:
+
+```text
+cwtwb://docs/manual-editing
+cwtwb://docs/tool-surface
+```
+
+These aliases exist to keep less disciplined clients from stopping on an `Unknown resource` error. New documentation and prompts should use the canonical resources above.
+
 ### MCP Tools
 
 | Tool | Description |

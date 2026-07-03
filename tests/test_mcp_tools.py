@@ -67,6 +67,24 @@ class TestToolDescriptions:
         assert "not enumerate callable MCP tools" in capability_desc
         assert "feature support catalog, not a tool inventory" in server_instructions
         assert "add_dashboard exists in the default MCP tool surface" in server_instructions
+        assert "do not run shell commands like 'mcp call'" in server_instructions
+
+    def test_compat_resources_steer_agents_to_real_tool_surface(self):
+        from cwtwb.mcp.app import (
+            read_docs_tool_surface_compat,
+            read_manual_editing_compat,
+            read_tool_surface,
+        )
+
+        tool_surface = read_tool_surface()
+        manual_editing = read_manual_editing_compat()
+        docs_tool_surface = read_docs_tool_surface_compat()
+
+        assert "Do not call a shell command named `mcp`" in tool_surface
+        assert "`save_workbook` is the default tool that writes" in tool_surface
+        assert "`cwtwb://docs/manual-editing`" in manual_editing
+        assert "cwtwb://tool-surface" in manual_editing
+        assert docs_tool_surface == tool_surface
 
 
 # ── remove_calculated_field ───────────────────────────────────────────────────
