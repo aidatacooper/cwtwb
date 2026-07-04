@@ -13,6 +13,7 @@ def upload_workbook(
     data_path: str | None = None,
     name: str | None = None,
     overwrite: bool = True,
+    env_path: str | None = None,
 ) -> dict:
     """Upload a .twb/.twbx to Tableau Cloud to validate it.
 
@@ -25,13 +26,14 @@ def upload_workbook(
         data_path: Optional data file (.xlsx/.xls/.hyper) to package.
         name: Workbook name on Tableau Cloud (defaults to filename stem).
         overwrite: Whether to overwrite existing workbook with same name.
+        env_path: Optional path to a .env file with Tableau credentials.
 
     Returns:
         {success, workbook_id, workbook_url, views, twbx_path, twbx_size_kb, error}
     """
     from ..validate.uploader import TableauUploader
 
-    uploader = TableauUploader()
+    uploader = TableauUploader(env_path=env_path)
     result = uploader.upload(twb_path, data_path, name, overwrite)
     return {
         "success": result.success,
@@ -48,6 +50,7 @@ def upload_workbook(
 def validate_workbook_api(
     twb_path: str,
     validation_level: str = "semantic",
+    env_path: str | None = None,
 ) -> dict:
     """Validate a .twb file via Tableau Cloud REST API (no publish).
 
@@ -63,13 +66,14 @@ def validate_workbook_api(
     Args:
         twb_path: Path to .twb file.
         validation_level: "syntactic" (XSD only) or "semantic" (full, default).
+        env_path: Optional path to a .env file with Tableau credentials.
 
     Returns:
         {success, validation_level, valid, errors, warnings, error}
     """
     from ..validate.uploader import TableauUploader
 
-    uploader = TableauUploader()
+    uploader = TableauUploader(env_path=env_path)
     result = uploader.validate(twb_path, validation_level)
     return {
         "success": result.success,

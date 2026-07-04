@@ -64,15 +64,54 @@ def _load_dotenv(env_path: Path) -> dict[str, str]:
     return result
 
 
-def _get_config() -> dict[str, str]:
-    """Load Tableau config from env vars, falling back to .env file.
-
-    Priority: env vars > project .env > home .env
-    """
+def _candidate_env_files(
+    env_path: str | Path | None = None,
+    workbook_path: str | Path | None = None,
+) -> list[Path]:
+    """Return .env files in priority order, excluding duplicates."""
     from ..config import PROJECT_ROOT
 
-    env_file = PROJECT_ROOT / ".env"
-    dotenv = _load_dotenv(env_file)
+    candidates: list[Path] = []
+    if env_path:
+        candidates.append(Path(env_path).expanduser())
+
+    env_file = os.environ.get("TABLEAU_ENV_FILE", "").strip()
+    if env_file:
+        candidates.append(Path(env_file).expanduser())
+
+    if workbook_path:
+        candidates.append(Path(workbook_path).expanduser().parent / ".env")
+
+    candidates.extend(
+        [
+            Path.cwd() / ".env",
+            PROJECT_ROOT / ".env",
+            Path.home() / ".env",
+        ]
+    )
+
+    result: list[Path] = []
+    seen: set[Path] = set()
+    for path in candidates:
+        resolved = path.resolve() if path.exists() else path.absolute()
+        if resolved not in seen:
+            seen.add(resolved)
+            result.append(path)
+    return result
+
+
+def _get_config(
+    env_path: str | Path | None = None,
+    workbook_path: str | Path | None = None,
+) -> dict[str, str]:
+    """Load Tableau config from env vars, falling back to .env file.
+
+    Priority: env vars > explicit env_path > TABLEAU_ENV_FILE >
+    workbook .env > cwd .env > project .env > home .env
+    """
+    dotenv: dict[str, str] = {}
+    for env_file in reversed(_candidate_env_files(env_path, workbook_path)):
+        dotenv.update(_load_dotenv(env_file))
 
     def _get(key: str, default: str = "") -> str:
         return os.environ.get(key) or dotenv.get(key, default)
@@ -131,8 +170,10 @@ class TableauUploader:
         pat_name: str | None = None,
         pat_secret: str | None = None,
         project_id: str | None = None,
+        env_path: str | Path | None = None,
     ) -> None:
-        cfg = _get_config()
+        self.env_path = env_path
+        cfg = _get_config(env_path=env_path)
         self.server_url = server or cfg["server"]
         self.site = site or cfg["site"]
         self.pat_name = pat_name or cfg["pat_name"]
@@ -141,6 +182,17 @@ class TableauUploader:
         self._server = None
         self._auth = None
         self._is_signed_in = False
+
+    def _refresh_config_for_workbook(self, workbook_path: str | Path) -> None:
+        """Load per-workbook config before the Tableau client is initialized."""
+        if self._server is not None:
+            return
+        cfg = _get_config(env_path=self.env_path, workbook_path=workbook_path)
+        self.server_url = cfg["server"]
+        self.site = cfg["site"]
+        self.pat_name = cfg["pat_name"]
+        self.pat_secret = cfg["pat_secret"]
+        self.project_id = cfg["project_id"]
 
     def _ensure_client(self):
         """Lazy import and init of tableauserverclient."""
@@ -198,6 +250,7 @@ class TableauUploader:
 
         Upload success = workbook structure is valid.
         """
+        self._refresh_config_for_workbook(twb_path)
         err = self._check_config()
         if err:
             return UploadResult(success=False, error=err)
@@ -426,6 +479,7 @@ class TableauUploader:
         Returns:
             ValidationResult with validity flag and error list.
         """
+        self._refresh_config_for_workbook(twb_path)
         err = self._check_config()
         if err:
             return ValidationResult(success=False, error=err)
@@ -493,6 +547,7 @@ class TableauUploader:
         Returns:
             ValidationResult with upload_id on success.
         """
+        self._refresh_config_for_workbook(twb_path)
         err = self._check_config()
         if err:
             return ValidationResult(success=False, error=err)

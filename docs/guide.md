@@ -76,12 +76,16 @@ pip install "cwtwb[validate]"
 cp .env.example .env  # Fill in your Tableau Cloud PAT credentials
 ```
 
+Credentials can also be selected at runtime with `env_path`, `TABLEAU_ENV_FILE`,
+or a `.env` file next to the workbook being validated. Environment variables
+remain the highest-priority source.
+
 **Python API:**
 
 ```python
 from cwtwb.validate import TableauUploader
 
-uploader = TableauUploader()
+uploader = TableauUploader(env_path="project/.env")
 
 # REST API semantic validation without publishing
 result = uploader.validate("output/my_workbook.twb", validation_level="semantic")
@@ -101,6 +105,7 @@ if result.success:
 
 ```
 validate_workbook_api(twb_path="output/my.twb", validation_level="semantic")
+validate_workbook_api(twb_path="output/my.twb", env_path="project/.env")
 upload_workbook(twb_path="output/my.twb", data_path="data.xlsx")
 screenshot_workbook(workbook_id="xxx", output_dir="output/validation")
 ```

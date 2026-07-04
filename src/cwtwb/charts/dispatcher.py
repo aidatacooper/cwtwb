@@ -246,7 +246,7 @@ def configure_chart(
 
     decision = decide_chart_builder(mark_type, measure_values=measure_values)
 
-    if decision.builder_name == "pie" and (color or wedge_size):
+    if decision.builder_name == "pie":
         builder = PieChartBuilder(
             editor, worksheet_name, color, wedge_size, label, detail, tooltip, filters
         )

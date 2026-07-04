@@ -303,9 +303,9 @@ cwtwb provides four levels of workbook validation:
 | Level | Description | Requires |
 |---|---|---|
 | **1. Local XSD** | Validate against the official Tableau TWB XSD schema (version-aware: 2026.1 or 2026.2) | None (built-in) |
-| **2. REST API Syntactic** | Validate XML syntax via Tableau Cloud REST API | `.env` + Tableau Cloud 2026.2+ |
-| **3. REST API Semantic** | Full semantic validation — guarantees the workbook opens in Tableau | `.env` + Tableau Cloud 2026.2+ |
-| **4. Upload + Screenshot** | Publish to Tableau Cloud/Server and capture a view image | `.env` + `pip install "cwtwb[validate]"` |
+| **2. REST API Syntactic** | Validate XML syntax via Tableau Cloud REST API | Tableau credentials + Tableau Cloud 2026.2+ |
+| **3. REST API Semantic** | Full semantic validation — guarantees the workbook opens in Tableau | Tableau credentials + Tableau Cloud 2026.2+ |
+| **4. Upload + Screenshot** | Publish to Tableau Cloud/Server and capture a view image | Tableau credentials + `pip install "cwtwb[validate]"` |
 
 ```python
 # Level 1 — Local XSD (in-memory, no save required)
@@ -314,7 +314,7 @@ print(result.to_text())
 
 # Level 3 — REST API semantic validation
 from cwtwb.validate.uploader import TableauUploader
-uploader = TableauUploader()
+uploader = TableauUploader(env_path="project/.env")
 result = uploader.validate("output.twb", validation_level="semantic")
 
 # Save with local XSD validation; REST API semantic validation also runs when .env is configured
@@ -325,6 +325,7 @@ editor.save("output.twb")
 # MCP tools
 validate_workbook(file_path="output.twb")                                       # Local XSD validation
 validate_workbook_api(twb_path="output.twb", validation_level="semantic")        # REST API validation
+validate_workbook_api(twb_path="output.twb", env_path="project/.env")            # Runtime credentials
 upload_workbook(twb_path="output.twb")                                          # Cloud upload
 screenshot_workbook(workbook_id="...", view_name="Sheet 1")                     # Visual check
 ```
@@ -341,11 +342,11 @@ No. `validate_workbook()` performs local XSD validation on the active in-memory 
 
 ### What validation does `save()` perform?
 
-`save()` runs local XSD validation automatically before replacing the final output file. For `.twb` output, REST API semantic validation also runs when `.env` Tableau credentials are configured and the server supports it. Use `validate_workbook_api(..., validation_level="semantic")` when you want to request the Tableau Cloud/Server validation step directly.
+`save()` runs local XSD validation automatically before replacing the final output file. For `.twb` output, REST API semantic validation also runs when Tableau credentials are configured and the server supports it. Use `validate_workbook_api(..., validation_level="semantic")` when you want to request the Tableau Cloud/Server validation step directly.
 
 ### What is `upload_workbook` for?
 
-`upload_workbook` uploads a `.twb` to Tableau Cloud/Server to verify it is structurally valid. Upload success means Tableau Cloud/Server can parse the workbook. Requires `pip install "cwtwb[validate]"` and a `.env` file with Tableau credentials (see `.env.example`).
+`upload_workbook` uploads a `.twb` to Tableau Cloud/Server to verify it is structurally valid. Upload success means Tableau Cloud/Server can parse the workbook. Requires `pip install "cwtwb[validate]"` and Tableau credentials from environment variables, an explicit `env_path`, `TABLEAU_ENV_FILE`, or a `.env` file next to the workbook.
 
 ### How do I set up Tableau Cloud/Server validation?
 
@@ -354,6 +355,8 @@ No. `validate_workbook()` performs local XSD validation on the active in-memory 
 3. Fill in your Tableau Cloud/Server PAT credentials
 4. Call `save_workbook` to write the `.twb` or `.twbx`
 5. Call `validate_workbook_api` for REST API semantic validation, or `upload_workbook` when you also want publish/openability evidence
+
+Credential lookup order is environment variables first, then an explicit `env_path`, `TABLEAU_ENV_FILE`, the workbook sibling `.env`, the current working directory `.env`, the cwtwb project `.env`, and finally the user's home `.env`.
 
 ### When should I use `uvx cwtwb` versus `python -m cwtwb.mcp_server`?
 

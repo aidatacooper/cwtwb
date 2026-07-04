@@ -18,6 +18,7 @@ from cwtwb.twb_editor import TWBEditor
 def da_editor():
     template = Path(__file__).parent.parent / "templates" / "twb" / "superstore.twb"
     ed = TWBEditor(template)
+    ed.add_calculated_field("Target Reached", 'IF SUM([Sales]) >= 0 THEN "⬤" ELSE " " END', "string")
     ed.add_worksheet("Combo")
     return ed
 
@@ -108,10 +109,10 @@ class TestColorMap1:
             color_map_1={"⬤": "#b2e1c1", " ": "#adb1c5"},
         )
         ds = da_editor._datasource
-        encoding = ds.find(".//encoding[@attr='color']")
+        encoding = ds.find(".//encoding[@attr='color'][@type='palette']")
         assert encoding is not None
-        buckets = encoding.findall("bucket")
-        bucket_values = [b.get("color") for b in buckets]
+        maps = encoding.findall("map")
+        bucket_values = [m.get("to") for m in maps]
         assert "#b2e1c1" in bucket_values
         assert "#adb1c5" in bucket_values
 

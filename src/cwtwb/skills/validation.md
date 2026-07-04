@@ -46,6 +46,13 @@ level for the situation.
    -> valid=false: read errors, fix and retry
 ```
 
+Use `env_path` when credentials live outside the MCP server's launch
+environment:
+
+```
+validate_workbook_api(twb_path, validation_level="semantic", env_path="project/.env")
+```
+
 ### Option C: Upload + screenshot (visual confirmation)
 ```
 1. save_workbook(path)
@@ -57,7 +64,7 @@ level for the situation.
 ## Pre-flight
 
 - **Local XSD**: no configuration needed
-- **REST API validation**: requires `.env` with Tableau credentials (see `.env.example`) + `pip install 'cwtwb[validate]'`
+- **REST API validation**: requires Tableau credentials from environment variables, explicit `env_path`, `TABLEAU_ENV_FILE`, a workbook sibling `.env`, cwd `.env`, project `.env`, or home `.env` + `pip install 'cwtwb[validate]'`
 - **Upload**: same as REST API validation
 - If not configured, tool returns a clear error message
 
