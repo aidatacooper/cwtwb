@@ -67,7 +67,7 @@ Available worksheet-refactor helpers:
 
 ### Cloud Validation
 
-After saving a workbook, use `validate_workbook_api` for Tableau Cloud/Server REST API validation without publishing, or use `upload_workbook` to publish and verify that Tableau Cloud can parse the workbook. Optionally capture a screenshot for human review.
+After saving a workbook, prefer `validate_workbook_api` for Tableau Cloud/Server REST API validation without publishing. Use `upload_workbook` only when you explicitly need publish/openability evidence, `.twbx` package validation, a workbook ID, or a screenshot.
 
 **Setup:**
 
@@ -77,8 +77,9 @@ cp .env.example .env  # Fill in your Tableau Cloud PAT credentials
 ```
 
 Credentials can also be selected at runtime with `env_path`, `TABLEAU_ENV_FILE`,
-or a `.env` file next to the workbook being validated. Environment variables
-remain the highest-priority source.
+or a `.env` file next to the workbook being validated. Explicit `env_path`
+has the highest priority for one-off validation calls, so MCP users do not
+need to edit server configuration or restart the server to switch credentials.
 
 **Python API:**
 
@@ -91,7 +92,7 @@ uploader = TableauUploader(env_path="project/.env")
 result = uploader.validate("output/my_workbook.twb", validation_level="semantic")
 print(result.success, result.valid)
 
-# Upload and validate through Tableau Cloud parsing
+# Publish only when you need openability evidence, TWBX validation, or screenshots
 result = uploader.upload("output/my_workbook.twb", data_path="data.xlsx")
 print(result.success, result.workbook_url)
 
@@ -107,7 +108,7 @@ if result.success:
 validate_workbook_api(twb_path="output/my.twb", validation_level="semantic")
 validate_workbook_api(twb_path="output/my.twb", env_path="project/.env")
 upload_workbook(twb_path="output/my.twb", data_path="data.xlsx")
-screenshot_workbook(workbook_id="xxx", output_dir="output/validation")
+screenshot_workbook(workbook_id="xxx", output_dir="output/validation", env_path="project/.env")
 ```
 
 ### Working with Packaged Workbooks (.twbx)
@@ -214,21 +215,22 @@ These aliases exist to keep less disciplined clients from stopping on an `Unknow
 | `describe_capability` | Explain whether a chart or feature is core, advanced, recipe, or unsupported |
 | `analyze_twb` | Analyze a `.twb` file against the capability catalog; output includes both the full capability breakdown and the capability gap triage summary |
 | `diff_template_gap` | Summarize the non-core gap of a template |
-| `validate_workbook` | Validate a workbook against the official Tableau TWB XSD schema (2026.1) |
+| `validate_workbook` | Validate a workbook against the official Tableau TWB XSD schema (version-aware 2026.1/2026.2) |
 | `validate_workbook_api` | Validate a `.twb` via Tableau Cloud/Server REST API without publishing (requires `cwtwb[validate]`) |
 | `set_excel_connection` | Configure the datasource to use a local Excel workbook and register fields from the selected sheet |
 | `set_mysql_connection` | Configure the datasource to use a local MySQL connection |
 | `set_tableauserver_connection` | Configure connection to an online Tableau Server |
 | `set_hyper_connection` | Configure the datasource to use a local Hyper extract connection |
 | `save_workbook` | Save the workbook as `.twb` (plain XML) or `.twbx` (ZIP with bundled extracts and images) |
-| `upload_workbook` | Upload `.twb` to Tableau Cloud to verify structural validity (requires `cwtwb[validate]`) |
-| `screenshot_workbook` | Capture a view image from a published workbook for human review (requires `cwtwb[validate]`) |
+| `upload_workbook` | Publish `.twb`/`.twbx` to Tableau Cloud for explicit openability evidence, `.twbx` validation, or screenshots (requires `cwtwb[validate]`) |
+| `screenshot_workbook` | Capture a view image from a workbook published by `upload_workbook` (requires `cwtwb[validate]`) |
 
 Important save semantics for agents:
 
 - `save_workbook(output_path=...)` is the only default MCP tool that writes the active in-memory workbook to disk.
 - `validate_workbook()` validates the active in-memory workbook or an existing file, but it does not save or export anything.
-- `validate_workbook_api()` performs Tableau Cloud/Server REST API syntactic or semantic validation without publishing.
+- `validate_workbook_api()` performs Tableau Cloud/Server REST API syntactic or semantic validation without publishing. Prefer it for default `.twb` cloud validation.
+- `upload_workbook()` publishes the workbook; use it only for explicit publish/openability evidence, `.twbx` validation, or screenshots.
 - `analyze_twb(file_path=...)` requires an existing `.twb` or `.twbx` path. For a newly generated workbook, call `save_workbook` first, then call `analyze_twb` on the saved path.
 - Migration tools are for repointing existing workbooks to new datasources; they are not a substitute for saving the active workbook.
 
@@ -323,12 +325,12 @@ This keeps new feature work aligned with the project's real product boundary ins
 
 #### XSD schema validation
 
-`TWBEditor.validate_schema()` checks the workbook against the official Tableau TWB XSD schema (2026.1). Source checkouts use `vendor/tableau-document-schemas/`; installed packages, including `uvx cwtwb`, use the packaged copy under `cwtwb/vendor/`:
+`TWBEditor.validate_schema()` checks the workbook against the official Tableau TWB XSD schema with version-aware 2026.1/2026.2 support. Source checkouts use `vendor/tableau-document-schemas/`; installed packages, including `uvx cwtwb`, use the packaged copy under `cwtwb/vendor/`:
 
 ```python
 result = editor.validate_schema()
 print(result.to_text())
-# PASS  Workbook is valid against Tableau TWB XSD schema (2026.1)
+# PASS  Workbook is valid against Tableau TWB XSD schema
 # — or —
 # FAIL  Schema validation failed (2 error(s)):
 #   * Element 'workbook': Missing child element(s)...

@@ -38,13 +38,12 @@ class TestLoadDotenv:
         result = _load_dotenv(tmp_path / "nonexistent.env")
         assert result == {}
 
-    def test_does_not_override_env_vars(self, tmp_path, monkeypatch):
+    def test_load_dotenv_reads_values_even_when_env_vars_exist(self, tmp_path, monkeypatch):
         monkeypatch.setenv("TABLEAU_SERVER", "https://override.com")
         env_file = tmp_path / ".env"
         env_file.write_text("TABLEAU_SERVER=https://default.com\n")
         result = _load_dotenv(env_file)
-        # Should not include key that's already in env
-        assert "TABLEAU_SERVER" not in result
+        assert result["TABLEAU_SERVER"] == "https://default.com"
 
     def test_get_config_uses_explicit_env_path(self, tmp_path, monkeypatch):
         monkeypatch.delenv("TABLEAU_PAT_NAME", raising=False)
@@ -63,6 +62,42 @@ class TestLoadDotenv:
         assert cfg["pat_name"] == "from-file"
         assert cfg["pat_secret"] == "secret"
         assert cfg["project_id"] == "project"
+
+    def test_explicit_env_path_overrides_process_env(self, tmp_path, monkeypatch):
+        monkeypatch.setenv("TABLEAU_PAT_NAME", "from-process")
+        monkeypatch.setenv("TABLEAU_PAT_SECRET", "process-secret")
+        monkeypatch.setenv("TABLEAU_PROJECT_ID", "process-project")
+
+        env_file = tmp_path / "tableau.env"
+        env_file.write_text(
+            "TABLEAU_PAT_NAME=from-file\n"
+            "TABLEAU_PAT_SECRET=file-secret\n"
+            "TABLEAU_PROJECT_ID=file-project\n"
+        )
+
+        cfg = _get_config(env_path=env_file)
+
+        assert cfg["pat_name"] == "from-file"
+        assert cfg["pat_secret"] == "file-secret"
+        assert cfg["project_id"] == "file-project"
+
+    def test_process_env_overrides_auto_discovered_env_files(self, tmp_path, monkeypatch):
+        monkeypatch.setenv("TABLEAU_PAT_NAME", "from-process")
+        monkeypatch.setenv("TABLEAU_PAT_SECRET", "process-secret")
+        monkeypatch.setenv("TABLEAU_PROJECT_ID", "process-project")
+        monkeypatch.chdir(tmp_path)
+
+        (tmp_path / ".env").write_text(
+            "TABLEAU_PAT_NAME=from-cwd\n"
+            "TABLEAU_PAT_SECRET=cwd-secret\n"
+            "TABLEAU_PROJECT_ID=cwd-project\n"
+        )
+
+        cfg = _get_config()
+
+        assert cfg["pat_name"] == "from-process"
+        assert cfg["pat_secret"] == "process-secret"
+        assert cfg["project_id"] == "process-project"
 
     def test_workbook_env_precedes_cwd_env(self, tmp_path, monkeypatch):
         monkeypatch.delenv("TABLEAU_PAT_NAME", raising=False)

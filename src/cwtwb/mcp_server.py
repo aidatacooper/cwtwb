@@ -13,6 +13,7 @@ Supported launch styles:
 """
 
 from .mcp.app import (
+    get_mcp_status,
     main,
     read_dataset_profile,
     read_profiles_index,
@@ -39,6 +40,7 @@ from .mcp.tools_workbook import (
     configure_chart,
     configure_chart_recipe,
     configure_dual_axis,
+    configure_worksheet_style,
     create_workbook,
     describe_capability,
     diff_template_gap,
@@ -71,6 +73,7 @@ from .mcp.tools_workbook import (
 __all__ = [
     "main",
     "server",
+    "get_mcp_status",
     "read_tableau_functions",
     "read_skills_index",
     "read_skill",
@@ -84,6 +87,7 @@ __all__ = [
     "migrate_twb_guided",
     "configure_chart",
     "configure_dual_axis",
+    "configure_worksheet_style",
     "configure_chart_recipe",
     "add_dashboard",
     "add_dashboard_action",

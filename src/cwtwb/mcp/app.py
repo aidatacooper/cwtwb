@@ -26,6 +26,8 @@ it summarises the required call order and points agents to skill resources.
 
 from __future__ import annotations
 
+import os
+from importlib.metadata import PackageNotFoundError, version
 from typing import Optional
 
 from mcp.server.fastmcp import FastMCP
@@ -71,17 +73,21 @@ server = FastMCP(
     "Prefer a small fixed layout template and fill worksheet names and sizes instead of free-form layout generation. "
     "Use validate_workbook after saving when the human asks for an explicit validation report. "
     "For deeper semantic validation (formulas, field references, data connectivity), use "
-    "validate_workbook_api which calls the Tableau Cloud REST API (requires .env credentials). "
+    "validate_workbook_api which calls the Tableau Cloud REST API. Pass env_path for "
+    "one-off Tableau credentials; do not edit MCP server configuration just to switch "
+    "credentials for a single validation call. "
     "Prefer core primitives first, and use list_capabilities or describe_capability "
     "when you need to check whether a chart or feature is core, advanced, or recipe-only. "
     "For professional-quality output, optionally read the agent skills "
     "(cwtwb://skills/index) before starting each phase. "
     "If a guessed documentation resource such as cwtwb://docs/manual-editing is unavailable, "
     "list resources and use cwtwb://tool-surface or cwtwb://skills/index. "
-    "After save_workbook, use upload_workbook to validate the generated .twb on "
-    "Tableau Cloud (requires .env with TABLEAU_PAT credentials). Upload success "
-    "confirms the workbook is structurally valid. Optionally use screenshot_workbook "
-    "to capture a view image for human review.",
+    "If an agent is unsure whether it is connected to the expected cwtwb server, call "
+    "get_mcp_status. After save_workbook, prefer validate_workbook_api(env_path=...) "
+    "for Tableau Cloud semantic validation because it does not publish or store the workbook. "
+    "Use upload_workbook only when the user explicitly needs a published workbook_id, "
+    "a screenshot, TWBX packaging validation, or publish/openability evidence. "
+    "Use screenshot_workbook only after upload_workbook returns a workbook_id.",
 )
 
 _editor: Optional[TWBEditor] = None
@@ -100,6 +106,55 @@ def set_editor(editor: TWBEditor) -> None:
 
     global _editor
     _editor = editor
+
+
+@server.tool()
+def get_mcp_status() -> dict:
+    """Report cwtwb MCP server version, workbook state, and safe usage guardrails.
+
+    Use this when an AI client seems stale, cannot see expected tools, or is
+    about to edit MCP configuration to switch Tableau credentials. This tool
+    never returns secret values.
+    """
+
+    try:
+        package_version = version("cwtwb")
+    except PackageNotFoundError:
+        package_version = "editable/local"
+
+    env_names = [
+        "TABLEAU_SERVER",
+        "TABLEAU_SITE",
+        "TABLEAU_PAT_NAME",
+        "TABLEAU_PAT_SECRET",
+        "TABLEAU_PROJECT_ID",
+        "TABLEAU_ENV_FILE",
+    ]
+    return {
+        "server": "cwtwb",
+        "version": package_version,
+        "active_workbook": _editor is not None,
+        "tableau_env_vars_present": [name for name in env_names if os.environ.get(name)],
+        "credential_priority": [
+            "explicit constructor arguments",
+            "tool env_path",
+            "process environment variables",
+            "TABLEAU_ENV_FILE",
+            "workbook sibling .env",
+            "current working directory .env",
+            "cwtwb project .env",
+            "home .env",
+        ],
+        "guardrails": [
+            "Use MCP tools directly; do not run shell commands named mcp to invoke cwtwb tools.",
+            "Use env_path on validate_workbook_api, upload_workbook, and screenshot_workbook for one-off Tableau credentials.",
+            "Prefer validate_workbook_api for cloud semantic validation; it is lighter because it does not publish or store the workbook.",
+            "Use upload_workbook only for explicit publish/openability evidence, TWBX packaging validation, or as the required precursor to screenshot_workbook.",
+            "Do not edit MCP server configuration just to switch Tableau credentials for one workbook.",
+            "If a newly released tool parameter is missing, reconnect or restart the MCP client to reload the tool schema.",
+            "Call save_workbook to write the active workbook; validate_workbook and analyze_twb do not save files.",
+        ],
+    }
 
 
 def main():
@@ -147,6 +202,7 @@ def _tool_surface_text() -> str:
             "",
             "## Stable workbook flow",
             "",
+            "0. Optional troubleshooting: call `get_mcp_status` if the client seems stale, expected tools are missing, or Tableau credential handling is unclear",
             "1. `create_workbook` or `open_workbook`",
             "2. `set_excel_connection`, `set_csv_connection`, `set_hyper_connection`, `set_mysql_connection`, or `set_tableauserver_connection` when changing the datasource",
             "3. `list_fields` and `list_worksheets`",
@@ -154,13 +210,20 @@ def _tool_surface_text() -> str:
             "5. `list_worksheets` before dashboard authoring; reuse exact worksheet names",
             "6. `generate_layout_json` or `generate_layout_yaml` for custom dashboard layout files, then `add_dashboard`",
             "7. `save_workbook` to write the `.twb` or `.twbx` file",
-            "8. Optional: `validate_workbook`, `validate_workbook_api`, `upload_workbook`, `screenshot_workbook`",
+            "8. Optional validation: `validate_workbook`, then prefer `validate_workbook_api(env_path=...)` for cloud semantic validation",
+            "9. Optional publish/visual evidence only: `upload_workbook(env_path=...)`, then `screenshot_workbook(env_path=...)` if a screenshot is required",
             "",
             "## Important boundaries",
             "",
             "- `save_workbook` is the default tool that writes the active workbook to disk.",
             "- `validate_workbook` validates only; it does not save or export.",
             "- `list_capabilities` describes supported chart/features; it is not a tool inventory.",
+            "- `get_mcp_status` reports version/state and credential guardrails without exposing secrets.",
+            "- `env_path` on validation/upload/screenshot tools is the correct way to switch Tableau credentials for a single call.",
+            "- `validate_workbook_api` is the default Tableau Cloud validation tool for `.twb` because it does not publish the workbook.",
+            "- `upload_workbook` publishes the workbook; use it only for explicit publish/openability evidence, TWBX validation, or screenshots.",
+            "- `screenshot_workbook` requires a `workbook_id` returned by `upload_workbook`.",
+            "- Do not edit MCP server configuration just to switch Tableau credentials for one workbook.",
             "- For phase guidance, read `cwtwb://skills/index` and then the relevant `cwtwb://skills/<skill_name>` resource.",
             "- For Tableau calculation functions, read `file://docs/tableau_all_functions.json`.",
             "",

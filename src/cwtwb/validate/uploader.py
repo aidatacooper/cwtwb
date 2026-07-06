@@ -48,7 +48,7 @@ class ScreenshotResult:
 
 
 def _load_dotenv(env_path: Path) -> dict[str, str]:
-    """Load a .env file into a dict without overriding existing env vars."""
+    """Load a .env file into a dict."""
     result: dict[str, str] = {}
     if not env_path.exists():
         return result
@@ -59,7 +59,7 @@ def _load_dotenv(env_path: Path) -> dict[str, str]:
                 continue
             key, _, value = line.partition("=")
             key, value = key.strip(), value.strip()
-            if key and key not in os.environ:
+            if key:
                 result[key] = value
     return result
 
@@ -106,23 +106,47 @@ def _get_config(
 ) -> dict[str, str]:
     """Load Tableau config from env vars, falling back to .env file.
 
-    Priority: env vars > explicit env_path > TABLEAU_ENV_FILE >
+    Priority: explicit env_path > env vars > TABLEAU_ENV_FILE >
     workbook .env > cwd .env > project .env > home .env
     """
+    explicit_env = Path(env_path).expanduser() if env_path else None
+    explicit_resolved = (
+        explicit_env.resolve() if explicit_env and explicit_env.exists()
+        else explicit_env.absolute() if explicit_env
+        else None
+    )
     dotenv: dict[str, str] = {}
     for env_file in reversed(_candidate_env_files(env_path, workbook_path)):
+        resolved = env_file.resolve() if env_file.exists() else env_file.absolute()
+        if explicit_resolved is not None and resolved == explicit_resolved:
+            continue
         dotenv.update(_load_dotenv(env_file))
 
     def _get(key: str, default: str = "") -> str:
         return os.environ.get(key) or dotenv.get(key, default)
 
-    return {
+    config = {
         "server": _get("TABLEAU_SERVER", "https://10ax.online.tableau.com"),
         "site": _get("TABLEAU_SITE", ""),
         "pat_name": _get("TABLEAU_PAT_NAME", ""),
         "pat_secret": _get("TABLEAU_PAT_SECRET", ""),
         "project_id": _get("TABLEAU_PROJECT_ID", ""),
     }
+
+    if explicit_env is not None:
+        explicit_values = _load_dotenv(explicit_env)
+        explicit_map = {
+            "server": "TABLEAU_SERVER",
+            "site": "TABLEAU_SITE",
+            "pat_name": "TABLEAU_PAT_NAME",
+            "pat_secret": "TABLEAU_PAT_SECRET",
+            "project_id": "TABLEAU_PROJECT_ID",
+        }
+        for config_key, env_key in explicit_map.items():
+            if explicit_values.get(env_key):
+                config[config_key] = explicit_values[env_key]
+
+    return config
 
 
 def _package_twbx(

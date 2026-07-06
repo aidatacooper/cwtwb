@@ -543,7 +543,12 @@ def set_tableauserver_connection(
     directory: str = "/dataserver",
     port: str = "82",
 ) -> str:
-    """Configure the workbook datasource to use a Tableau Server connection."""
+    """Configure the workbook datasource to use a Tableau Server connection.
+
+    This edits the workbook datasource connection only. It does not configure
+    Tableau REST API/PAT credentials for validate_workbook_api, upload_workbook,
+    or screenshot_workbook; pass env_path to those validation tools instead.
+    """
 
     editor = get_editor()
     return editor.set_tableauserver_connection(
@@ -672,7 +677,7 @@ def add_dashboard_action(
 
 @server.tool()
 def save_workbook(output_path: str) -> str:
-    """Save the workbook as a TWB file. Use a .twbx extension to produce a
+    """Save the active workbook as a .twb or .twbx file. Use a .twbx extension to produce a
     packaged workbook (ZIP) that bundles the XML with any data extracts and
     images carried over from the source .twbx.
 
@@ -939,7 +944,7 @@ def diff_template_gap(file_path: str) -> str:
 
 @server.tool()
 def validate_workbook(file_path: Optional[str] = None) -> str:
-    """Validate a workbook against the official Tableau TWB XSD schema (2026.1).
+    """Validate a workbook against the official Tableau TWB XSD schema.
 
     Checks whether the generated XML conforms to Tableau's published schema.
     This tool does not save or export the active workbook. If file_path is

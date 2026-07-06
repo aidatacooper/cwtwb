@@ -1,4 +1,4 @@
-"""MCP tools for workbook validation via Tableau Cloud upload."""
+"""MCP tools for Tableau Cloud semantic validation, publish, and screenshots."""
 
 from __future__ import annotations
 
@@ -15,11 +15,12 @@ def upload_workbook(
     overwrite: bool = True,
     env_path: str | None = None,
 ) -> dict:
-    """Upload a .twb/.twbx to Tableau Cloud to validate it.
+    """Publish a .twb/.twbx to Tableau Cloud for openability or screenshots.
 
-    Upload success means the workbook structure is valid and Tableau Cloud
-    can parse it. Use this after saving a generated workbook to verify
-    correctness.
+    Prefer validate_workbook_api for the default cloud semantic validation
+    path because it does not publish or store the workbook. Use upload_workbook
+    only when you explicitly need a published workbook_id, visual screenshot,
+    TWBX packaging validation, or publish/openability evidence.
 
     Args:
         twb_path: Path to .twb or .twbx file.
@@ -27,6 +28,7 @@ def upload_workbook(
         name: Workbook name on Tableau Cloud (defaults to filename stem).
         overwrite: Whether to overwrite existing workbook with same name.
         env_path: Optional path to a .env file with Tableau credentials.
+            Explicit env_path takes priority over process environment variables.
 
     Returns:
         {success, workbook_id, workbook_url, views, twbx_path, twbx_size_kb, error}
@@ -67,6 +69,7 @@ def validate_workbook_api(
         twb_path: Path to .twb file.
         validation_level: "syntactic" (XSD only) or "semantic" (full, default).
         env_path: Optional path to a .env file with Tableau credentials.
+            Explicit env_path takes priority over process environment variables.
 
     Returns:
         {success, validation_level, valid, errors, warnings, error}
@@ -91,6 +94,7 @@ def screenshot_workbook(
     output_dir: str = "output/validation",
     view_index: int = 0,
     view_name: str | None = None,
+    env_path: str | None = None,
 ) -> dict:
     """Screenshot a published workbook's view for human review.
 
@@ -102,13 +106,15 @@ def screenshot_workbook(
         output_dir: Directory to save screenshot (default: output/validation).
         view_index: Index of the view to screenshot (default: 0).
         view_name: Name of the view to screenshot (overrides view_index).
+        env_path: Optional path to a .env file with Tableau credentials.
+            Explicit env_path takes priority over process environment variables.
 
     Returns:
         {success, path, view_name, view_id, size_kb, error}
     """
     from ..validate.uploader import TableauUploader
 
-    uploader = TableauUploader()
+    uploader = TableauUploader(env_path=env_path)
     result = uploader.screenshot(workbook_id, output_dir, view_index, view_name)
     return {
         "success": result.success,

@@ -5,6 +5,23 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.22.5] - 2026-07-07
+
+### Added
+
+- **MCP status guardrail tool**: added `get_mcp_status()` so AI clients can inspect cwtwb MCP version, active workbook state, Tableau credential source names, and safe usage guidance without exposing secret values.
+
+### Changed
+
+- **Cloud validation priority clarified**: MCP instructions, validation skill docs, README, and guide now direct agents to prefer `validate_workbook_api(env_path=...)` for default `.twb` semantic validation because it does not publish or store the workbook.
+- **Upload workflow narrowed to explicit publish scenarios**: `upload_workbook()` is now documented as the tool for publish/openability evidence, `.twbx` package validation, workbook IDs, and screenshots rather than the default validation path.
+- **Runtime credential selection hardened**: explicit `env_path` now takes priority over MCP process environment variables for Tableau validation/upload/screenshot calls, preventing stale server config from overriding per-call credentials.
+- **MCP tool surface consistency improved**: exported `configure_worksheet_style`, documented `screenshot_workbook(env_path=...)`, clarified Tableau Server datasource connection boundaries, and refreshed compatibility resource exports for older callers.
+
+### Fixed
+
+- **Schema documentation accuracy**: removed stale 2026.1-only wording in guide/tool docs and described local XSD validation as version-aware for 2026.1/2026.2.
+
 ## [0.22.4] - 2026-07-04
 
 ### Added
@@ -13,7 +30,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
-- **Tableau validation config now follows workbook context**: when no explicit `env_path` is provided, Tableau validation falls back to `TABLEAU_ENV_FILE`, the workbook's sibling `.env`, the current working directory `.env`, the cwtwb project `.env`, and the user's home `.env`, while preserving environment variables as the highest-priority override.
+- **Tableau validation config now follows workbook context**: when no explicit `env_path` is provided, Tableau validation falls back to process environment variables, `TABLEAU_ENV_FILE`, the workbook's sibling `.env`, the current working directory `.env`, the cwtwb project `.env`, and the user's home `.env`.
 
 ## [0.22.3] - 2026-07-03
 

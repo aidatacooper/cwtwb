@@ -6,10 +6,13 @@ Resources now live in ``cwtwb.mcp.app``. This shim keeps imports like
 
 from .app import (
     read_dataset_profile,
+    read_docs_tool_surface_compat,
+    read_manual_editing_compat,
     read_profiles_index,
     read_skill,
     read_skills_index,
     read_tableau_functions,
+    read_tool_surface,
 )
 
 __all__ = [
@@ -18,4 +21,7 @@ __all__ = [
     "read_skill",
     "read_profiles_index",
     "read_dataset_profile",
+    "read_tool_surface",
+    "read_manual_editing_compat",
+    "read_docs_tool_surface_compat",
 ]
