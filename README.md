@@ -28,7 +28,15 @@ The `cw` in `cwtwb` comes from `Cooper Wenhua`.
 [![Python](https://img.shields.io/badge/Python-3.10%2B-3776AB?style=flat-square)](https://www.python.org/)
 
 
-[![Star History Chart](https://api.star-history.com/svg?repos=imgwho/cwtwb&type=Date)](https://star-history.com/#imgwho/cwtwb&Date)
+## Star History
+
+<a href="https://www.star-history.com/?type=date&repos=imgwho%2Fcwtwb">
+ <picture>
+   <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/chart?repos=imgwho/cwtwb&type=date&theme=dark&legend=top-left&sealed_token=xm3jy3j2engEOCmBiEq5NWoEpLFpz2tk_AiGAm3CuirRz2JBRu-JvFCus44LiKs419FJajjTqMGzab8aq8NoxqyD92N90PEWJZBQTDsLsskdS_Zcmbimjw" />
+   <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/chart?repos=imgwho/cwtwb&type=date&legend=top-left&sealed_token=xm3jy3j2engEOCmBiEq5NWoEpLFpz2tk_AiGAm3CuirRz2JBRu-JvFCus44LiKs419FJajjTqMGzab8aq8NoxqyD92N90PEWJZBQTDsLsskdS_Zcmbimjw" />
+   <img alt="Star History Chart" src="https://api.star-history.com/chart?repos=imgwho/cwtwb&type=date&legend=top-left&sealed_token=xm3jy3j2engEOCmBiEq5NWoEpLFpz2tk_AiGAm3CuirRz2JBRu-JvFCus44LiKs419FJajjTqMGzab8aq8NoxqyD92N90PEWJZBQTDsLsskdS_Zcmbimjw" />
+ </picture>
+</a>
 
 [Try the example workflow](examples/scripts/demo_all_supported_charts.py) · [Read the guide](https://github.com/imgwho/cwtwb/blob/main/docs/guide.md)
 
@@ -58,7 +66,7 @@ pip install "cwtwb[validate]"
 uvx cwtwb
 ```
 
-The short form above remains the simplest option and is the default config shown in this repository.
+The short form above remains the simplest option and is the default config shown in this repository. `cwtwb` is a smart entrypoint: with no arguments in an interactive terminal it prints CLI help; when launched by an MCP client over stdio it starts the server.
 
 Add the server to your MCP client with the same command. For example:
 
@@ -84,9 +92,34 @@ For VSCode, add `cwtwb` to your workspace or user `mcp.json` and use `uvx cwtwb`
 If you prefer an explicit script name, these equivalent launch styles also work:
 
 ```bash
+uvx cwtwb mcp
 uvx --from cwtwb cwtwb-mcp
 python -m cwtwb.mcp_server
 ```
+
+### Use As A CLI
+
+The same package also exposes first-class command-line workflows for humans, scripts, CI, and agents that need direct file operations instead of MCP tool calls.
+
+```bash
+cwtwb --help
+cwtwb doctor
+cwtwb status --json
+cwtwb inspect workbook.twb --json
+cwtwb validate workbook.twb
+cwtwb analyze workbook.twb --json
+cwtwb run examples/specs/basic_cli.yaml
+```
+
+Common write commands require an explicit output path by default:
+
+```bash
+cwtwb create --out output/base.twb
+cwtwb chart add output/base.twb --worksheet "Sales by Category" --mark Bar --rows Category --columns "SUM(Sales)" --out output/chart.twb
+cwtwb dashboard add output/chart.twb --name Overview --worksheets "Sales by Category" --out output/dashboard.twb
+```
+
+Use `--in-place` only when you intentionally want to overwrite the input workbook, and `--force` only when replacing an existing output file.
 
 ### MCP Client Stability
 

@@ -1,0 +1,31 @@
+output: output/cli_spec_overview.twb
+clear_worksheets: true
+
+calculated_fields:
+  - name: Profit Ratio
+    formula: SUM([Profit]) / SUM([Sales])
+    datatype: real
+
+worksheets:
+  - name: Sales by Category
+    mark: Bar
+    rows:
+      - Category
+    columns:
+      - SUM(Sales)
+
+  - name: Profit by Region
+    mark: Bar
+    rows:
+      - Region
+    columns:
+      - SUM(Profit)
+
+dashboard:
+  name: Overview
+  worksheets:
+    - Sales by Category
+    - Profit by Region
+  layout: horizontal
+
+validate: true

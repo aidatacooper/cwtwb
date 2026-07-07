@@ -23,7 +23,17 @@ def template_root():
 
 @pytest.fixture(scope="module")
 def template_datasource(template_root):
-    ds = template_root.find(".//datasource[@name]")
+    ds = next(
+        (
+            candidate
+            for candidate in template_root.findall(".//datasource[@name]")
+            if candidate.find(".//column[@caption='Sales']") is not None
+            or any("sales" in (column.get("name") or "").lower() for column in candidate.findall(".//column"))
+        ),
+        None,
+    )
+    if ds is None:
+        ds = template_root.find(".//datasource[@name]")
     assert ds is not None, "No named datasource found in template"
     return ds
 
@@ -34,11 +44,11 @@ class TestDatasourceColumns:
         assert len(cols) > 0, "Template datasource should have at least one column"
 
     def test_sales_column_present(self, template_datasource):
-        sales = template_datasource.find("column[@caption='Sales']")
+        sales = template_datasource.find(".//column[@caption='Sales']")
         if sales is None:
             # Some templates use local-name style
             sales = next(
-                (c for c in template_datasource.findall("column") if "sales" in (c.get("name") or "").lower()),
+                (c for c in template_datasource.findall(".//column") if "sales" in (c.get("name") or "").lower()),
                 None,
             )
         assert sales is not None, "Template should contain a Sales column"

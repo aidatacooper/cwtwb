@@ -1,11 +1,23 @@
-"""cwtwb - Tableau Workbook (.twb) Generation MCP Server"""
+"""cwtwb - Tableau Workbook (.twb) Generation Toolkit and MCP Server"""
 
 from importlib.metadata import PackageNotFoundError, version
+from pathlib import Path
+
+
+def _read_local_pyproject_version() -> str | None:
+    pyproject = Path(__file__).resolve().parents[2] / "pyproject.toml"
+    if not pyproject.exists():
+        return None
+    for line in pyproject.read_text(encoding="utf-8").splitlines():
+        stripped = line.strip()
+        if stripped.startswith("version = "):
+            return stripped.split("=", 1)[1].strip().strip('"')
+    return None
 
 try:
-    __version__ = version("cwtwb")
+    __version__ = _read_local_pyproject_version() or version("cwtwb")
 except PackageNotFoundError:
-    __version__ = "0.0.0-dev"
+    __version__ = _read_local_pyproject_version() or "0.0.0-dev"
 
 __author__ = "Cooper Wenhua <imgwho@gmail.com>"
 

@@ -1,6 +1,6 @@
 [project]
 name = "cwtwb"
-version = "0.22.5"
+version = "0.22.6"
 description = "Tableau Workbook (.twb) generation toolkit and MCP server"
 readme = "README.md"
 
@@ -39,7 +39,7 @@ validate = [
 ]
 
 [project.scripts]
-cwtwb = "cwtwb.mcp_server:main"
+cwtwb = "cwtwb.cli:main"
 cwtwb-mcp = "cwtwb.mcp_server:main"
 
 [project.urls]

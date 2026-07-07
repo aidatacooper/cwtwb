@@ -5,6 +5,18 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.22.6] - 2026-07-07
+
+### Added
+
+- **First-class CLI**: added the `cwtwb` command-line interface with smart TTY-aware startup, explicit `cwtwb mcp`, `doctor`, `status`, read-only workbook inspection commands, declaration-driven `run`, and common write commands for create, connection, chart, dashboard, layout, and migration workflows.
+- **CLI automation spec**: added `examples/specs/basic_cli.yaml` as a minimal reproducible workbook generation example.
+
+### Changed
+
+- **MCP startup compatibility preserved**: `uvx cwtwb` still starts MCP when launched by a stdio MCP client, while interactive no-argument terminal usage now prints help instead of appearing to hang.
+- **Release script credential lookup**: `scripts/publish_from_env.ps1` now falls back to `.env.pypi` for PyPI credentials when `.env` is reserved for Tableau runtime credentials.
+
 ## [0.22.5] - 2026-07-07
 
 ### Added

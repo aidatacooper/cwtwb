@@ -11,6 +11,7 @@ $env:PYTHONIOENCODING = "utf8"
 
 $root = Resolve-Path -LiteralPath $ProjectRoot
 $envPath = Join-Path $root ".env"
+$pypiEnvPath = Join-Path $root ".env.pypi"
 $pyprojectPath = Join-Path $root "pyproject.toml"
 
 if (-not (Test-Path -LiteralPath $envPath)) {
@@ -47,6 +48,10 @@ function Read-ProjectVersion {
 }
 
 $envValues = Read-DotEnv -Path $envPath
+$pypiEnvValues = @{}
+if (Test-Path -LiteralPath $pypiEnvPath) {
+    $pypiEnvValues = Read-DotEnv -Path $pypiEnvPath
+}
 $token = $envValues["PYPI_API_TOKEN"]
 if (-not $token) {
     $token = $envValues["TWINE_PASSWORD"]
@@ -55,12 +60,27 @@ if (-not $token) {
     $token = $envValues["password"]
 }
 if (-not $token) {
-    throw "Missing PyPI token. Expected PYPI_API_TOKEN, TWINE_PASSWORD, or password in .env"
+    $token = $pypiEnvValues["PYPI_API_TOKEN"]
+}
+if (-not $token) {
+    $token = $pypiEnvValues["TWINE_PASSWORD"]
+}
+if (-not $token) {
+    $token = $pypiEnvValues["password"]
+}
+if (-not $token) {
+    throw "Missing PyPI token. Expected PYPI_API_TOKEN, TWINE_PASSWORD, or password in .env or .env.pypi"
 }
 
 $username = $envValues["TWINE_USERNAME"]
 if (-not $username) {
     $username = $envValues["username"]
+}
+if (-not $username) {
+    $username = $pypiEnvValues["TWINE_USERNAME"]
+}
+if (-not $username) {
+    $username = $pypiEnvValues["username"]
 }
 if (-not $username) {
     $username = "__token__"
