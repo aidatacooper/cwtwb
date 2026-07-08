@@ -33,11 +33,26 @@ def test_empty_non_tty_invocation_starts_mcp(monkeypatch):
     assert called["mcp"] is True
 
 
+def test_single_dash_help_alias_prints_help(capsys):
+    assert main(["-help"]) == 0
+
+    captured = capsys.readouterr()
+    assert "Tableau workbook engineering toolkit" in captured.out
+    assert "cwtwb mcp" in captured.out
+
+
+def test_word_help_alias_prints_help(capsys):
+    assert main(["help"]) == 0
+
+    captured = capsys.readouterr()
+    assert "Tableau workbook engineering toolkit" in captured.out
+
+
 def test_status_json_reports_local_version(capsys):
     assert main(["status", "--json"]) == 0
 
     payload = json.loads(capsys.readouterr().out)
-    assert payload["version"] == "0.22.6"
+    assert payload["version"] == "0.22.7"
     assert payload["schema_dir"]
 
 
@@ -144,4 +159,3 @@ def test_run_spec_writes_workbook(tmp_path: Path):
 
     assert main(["run", str(spec), "--force", "--no-save-validation"]) == 0
     assert output.exists()
-

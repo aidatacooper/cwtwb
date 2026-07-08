@@ -24,6 +24,7 @@ from .commands.write import (
 
 
 DESCRIPTION = "Tableau workbook engineering toolkit and MCP server."
+HELP_ARGS = {"-h", "--help", "-help", "help", "/?", "-?"}
 
 
 def _run_mcp() -> int:
@@ -224,6 +225,9 @@ def main(argv: Sequence[str] | None = None) -> int:
         return _run_mcp()
 
     parser = build_parser()
+    if len(argv) == 1 and argv[0].casefold() in HELP_ARGS:
+        parser.print_help()
+        return 0
     args = parser.parse_args(argv)
     if not hasattr(args, "func"):
         parser.print_help()

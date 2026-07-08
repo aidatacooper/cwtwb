@@ -14,7 +14,7 @@ Supported launch styles:
 
 from .mcp.app import (
     get_mcp_status,
-    main,
+    main as _run_mcp_server,
     read_dataset_profile,
     read_profiles_index,
     read_skill,
@@ -22,6 +22,29 @@ from .mcp.app import (
     read_tableau_functions,
     server,
 )
+
+
+def main(argv: list[str] | None = None) -> int:
+    """Run the MCP server, but honor common help spellings for human terminals.
+
+    This guard protects compatibility entrypoints such as ``cwtwb-mcp`` and
+    older console scripts that may still point directly at ``cwtwb.mcp_server``.
+    Without it, commands like ``cwtwb -help`` can appear to hang because they
+    start the stdio MCP server and wait for JSON-RPC input.
+    """
+
+    import sys
+
+    args = list(sys.argv[1:] if argv is None else argv)
+    if len(args) == 1 and args[0].casefold() in {"-h", "--help", "-help", "help", "/?", "-?"}:
+        from .cli import build_parser
+
+        build_parser().print_help()
+        return 0
+    _run_mcp_server()
+    return 0
+
+
 from .mcp.tools_validate import (
     screenshot_workbook,
     upload_workbook,
