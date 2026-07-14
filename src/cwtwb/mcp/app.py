@@ -27,7 +27,9 @@ it summarises the required call order and points agents to skill resources.
 from __future__ import annotations
 
 import os
+import sys
 from importlib.metadata import PackageNotFoundError, version
+from importlib.util import find_spec
 from typing import Optional
 
 from mcp.server.fastmcp import FastMCP
@@ -122,6 +124,12 @@ def get_mcp_status() -> dict:
     except PackageNotFoundError:
         package_version = "editable/local"
 
+    tsc_available = find_spec("tableauserverclient") is not None
+    try:
+        tsc_version = version("tableauserverclient") if tsc_available else None
+    except PackageNotFoundError:
+        tsc_version = "importable, metadata unavailable"
+
     env_names = [
         "TABLEAU_SERVER",
         "TABLEAU_SITE",
@@ -133,6 +141,9 @@ def get_mcp_status() -> dict:
     return {
         "server": "cwtwb",
         "version": package_version,
+        "python_executable": sys.executable,
+        "tableauserverclient_available": tsc_available,
+        "tableauserverclient_version": tsc_version,
         "active_workbook": _editor is not None,
         "tableau_env_vars_present": [name for name in env_names if os.environ.get(name)],
         "credential_priority": [

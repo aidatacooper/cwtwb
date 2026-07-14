@@ -5,6 +5,16 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.22.8] - 2026-07-14
+
+### Added
+
+- **MCP runtime diagnostics**: `get_mcp_status()` now reports the active Python executable and `tableauserverclient` availability/version without exposing credentials.
+
+### Fixed
+
+- **Validation dependency errors**: Tableau client import failures now identify the actual MCP runtime and provide an exact installation command, distinguishing missing dependencies from broken transitive imports.
+
 ## [0.22.7] - 2026-07-08
 
 ### Fixed

@@ -391,6 +391,8 @@ No. `validate_workbook()` performs local XSD validation on the active in-memory 
 
 Credential lookup order is explicit `env_path` first, then environment variables, `TABLEAU_ENV_FILE`, the workbook sibling `.env`, the current working directory `.env`, the cwtwb project `.env`, and finally the user's home `.env`. Prefer `env_path` for one-off MCP calls instead of editing MCP server configuration and restarting the server.
 
+If validation reports that `tableauserverclient` is missing, call `get_mcp_status` first. It reports the MCP process's Python executable, cwtwb version, and whether the Tableau client is importable without exposing credentials. An `env_path` change is runtime-scoped and does not require an MCP restart; installing dependencies into a different Python environment does not fix the running server, so install the validation extra into the interpreter reported by `get_mcp_status` and reconnect only when the runtime or tool schema changes.
+
 ### When should I use `uvx cwtwb` versus `python -m cwtwb.mcp_server`?
 
 Use `uvx cwtwb` for the normal MCP workflow. Use `python -m cwtwb.mcp_server` for local testing without `uvx`.

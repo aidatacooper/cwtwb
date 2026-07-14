@@ -17,7 +17,7 @@ from pathlib import Path
 
 import pytest
 
-from cwtwb.mcp.app import server
+from cwtwb.mcp.app import get_mcp_status, server
 from cwtwb.server import (
     add_calculated_field,
     add_worksheet,
@@ -52,6 +52,15 @@ def fresh_workbook():
 
 
 class TestToolDescriptions:
+    def test_mcp_status_reports_runtime_without_secrets(self):
+        status = get_mcp_status()
+
+        assert status["server"] == "cwtwb"
+        assert status["python_executable"]
+        assert isinstance(status["tableauserverclient_available"], bool)
+        assert all(name.startswith("TABLEAU_") for name in status["tableau_env_vars_present"])
+        assert "guardrails" in status
+
     def test_save_validate_and_analyze_descriptions_prevent_save_confusion(self):
         save_desc = server._tool_manager._tools["save_workbook"].description
         validate_desc = server._tool_manager._tools["validate_workbook"].description

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import os
+import sys
 import re
 import zipfile
 from dataclasses import dataclass, field
@@ -224,11 +225,24 @@ class TableauUploader:
             return
         try:
             import tableauserverclient as TSC
-        except ImportError:
+        except ModuleNotFoundError as exc:
+            missing = exc.name or "tableauserverclient"
             raise ImportError(
-                "tableauserverclient is required for validation. "
-                "Install it with: pip install 'cwtwb[validate]'"
-            )
+                f"The MCP Python runtime cannot import {missing!r}. "
+                f"python={sys.executable!r}. "
+                "Install the validation extra into this exact runtime with "
+                f"{sys.executable} -m pip install 'cwtwb[validate]'. "
+                "Use get_mcp_status to inspect the MCP runtime; changing env_path "
+                "does not require an MCP restart, but changing the runtime or "
+                "installing dependencies may require reconnecting the MCP client."
+            ) from exc
+        except ImportError as exc:
+            raise ImportError(
+                "tableauserverclient was found, but one of its imports failed in "
+                f"the MCP Python runtime {sys.executable!r}: {exc}. "
+                "Use get_mcp_status and install the validation extra into this "
+                "exact runtime."
+            ) from exc
         self._TSC = TSC
         self._server = TSC.Server(self.server_url, use_server_version=True)
         self._server.add_http_options({"verify": False})
