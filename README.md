@@ -1,13 +1,13 @@
 # cwtwb
 
 <p align="center">
-  <img src="https://raw.githubusercontent.com/imgwho/cwtwb/main/docs/assets/readme/logo.png" alt="Datacooper logo" width="220" />
+  <img src="https://raw.githubusercontent.com/aidatacooper/cwtwb/main/docs/assets/readme/logo.png" alt="Datacooper logo" width="220" />
 </p>
 
 > Tableau workbook engineering for reproducible `.twb` / `.twbx` generation, validation, and migration.
 
 <p align="center">
-  <img src="https://raw.githubusercontent.com/imgwho/cwtwb/main/docs/assets/readme/hero.png" alt="cwtwb hero image" width="1200" />
+  <img src="https://raw.githubusercontent.com/aidatacooper/cwtwb/main/docs/assets/readme/hero.png" alt="cwtwb hero image" width="1200" />
 </p>
 
 **cwtwb** is a Python toolkit and Model Context Protocol (MCP) server for building Tableau Desktop workbooks from code or agent tool calls.
@@ -19,26 +19,20 @@ The `cw` in `cwtwb` comes from `Cooper Wenhua`.
 
 **Author:** Cooper Wenhua &lt;imgwho@gmail.com&gt;
 
-[Website](https://datacooper.com) · [Source](https://github.com/imgwho/cwtwb) · [Changelog](https://github.com/imgwho/cwtwb/blob/main/CHANGELOG.md)
+[Website](https://datacooper.com) · [Source](https://github.com/aidatacooper/cwtwb) · [Changelog](https://github.com/aidatacooper/cwtwb/blob/main/CHANGELOG.md)
 
 [![PyPI Downloads](https://static.pepy.tech/personalized-badge/cwtwb?period=total&units=INTERNATIONAL_SYSTEM&left_color=BLACK&right_color=GREEN&left_text=downloads)](https://pepy.tech/projects/cwtwb)
 [![Website](https://img.shields.io/badge/Website-datacooper.com-0A7CFF?style=flat-square)](https://datacooper.com)
-[![Source](https://img.shields.io/badge/Source-GitHub-181717?style=flat-square)](https://github.com/imgwho/cwtwb)
-[![License](https://img.shields.io/badge/License-AGPL--3.0-green?style=flat-square)](https://github.com/imgwho/cwtwb/blob/main/LICENSE)
+[![Source](https://img.shields.io/badge/Source-GitHub-181717?style=flat-square)](https://github.com/aidatacooper/cwtwb)
+[![License](https://img.shields.io/badge/License-AGPL--3.0-green?style=flat-square)](https://github.com/aidatacooper/cwtwb/blob/main/LICENSE)
 [![Python](https://img.shields.io/badge/Python-3.10%2B-3776AB?style=flat-square)](https://www.python.org/)
 
 
 ## Star History
 
-<a href="https://www.star-history.com/?type=date&repos=imgwho%2Fcwtwb">
- <picture>
-   <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/chart?repos=imgwho/cwtwb&type=date&theme=dark&legend=top-left&sealed_token=xm3jy3j2engEOCmBiEq5NWoEpLFpz2tk_AiGAm3CuirRz2JBRu-JvFCus44LiKs419FJajjTqMGzab8aq8NoxqyD92N90PEWJZBQTDsLsskdS_Zcmbimjw" />
-   <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/chart?repos=imgwho/cwtwb&type=date&legend=top-left&sealed_token=xm3jy3j2engEOCmBiEq5NWoEpLFpz2tk_AiGAm3CuirRz2JBRu-JvFCus44LiKs419FJajjTqMGzab8aq8NoxqyD92N90PEWJZBQTDsLsskdS_Zcmbimjw" />
-   <img alt="Star History Chart" src="https://api.star-history.com/chart?repos=imgwho/cwtwb&type=date&legend=top-left&sealed_token=xm3jy3j2engEOCmBiEq5NWoEpLFpz2tk_AiGAm3CuirRz2JBRu-JvFCus44LiKs419FJajjTqMGzab8aq8NoxqyD92N90PEWJZBQTDsLsskdS_Zcmbimjw" />
- </picture>
-</a>
+[![Star History Chart](https://api.star-history.com/svg?repos=aidatacooper/cwtwb&type=Date)](https://star-history.com/#aidatacooper/cwtwb&Date)
 
-[Try the example workflow](examples/scripts/demo_all_supported_charts.py) · [Read the guide](https://github.com/imgwho/cwtwb/blob/main/docs/guide.md)
+[Try the example workflow](examples/scripts/demo_all_supported_charts.py) · [Read the guide](https://github.com/aidatacooper/cwtwb/blob/main/docs/guide.md)
 
 ## Quick Start
 
@@ -138,7 +132,7 @@ file://docs/tableau_all_functions.json
 
 Compatibility aliases are also available for common guessed URIs such as `cwtwb://docs/manual-editing`, but new prompts should prefer `cwtwb://tool-surface` and `cwtwb://skills/index`.
 
-For client-specific details and the full reference, see [https://github.com/imgwho/cwtwb/blob/main/docs/guide.md](https://github.com/imgwho/cwtwb/blob/main/docs/guide.md).
+For client-specific details and the full reference, see [https://github.com/aidatacooper/cwtwb/blob/main/docs/guide.md](https://github.com/aidatacooper/cwtwb/blob/main/docs/guide.md).
 
 ### Dashboard Layout Files
 
@@ -170,7 +164,7 @@ Both formats support the same wrapper structure:
 This GIF shows the MCP tool flow that builds a dashboard step by step.
 
 <p align="center">
-  <img src="https://raw.githubusercontent.com/imgwho/cwtwb/main/docs/assets/readme/output_compressed.gif" alt="cwtwb demo GIF" width="1200" />
+  <img src="https://raw.githubusercontent.com/aidatacooper/cwtwb/main/docs/assets/readme/output_compressed.gif" alt="cwtwb demo GIF" width="1200" />
 </p>
 
 ## Architecture
@@ -401,9 +395,9 @@ For backward compatibility, `uvx --from cwtwb cwtwb-mcp`, `python -m cwtwb.serve
 
 ### Where is the full guide?
 
-See [the online guide](https://github.com/imgwho/cwtwb/blob/main/docs/guide.md).
+See [the online guide](https://github.com/aidatacooper/cwtwb/blob/main/docs/guide.md).
 
 ## Documentation
 
-- [Guide](https://github.com/imgwho/cwtwb/blob/main/docs/guide.md)
-- [Changelog](https://github.com/imgwho/cwtwb/blob/main/CHANGELOG.md)
+- [Guide](https://github.com/aidatacooper/cwtwb/blob/main/docs/guide.md)
+- [Changelog](https://github.com/aidatacooper/cwtwb/blob/main/CHANGELOG.md)

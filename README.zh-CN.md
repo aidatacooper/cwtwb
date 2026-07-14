@@ -1,13 +1,13 @@
 # cwtwb
 
 <p align="center">
-  <img src="https://raw.githubusercontent.com/imgwho/cwtwb/main/docs/assets/readme/logo.png" alt="Datacooper logo" width="220" />
+  <img src="https://raw.githubusercontent.com/aidatacooper/cwtwb/main/docs/assets/readme/logo.png" alt="Datacooper logo" width="220" />
 </p>
 
 > 面向可复现 `.twb` / `.twbx` 生成、验证与迁移的 Tableau 工作簿工程层。
 
 <p align="center">
-  <img src="https://raw.githubusercontent.com/imgwho/cwtwb/main/docs/assets/readme/hero.png" alt="cwtwb hero image" width="1200" />
+  <img src="https://raw.githubusercontent.com/aidatacooper/cwtwb/main/docs/assets/readme/hero.png" alt="cwtwb hero image" width="1200" />
 </p>
 
 **cwtwb** 是一个 Python 工具包和 Model Context Protocol（MCP）服务器，用来通过代码或 Agent 工具调用构建 Tableau Desktop 工作簿。
@@ -18,25 +18,19 @@
 
 **作者：** Cooper Wenhua &lt;imgwho@gmail.com&gt;
 
-[Website](https://datacooper.com) · [Source](https://github.com/imgwho/cwtwb) · [Changelog](https://github.com/imgwho/cwtwb/blob/main/CHANGELOG.md)
+[Website](https://datacooper.com) · [Source](https://github.com/aidatacooper/cwtwb) · [Changelog](https://github.com/aidatacooper/cwtwb/blob/main/CHANGELOG.md)
 
 [![PyPI Downloads](https://static.pepy.tech/personalized-badge/cwtwb?period=total&units=INTERNATIONAL_SYSTEM&left_color=BLACK&right_color=GREEN&left_text=downloads)](https://pepy.tech/projects/cwtwb)
 [![Website](https://img.shields.io/badge/Website-datacooper.com-0A7CFF?style=flat-square)](https://datacooper.com)
-[![Source](https://img.shields.io/badge/Source-GitHub-181717?style=flat-square)](https://github.com/imgwho/cwtwb)
-[![License](https://img.shields.io/badge/License-AGPL--3.0-green?style=flat-square)](https://github.com/imgwho/cwtwb/blob/main/LICENSE)
+[![Source](https://img.shields.io/badge/Source-GitHub-181717?style=flat-square)](https://github.com/aidatacooper/cwtwb)
+[![License](https://img.shields.io/badge/License-AGPL--3.0-green?style=flat-square)](https://github.com/aidatacooper/cwtwb/blob/main/LICENSE)
 [![Python](https://img.shields.io/badge/Python-3.10%2B-3776AB?style=flat-square)](https://www.python.org/)
 
 ## Star History
 
-<a href="https://www.star-history.com/?type=date&repos=imgwho%2Fcwtwb">
- <picture>
-   <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/chart?repos=imgwho/cwtwb&type=date&theme=dark&legend=top-left&sealed_token=xm3jy3j2engEOCmBiEq5NWoEpLFpz2tk_AiGAm3CuirRz2JBRu-JvFCus44LiKs419FJajjTqMGzab8aq8NoxqyD92N90PEWJZBQTDsLsskdS_Zcmbimjw" />
-   <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/chart?repos=imgwho/cwtwb&type=date&legend=top-left&sealed_token=xm3jy3j2engEOCmBiEq5NWoEpLFpz2tk_AiGAm3CuirRz2JBRu-JvFCus44LiKs419FJajjTqMGzab8aq8NoxqyD92N90PEWJZBQTDsLsskdS_Zcmbimjw" />
-   <img alt="Star History Chart" src="https://api.star-history.com/chart?repos=imgwho/cwtwb&type=date&legend=top-left&sealed_token=xm3jy3j2engEOCmBiEq5NWoEpLFpz2tk_AiGAm3CuirRz2JBRu-JvFCus44LiKs419FJajjTqMGzab8aq8NoxqyD92N90PEWJZBQTDsLsskdS_Zcmbimjw" />
- </picture>
-</a>
+[![Star History Chart](https://api.star-history.com/svg?repos=aidatacooper/cwtwb&type=Date)](https://star-history.com/#aidatacooper/cwtwb&Date)
 
-[试用示例工作流](examples/scripts/demo_all_supported_charts.py) · [阅读中文指南](docs/guide.zh-CN.md) · [Read the guide](https://github.com/imgwho/cwtwb/blob/main/docs/guide.md)
+[试用示例工作流](examples/scripts/demo_all_supported_charts.py) · [阅读中文指南](docs/guide.zh-CN.md) · [Read the guide](https://github.com/aidatacooper/cwtwb/blob/main/docs/guide.md)
 
 ## 快速开始
 
@@ -136,7 +130,7 @@ file://docs/tableau_all_functions.json
 
 也提供了兼容别名，例如 `cwtwb://docs/manual-editing`。新 prompt 应优先使用 `cwtwb://tool-surface` 和 `cwtwb://skills/index`。
 
-完整参考见 [中文指南](docs/guide.zh-CN.md) 或 [英文指南](https://github.com/imgwho/cwtwb/blob/main/docs/guide.md)。
+完整参考见 [中文指南](docs/guide.zh-CN.md) 或 [英文指南](https://github.com/aidatacooper/cwtwb/blob/main/docs/guide.md)。
 
 ### Dashboard Layout 文件
 
@@ -168,7 +162,7 @@ generate_layout_yaml("output/layout.yaml", layout_tree, ascii_preview)
 这个 GIF 展示了 MCP 工具如何一步步构建 dashboard。
 
 <p align="center">
-  <img src="https://raw.githubusercontent.com/imgwho/cwtwb/main/docs/assets/readme/output_compressed.gif" alt="cwtwb demo GIF" width="1200" />
+  <img src="https://raw.githubusercontent.com/aidatacooper/cwtwb/main/docs/assets/readme/output_compressed.gif" alt="cwtwb demo GIF" width="1200" />
 </p>
 
 ## 架构
@@ -390,13 +384,13 @@ screenshot_workbook(workbook_id="...", view_name="Sheet 1")
 
 ### 完整指南在哪里？
 
-见 [中文指南](docs/guide.zh-CN.md) 或 [英文在线指南](https://github.com/imgwho/cwtwb/blob/main/docs/guide.md)。
+见 [中文指南](docs/guide.zh-CN.md) 或 [英文在线指南](https://github.com/aidatacooper/cwtwb/blob/main/docs/guide.md)。
 
 ## 文档
 
 - [中文指南](docs/guide.zh-CN.md)
-- [英文 Guide](https://github.com/imgwho/cwtwb/blob/main/docs/guide.md)
-- [Changelog](https://github.com/imgwho/cwtwb/blob/main/CHANGELOG.md)
+- [英文 Guide](https://github.com/aidatacooper/cwtwb/blob/main/docs/guide.md)
+- [Changelog](https://github.com/aidatacooper/cwtwb/blob/main/CHANGELOG.md)
 
 ## License
 
