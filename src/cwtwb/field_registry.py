@@ -76,6 +76,15 @@ _EXPR_RE = re.compile(
     r"^([A-Z]+)\((.+)\)$"  # FUNC(field)
 )
 
+# Tableau column-instance names are generated output, not valid user input.
+# Example: [sum:Sales:qk] is the internal reference for SUM(Sales).
+_COLUMN_INSTANCE_RE = re.compile(
+    r"^(?:\[[^\]]+\]\.)?\[?"
+    r"(sum|avg|cnt|cntd|min|max|med|attr|none|usr|yr|qr|mn|day|wk|wd|my|tdy)"
+    r":.+:(nk|qk|ok)(?::\d+)?\]?$",
+    re.IGNORECASE,
+)
+
 logger = logging.getLogger(__name__)
 
 
@@ -148,6 +157,15 @@ def is_expression(value: str) -> bool:
         return True
     lower = text.casefold()
     return any(lower.startswith(prefix) for prefix in AGGREGATE_FUNCTION_PREFIXES)
+
+
+def looks_like_column_instance_name(value: str) -> bool:
+    """Return whether a string looks like a generated Tableau column-instance."""
+
+    text = str(value).strip()
+    if not text:
+        return False
+    return bool(_COLUMN_INSTANCE_RE.match(text))
 
 
 def looks_like_date_field_name(field_name: str) -> bool:
@@ -353,10 +371,24 @@ class FieldRegistry:
           - "Category"          -> derivation=None, field=Category
           - "YEAR(Order Date)"  -> derivation=Year, field=Order Date
         """
-        m = _EXPR_RE.match(expr.strip())
+        raw_expr = str(expr).strip()
+        if looks_like_column_instance_name(raw_expr):
+            raise ValueError(
+                f"Invalid field expression '{expr}': this looks like a generated "
+                "Tableau column-instance name. Pass a user-facing field expression "
+                "such as 'Number of Tasks' or 'SUM(Number of Tasks)' instead."
+            )
+
+        m = _EXPR_RE.match(raw_expr)
         if m:
             func_name = m.group(1).upper()
             field_name = m.group(2).strip()
+            if looks_like_column_instance_name(field_name):
+                raise ValueError(
+                    f"Invalid field expression '{expr}': aggregation functions must "
+                    "wrap user-facing field names, not generated Tableau "
+                    "column-instance names."
+                )
             derivation = _DERIVATION_MAP.get(func_name)
             if derivation is None:
                 raise ValueError(
@@ -364,7 +396,7 @@ class FieldRegistry:
                     f"Supported: {', '.join(_DERIVATION_MAP.keys())}"
                 )
         else:
-            field_name = expr.strip()
+            field_name = raw_expr
             derivation = "None"
 
         # Look up the field

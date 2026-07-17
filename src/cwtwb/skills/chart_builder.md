@@ -50,6 +50,18 @@ You are a **data visualization expert**. Your job is to select the right chart t
 
 ## Encoding Guide
 
+### Field Expression Rules
+
+Use user-facing field names and Tableau expressions in chart inputs:
+
+- Correct: `Sales`, `SUM(Sales)`, `Category`, `MONTH(Order Date)`
+- Wrong: `[sum:Sales:qk]`, `[none:Category:nk]`, `[mn:Order Date:ok]`, `[sum:Sales:qk:1]`, `[federated.xxx].[sum:Profit:qk]`
+
+The wrong examples are generated Tableau column-instance names found inside
+`.twb` XML. They are output references, not raw fields. When using another
+workbook as a visual reference, translate these internal tokens back to the
+user-facing field or expression before calling `configure_chart`.
+
 ### KPI Cards (measure_values mode)
 
 For executive summaries showing multiple metrics at a glance:

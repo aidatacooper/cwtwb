@@ -6,6 +6,7 @@ from pathlib import Path
 
 import yaml
 
+from cwtwb import __version__
 from cwtwb.cli import main
 
 
@@ -52,7 +53,7 @@ def test_status_json_reports_local_version(capsys):
     assert main(["status", "--json"]) == 0
 
     payload = json.loads(capsys.readouterr().out)
-    assert payload["version"] == "0.22.7"
+    assert payload["version"] == __version__
     assert payload["schema_dir"]
 
 

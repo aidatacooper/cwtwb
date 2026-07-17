@@ -231,6 +231,7 @@ def _tool_surface_text() -> str:
             "- `list_capabilities` describes supported chart/features; it is not a tool inventory.",
             "- `get_mcp_status` reports version/state and credential guardrails without exposing secrets.",
             "- `env_path` on validation/upload/screenshot tools is the correct way to switch Tableau credentials for a single call.",
+            "- Chart inputs expect user-facing fields or expressions such as `Sales`, `SUM(Sales)`, or `MONTH(Order Date)`; do not copy generated `.twb` column-instance names such as `[sum:Sales:qk]`, `[none:Category:nk]`, or `[federated.xxx].[sum:Profit:qk]` from reference workbooks.",
             "- `validate_workbook_api` is the default Tableau Cloud validation tool for `.twb` because it does not publish the workbook.",
             "- `upload_workbook` publishes the workbook; use it only for explicit publish/openability evidence, TWBX validation, or screenshots.",
             "- `screenshot_workbook` requires a `workbook_id` returned by `upload_workbook`.",

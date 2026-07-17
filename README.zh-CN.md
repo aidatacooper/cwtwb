@@ -119,6 +119,8 @@ cwtwb dashboard add output/chart.twb --name Overview --worksheets "Sales by Cate
 
 如果 Agent 看不到 `create_workbook`、`add_worksheet`、`save_workbook` 等工具，应重启或重新连接 MCP 客户端，并检查 server 配置。清理 `uv` 缓存只会刷新安装包，不会修复客户端里过期的工具列表。
 
+当 Agent 使用已有 `.twb` 作为视觉参考时，不要把 Tableau XML 里的 column-instance token 当作 chart 输入字段。`[sum:Sales:qk]`、`[none:Category:nk]`、`[mn:Order Date:ok]`、`[federated.xxx].[sum:Profit:qk]` 这类值是生成后的内部引用。应传入面向用户的表达式，例如 `Sales`、`SUM(Sales)`、`Category` 或 `MONTH(Order Date)`。
+
 对 Agent 有用的资源：
 
 ```text

@@ -160,6 +160,12 @@ gh api /orgs/.../mcp/servers/cwtwb/tools
 
 `uv cache clean` 只会清理包缓存；如果旧 wheel 被复用，它可能有帮助，但不会修复 Claude/Cursor/VSCode 里过期的 MCP 工具注册表。
 
+### 字段表达式输入
+
+Chart 和 dashboard 的字段输入应使用面向用户的字段名或 Tableau 表达式，而不是从其他 workbook XML 里复制出来的内部引用。请使用 `Sales`、`SUM(Sales)`、`Category` 或 `MONTH(Order Date)`。
+
+不要传入 `[sum:Sales:qk]`、`[avg:Calculation_ABC:qk]`、`[none:Category:nk]`、`[mn:Order Date:ok]`、`[sum:Sales:qk:1]`，也不要传入 `[federated.xxx].[sum:Profit:qk]` 这类带 datasource 前缀的变体。它们是 `.twb` 内部生成的 column-instance token；cwtwb 会拒绝这些值，避免 Agent 使用参考 workbook 时把内部字段二次包装或注册成伪原始字段。
+
 ### MCP Resources
 
 | Resource | 用途 |

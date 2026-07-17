@@ -121,6 +121,8 @@ When cwtwb is connected as an MCP server, agents should call the exposed MCP too
 
 If an agent cannot see tools such as `create_workbook`, `add_worksheet`, or `save_workbook`, restart or reconnect the MCP client and verify the server config. Clearing the `uv` cache only refreshes installed packages; it does not fix a stale client tool surface.
 
+When using an existing `.twb` as a visual reference, agents must not copy Tableau XML column-instance tokens into chart inputs. Values such as `[sum:Sales:qk]`, `[none:Category:nk]`, `[mn:Order Date:ok]`, or `[federated.xxx].[sum:Profit:qk]` are generated internals. Pass user-facing expressions such as `Sales`, `SUM(Sales)`, `Category`, or `MONTH(Order Date)` instead.
+
 Useful resources for agents:
 
 ```text

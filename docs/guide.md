@@ -163,6 +163,12 @@ Recommended diagnostic order:
 
 `uv cache clean` only clears package artifacts. It can help when an old wheel is being reused, but it does not repair a stale Claude/Cursor/VSCode MCP tool registry.
 
+### Field Expression Inputs
+
+Chart and dashboard field inputs expect user-facing field names or Tableau expressions, not generated XML references copied from another workbook. Use `Sales`, `SUM(Sales)`, `Category`, or `MONTH(Order Date)`.
+
+Do not pass Tableau column-instance names such as `[sum:Sales:qk]`, `[avg:Calculation_ABC:qk]`, `[none:Category:nk]`, `[mn:Order Date:ok]`, `[sum:Sales:qk:1]`, or datasource-qualified variants like `[federated.xxx].[sum:Profit:qk]`. Those are output tokens created inside a `.twb`; cwtwb rejects them so agents cannot accidentally double-wrap or re-register internal fields when using reference workbooks.
+
 ### MCP Resources
 
 | Resource | Purpose |

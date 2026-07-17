@@ -5,6 +5,16 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.22.9] - 2026-07-17
+
+### Fixed
+
+- **Agent field-reference guardrail**: chart field parsing now rejects generated Tableau column-instance names such as `[sum:Sales:qk]`, `[none:Category:nk]`, `[mn:Order Date:ok]`, and datasource-qualified variants copied from reference `.twb` files. Agents must pass user-facing field expressions such as `Sales`, `SUM(Sales)`, or `MONTH(Order Date)` instead of reusing internal XML tokens.
+
+### Changed
+
+- **Agent documentation hardened**: README, guide, MCP tool-surface resource, and chart-builder skill now explicitly warn agents not to treat `.twb` column-instance names as raw fields when using existing workbooks as references.
+
 ## [0.22.8] - 2026-07-14
 
 ### Added
