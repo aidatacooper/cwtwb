@@ -5,6 +5,36 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.23.0] - 2026-07-19
+
+### Added
+
+- **Expanded agent skill architecture**: the MCP skill resource surface now
+  includes `data_quality`, `governance`, `synthetic_data`, `design_advisor`,
+  `metric_blueprint`, `quality_review`, and `documentation` alongside the
+  existing calculation, chart, dashboard, formatting, and validation guidance.
+- **Schema and sample-data planning skills**: agents can now perform a local
+  field-schema triage and define a safe sample-data contract before workbook
+  authoring, without claiming unavailable row-level profiling or synthetic-data
+  generation capabilities.
+- **Metric, review, and handoff guidance**: added metric contracts, a
+  seven-domain evidence-aware quality review, and brief/detailed workbook
+  documentation structures for reproducible handoff.
+
+### Changed
+
+- **Design workflow strengthened**: `design_advisor` now produces a reviewable
+  design specification covering audience constraints, question priority,
+  chart/field mapping, KPI hierarchy, filters, interactions, layout, color,
+  implementation sequence, and pre-build risks.
+- **Calculation and governance guidance strengthened**: non-trivial
+  calculations now use an explicit design contract; local governance now
+  distinguishes evidence-backed authoring gaps from site-level governance.
+- **Workflow attribution clarified**: the README and skills documentation note
+  that the workflow independently adapts concepts from Adam Mico's public
+  adammico-lab Tableau workflow skills. cwtwb does not bundle or copy their code
+  or skill content.
+
 ## [0.22.9] - 2026-07-17
 
 ### Fixed

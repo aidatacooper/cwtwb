@@ -194,11 +194,18 @@ def read_tableau_functions() -> str:
 
 
 _SKILL_NAMES = [
+    "data_quality",
+    "governance",
+    "synthetic_data",
+    "design_advisor",
+    "metric_blueprint",
     "calculation_builder",
     "chart_builder",
     "dashboard_designer",
     "formatting",
     "validation",
+    "quality_review",
+    "documentation",
 ]
 
 

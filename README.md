@@ -14,6 +14,15 @@
 
 It is meant to be a **workbook engineering layer**, not a conversational analytics agent. The focus is reproducibility, inspectability, and safe automation in local workflows, scripts, and CI.
 
+### Design Workflow Reference
+
+The agent design workflow and the `design_advisor` skill are informed by Adam
+Mico's [adammico-lab Tableau workflow skills](https://github.com/adammico-lab/adammico-lab),
+especially Tableau Dashboard Blueprint's build-from-a-design-spec approach.
+cwtwb independently adapts those ideas to reproducible `.twb` / `.twbx`
+authoring; it does not depend on, bundle, or copy adammico-lab code or skill
+content. cwtwb is not affiliated with Adam Mico, Salesforce, or Tableau.
+
 The `cw` in `cwtwb` comes from `Cooper Wenhua`.
 
 
@@ -128,7 +137,12 @@ Useful resources for agents:
 ```text
 cwtwb://tool-surface
 cwtwb://skills/index
+cwtwb://skills/data_quality
+cwtwb://skills/design_advisor
+cwtwb://skills/metric_blueprint
 cwtwb://skills/dashboard_designer
+cwtwb://skills/quality_review
+cwtwb://skills/documentation
 file://docs/tableau_all_functions.json
 ```
 
@@ -292,7 +306,9 @@ MCP server instructions
         |
         v
 Skill resources
-calculation_builder -> chart_builder -> dashboard_designer -> formatting -> validation
+data_quality -> governance -> synthetic_data -> design_advisor -> metric_blueprint
+-> calculation_builder -> chart_builder -> dashboard_designer -> formatting
+-> validation -> quality_review -> documentation
         |
         v
 Workbook tools
@@ -304,6 +320,11 @@ TWB/TWBX artifact + validation evidence
 
 Prompts explain what to build. Skills explain how to build it well. Tools make
 the workbook changes inspectable and repeatable.
+
+The packaged skill architecture is documented in
+[`src/cwtwb/skills/README.md`](src/cwtwb/skills/README.md), including its
+workflow diagram and the boundary between guidance, explicit mutations, and
+validation evidence.
 
 ## Capability Boundary
 

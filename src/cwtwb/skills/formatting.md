@@ -70,6 +70,17 @@ cwtwb currently supports these formatting controls:
 | Use color to highlight a boolean (Profitable? Yes/No) | Use random colors with no meaning |
 | Keep color consistent across charts (same field = same colors) | Change color meaning between charts |
 
+### Accessibility and Density
+
+- Do not rely on color alone to communicate a good/bad state; pair it with a
+  label, tooltip, shape, or clear caption where the distinction matters.
+- Avoid red/green-only comparisons. Use direct labels or a palette whose values
+  remain distinguishable when viewed without color.
+- Keep label density proportional to the mark count. Label a small bar chart or
+  KPI; use tooltip for dense charts and maps.
+- Keep number formats consistent for the same metric across worksheets. A
+  percentage should not appear as both `0.15` and `15%` in the same dashboard.
+
 ## Sorting Best Practices
 
 ### Bar Charts — Always Sort
@@ -165,3 +176,5 @@ measure_values=[
 - [ ] Filter sidebar has controls ordered logically (time → geography → detail)
 - [ ] At least one filter action connects the primary chart to detail charts
 - [ ] Users can explore the data through interactions
+- [ ] Important states are not communicated by color alone
+- [ ] Repeated metrics use the same number format and color meaning across views

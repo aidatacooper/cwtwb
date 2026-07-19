@@ -31,6 +31,18 @@ into a cohesive, interactive dashboard with a clear information hierarchy.
 - Use a fixed-width sidebar for filters and legends.
 - Keep each dashboard focused on one analytical storyline.
 
+### Dashboard Storyline
+
+Choose a user and a decision before arranging worksheets. A reliable sequence is
+**status -> explanation -> detail**: KPIs establish the current state, a primary
+view explains the main change or comparison, and one or two detail views support
+follow-up questions. Do not add a chart unless it has a distinct role in that
+sequence.
+
+For filters, prefer a consistent order: time first, then geography, then product
+or customer detail. Use filter actions for a precise drill path and highlight
+actions when preserving the surrounding context matters more than narrowing it.
+
 ## Common Layout Pattern
 
 ```text
@@ -263,3 +275,5 @@ Best practices:
 - At least one interaction action supports the main analysis flow.
 - URL and go-to-sheet actions are used only where they add clarity.
 - Key analytical worksheets have concise captions when narrative context helps.
+- [ ] KPI -> primary view -> detail is visible without relying on a caption alone.
+- [ ] Filters follow time -> geography -> detail unless the business workflow requires another order.

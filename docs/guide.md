@@ -175,11 +175,18 @@ Do not pass Tableau column-instance names such as `[sum:Sales:qk]`, `[avg:Calcul
 |---|---|
 | `cwtwb://tool-surface` | Stable tool call order, save semantics, and client usage rules |
 | `cwtwb://skills/index` | Lists phase-specific cwtwb authoring skills |
+| `cwtwb://skills/data_quality` | Local schema triage and field-fit guidance before authoring |
+| `cwtwb://skills/governance` | Local naming and metadata conventions |
+| `cwtwb://skills/synthetic_data` | Safe sample-data strategy and connection guidance |
+| `cwtwb://skills/design_advisor` | Audience-aware dashboard design specification guidance |
+| `cwtwb://skills/metric_blueprint` | Decision-ready metric contract guidance |
 | `cwtwb://skills/calculation_builder` | Tableau calculation syntax and calculated-field guidance |
 | `cwtwb://skills/chart_builder` | Chart selection and encoding guidance |
 | `cwtwb://skills/dashboard_designer` | Dashboard layout and composition guidance |
 | `cwtwb://skills/formatting` | Formatting and styling guidance |
 | `cwtwb://skills/validation` | Validation workflow guidance |
+| `cwtwb://skills/quality_review` | Evidence-aware design and maintainability review guidance |
+| `cwtwb://skills/documentation` | Workbook handoff and metric documentation guidance |
 | `file://docs/tableau_all_functions.json` | Tableau calculation function reference |
 | `cwtwb://profiles/index` | Dataset profile index, when profiles are configured |
 

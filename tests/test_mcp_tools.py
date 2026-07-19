@@ -52,6 +52,33 @@ def fresh_workbook():
 
 
 class TestToolDescriptions:
+    def test_skill_index_includes_planning_and_review_skills(self):
+        from cwtwb.mcp.app import read_skill, read_skills_index
+
+        index = read_skills_index()
+
+        assert "governance" in index
+        assert "data_quality" in index
+        assert "synthetic_data" in index
+        assert "design_advisor" in index
+        assert "metric_blueprint" in index
+        assert "quality_review" in index
+        assert "documentation" in index
+        design_advisor = read_skill("design_advisor")
+        assert "phase: 0.5" in design_advisor.lower()
+        assert "does not mutate the workbook" in design_advisor
+        assert "Audience Constraints" in design_advisor
+        assert "Question-to-Chart Mapping" in design_advisor
+        assert "Pre-Build Risk Review" in design_advisor
+        assert "Filters, Tooltips, and Interactions" in design_advisor
+        assert "does not replace either result" in read_skill("quality_review")
+        assert "row-level distributions" in read_skill("data_quality")
+        synthetic_data = read_skill("synthetic_data")
+        assert "statistically faithful" in synthetic_data
+        assert "synthetic data" in synthetic_data
+        assert "not Tableau Pulse API enums" in read_skill("metric_blueprint")
+        assert "does not yet expose automatic documentation generation" in read_skill("documentation")
+
     def test_mcp_status_reports_runtime_without_secrets(self):
         status = get_mcp_status()
 

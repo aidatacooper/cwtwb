@@ -172,11 +172,18 @@ Chart 和 dashboard 的字段输入应使用面向用户的字段名或 Tableau 
 |---|---|
 | `cwtwb://tool-surface` | 稳定工具调用顺序、保存语义和客户端使用规则 |
 | `cwtwb://skills/index` | 列出阶段化 cwtwb authoring skills |
+| `cwtwb://skills/data_quality` | 在 authoring 前进行本地 schema 检查和字段适配评估 |
+| `cwtwb://skills/governance` | 本地命名和元数据规范 |
+| `cwtwb://skills/synthetic_data` | 安全示例数据策略和连接指导 |
+| `cwtwb://skills/design_advisor` | 面向受众的 dashboard 设计规格指导 |
+| `cwtwb://skills/metric_blueprint` | 面向决策的指标契约指导 |
 | `cwtwb://skills/calculation_builder` | Tableau 计算语法和 calculated field 指导 |
 | `cwtwb://skills/chart_builder` | 图表选择和 encoding 指导 |
 | `cwtwb://skills/dashboard_designer` | Dashboard layout 和组合指导 |
 | `cwtwb://skills/formatting` | Formatting 和 styling 指导 |
 | `cwtwb://skills/validation` | 验证工作流指导 |
+| `cwtwb://skills/quality_review` | 基于证据的设计和可维护性评审指导 |
+| `cwtwb://skills/documentation` | Workbook 交接和指标文档指导 |
 | `file://docs/tableau_all_functions.json` | Tableau calculation function reference |
 | `cwtwb://profiles/index` | Dataset profile index，当 profiles 已配置时可用 |
 

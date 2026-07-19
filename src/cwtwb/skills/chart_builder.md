@@ -23,6 +23,24 @@ You are a **data visualization expert**. Your job is to select the right chart t
 
 ## Chart Type Selection Guide
 
+### Decide From the Question and Field Shape
+
+Before choosing a mark, identify one primary analytical relationship. A chart
+should answer one question, not display every available field.
+
+| Field shape | Default decision | Escalate when |
+|---|---|---|
+| One measure, no comparison | KPI/Text | A trend, target, or composition is the real question. |
+| One categorical dimension plus one measure | Sorted horizontal Bar | Categories are hierarchical or exceed a readable count. |
+| Ordered date plus one or more measures | Line or Area | Gaps, forecast, or mixed grains need explicit treatment. |
+| Geographic field plus measure | Map | Geography is incidental; use a bar chart for precise comparison. |
+| Two quantitative measures | Scatterplot | A third dimension is needed; use color or size sparingly. |
+| Two categorical dimensions plus measure | Heatmap | Cell count becomes too dense to scan. |
+
+Check cardinality before binding color. A discrete color encoding with more
+than seven routinely visible categories is usually a signal to group, filter,
+facet, or choose a different chart.
+
 ### When to Use Each Chart Type
 
 | Analytical Question | Best Chart Type | mark_type |
@@ -47,6 +65,8 @@ You are a **data visualization expert**. Your job is to select the right chart t
 | 3D charts | Distort perception | Any 2D equivalent |
 | Dual-axis without clear reason | Confuses readers | Two separate charts |
 | Bar chart for time series | Bars don't convey continuity | Line chart |
+| Map when location is only a label | Map area implies geographic comparison | Sorted bar chart |
+| Color used for a second unrelated categorical field | Legend becomes hard to decode | Use color for one stable meaning across views |
 
 ## Encoding Guide
 
@@ -377,3 +397,5 @@ Before moving to Phase 3 (Dashboard Designer):
 - [ ] KPI cards have 5-8 well-ordered metrics
 - [ ] Filters are attached to the primary chart
 - [ ] All worksheets have descriptive names
+- [ ] Each discrete color encoding stays within a readable category count
+- [ ] The selected chart follows the analytical question and field shape, not visual novelty
