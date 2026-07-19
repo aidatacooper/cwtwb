@@ -11,7 +11,7 @@ from cwtwb.twb_editor import TWBEditor
 
 @pytest.fixture
 def action_editor():
-    template = Path(__file__).parent.parent / "templates" / "twb" / "superstore.twb"
+    template = Path(__file__).parent.parent / "src" / "cwtwb" / "references" / "superstore.twb"
     editor = TWBEditor(template)
     editor.add_worksheet("Source")
     editor.configure_chart("Source", mark_type="Bar", rows=["Category"], columns=["SUM(Sales)"])

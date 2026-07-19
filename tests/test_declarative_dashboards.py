@@ -9,7 +9,7 @@ from cwtwb.twb_editor import TWBEditor
 
 @pytest.fixture
 def tmp_superstore(tmp_path):
-    src = Path(__file__).parent.parent / "templates" / "twb" / "superstore.twb"
+    src = Path(__file__).parent.parent / "src" / "cwtwb" / "references" / "superstore.twb"
     dst = tmp_path / "superstore_tmp.twb"
     shutil.copy(src, dst)
     return dst

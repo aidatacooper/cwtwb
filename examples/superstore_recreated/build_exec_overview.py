@@ -1,8 +1,8 @@
 """
 Exec Overview Dashboard — Recreation Script
 
-Goal: Replicate the templates/dashboard/Exec Overview.twb dashboard as closely as possible.
-Data Source: templates/dashboard/Sample _ Superstore.hyper
+Goal: Replicate the original Exec Overview dashboard reference as closely as possible.
+Data Source: bundled Sample _ Superstore.hyper reference
 Output: examples/superstore_recreated/Exec Overview Recreated.twb
 
 Capability Assessment (compared to original TWB):

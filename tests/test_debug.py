@@ -16,7 +16,7 @@ from cwtwb.twb_editor import TWBEditor
 def test_bar_only():
     """Test 1: just a bar chart."""
     project_root = Path(__file__).parent.parent
-    editor = TWBEditor(project_root / "templates" / "twb" / "superstore.twb")
+    editor = TWBEditor(project_root / "src" / "cwtwb" / "references" / "superstore.twb")
     editor.clear_worksheets()
     editor.add_worksheet("BarTest")
     editor.configure_chart(
@@ -33,7 +33,7 @@ def test_bar_only():
 def test_bar_pie():
     """Test 2: bar + pie, no dashboard."""
     project_root = Path(__file__).parent.parent
-    editor = TWBEditor(project_root / "templates" / "twb" / "superstore.twb")
+    editor = TWBEditor(project_root / "src" / "cwtwb" / "references" / "superstore.twb")
     editor.clear_worksheets()
     editor.add_worksheet("BarTest")
     editor.configure_chart(
@@ -57,7 +57,7 @@ def test_bar_pie():
 def test_with_calc():
     """Test 3: bar + calculated field."""
     project_root = Path(__file__).parent.parent
-    editor = TWBEditor(project_root / "templates" / "twb" / "superstore.twb")
+    editor = TWBEditor(project_root / "src" / "cwtwb" / "references" / "superstore.twb")
     editor.clear_worksheets()
     editor.add_calculated_field(
         "ProfitRatio",
@@ -79,7 +79,7 @@ def test_with_calc():
 def test_with_dashboard():
     """Test 4: bar + pie + dashboard."""
     project_root = Path(__file__).parent.parent
-    editor = TWBEditor(project_root / "templates" / "twb" / "superstore.twb")
+    editor = TWBEditor(project_root / "src" / "cwtwb" / "references" / "superstore.twb")
     editor.clear_worksheets()
     editor.add_worksheet("BarTest")
     editor.configure_chart(

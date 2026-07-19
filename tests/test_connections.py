@@ -14,7 +14,7 @@ from cwtwb.validator import validate_against_schema
 
 @pytest.fixture
 def superstore_template():
-    return Path(__file__).parent.parent / "templates" / "twb" / "superstore.twb"
+    return Path(__file__).parent.parent / "src" / "cwtwb" / "references" / "superstore.twb"
 
 
 @pytest.fixture
@@ -22,7 +22,6 @@ def sample_superstore_excel():
     candidates = [
         Path(__file__).parent / "fixtures" / "Sample - Superstore.xls",
         Path(__file__).parent.parent / "examples" / "migrate_workflow" / "Sample - Superstore.xls",
-        Path(__file__).parent.parent / "templates" / "Sample - Superstore.xls",
     ]
     for candidate in candidates:
         if candidate.exists():

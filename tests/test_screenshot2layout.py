@@ -22,7 +22,7 @@ from cwtwb.server import (
     save_workbook,
 )
 
-TEMPLATE = Path("templates/twb/superstore.twb")
+TEMPLATE = Path("src/cwtwb/references/empty_template.twb")
 LAYOUT_DIR = Path("examples/screenshot2layout")
 LAYOUT1 = LAYOUT_DIR / "layout_dashboard1.json"
 LAYOUT2 = LAYOUT_DIR / "layout_dashboard2.json"

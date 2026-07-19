@@ -17,7 +17,7 @@ from cwtwb.twb_editor import TWBEditor
 @pytest.fixture
 def ws_editor():
     """Editor with a single 'Chart' worksheet pre-configured as a bar chart."""
-    template = Path(__file__).parent.parent / "templates" / "twb" / "superstore.twb"
+    template = Path(__file__).parent.parent / "src" / "cwtwb" / "references" / "superstore.twb"
     ed = TWBEditor(template)
     ed.add_worksheet("Chart")
     ed.configure_chart("Chart", mark_type="Bar", rows=["Category"], columns=["SUM(Sales)"])

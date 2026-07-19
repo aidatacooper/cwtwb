@@ -16,7 +16,7 @@ from cwtwb.twb_editor import TWBEditor
 
 @pytest.fixture
 def lr_editor():
-    template = Path(__file__).parent.parent / "templates" / "twb" / "superstore.twb"
+    template = Path(__file__).parent.parent / "src" / "cwtwb" / "references" / "superstore.twb"
     ed = TWBEditor(template)
     ed.add_worksheet("LRSheet")
     return ed

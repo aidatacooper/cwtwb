@@ -12,7 +12,7 @@ from pathlib import Path
 
 import pytest
 
-TEMPLATE_PATH = Path(__file__).parent.parent / "templates" / "twb" / "superstore.twb"
+TEMPLATE_PATH = Path(__file__).parent.parent / "src" / "cwtwb" / "references" / "superstore.twb"
 
 
 @pytest.fixture(scope="module")

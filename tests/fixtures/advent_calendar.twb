@@ -2696,7 +2696,7 @@
         </drill-path>
       </drill-paths>
       <extract _.fcp.VConnDownstreamExtractsWithWarnings.true...user-specific='false' count='-1' enabled='true' object-id='' units='records'>
-        <connection access_mode='readonly' authentication='auth-none' author-locale='en_GB' class='hyper' dbname='C:/Users/imgwho/Desktop/projects/20260227-cwtwb/templates/viz/Tableau Advent Calendar.twb 个文件/Data/Tableau Advent Calendar/Sample - EU Superstore.hyper' default-settings='yes' schema='Extract' sslmode='' tablename='Extract' update-time='11/27/2024 10:02:47 AM' username=''>
+        <connection access_mode='readonly' authentication='auth-none' author-locale='en_GB' class='hyper' dbname='C:/Users/imgwho/Desktop/projects/20260227-cwtwb/src/cwtwb/references/Sample - EU Superstore.hyper' default-settings='yes' schema='Extract' sslmode='' tablename='Extract' update-time='11/27/2024 10:02:47 AM' username=''>
           <relation type='collection'>
             <relation name='Orders_4A2273C4362E41DEA7258D5051022F80' table='[Extract].[Orders_4A2273C4362E41DEA7258D5051022F80]' type='table' />
             <relation name='People_14D8462E704F452587162A9FED8B09DF' table='[Extract].[People_14D8462E704F452587162A9FED8B09DF]' type='table' />

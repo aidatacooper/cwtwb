@@ -7,7 +7,7 @@ from cwtwb.twb_editor import TWBEditor
 
 @pytest.fixture
 def empty_editor():
-    template_path = Path(__file__).parent.parent / "templates" / "twb" / "superstore.twb"
+    template_path = Path(__file__).parent.parent / "src" / "cwtwb" / "references" / "superstore.twb"
     return TWBEditor(str(template_path))
 
 def test_simplified_chart_types(empty_editor, tmp_path):

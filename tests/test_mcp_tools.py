@@ -41,7 +41,7 @@ from cwtwb.server import (
     validate_workbook,
 )
 
-TEMPLATE = Path("templates/twb/superstore.twb")
+TEMPLATE = Path("src/cwtwb/references/empty_template.twb")
 EXAMPLE_WORKBOOK = Path("examples/worksheet_refactor_kpi_profit/5 KPI Design Ideas (2).twb")
 
 
@@ -385,7 +385,7 @@ class TestListCapabilities:
 
 class TestAnalyzeTwb:
     def test_analyze_existing_template(self):
-        path = Path("templates/viz/Tableau Advent Calendar.twb")
+        path = Path("tests/fixtures/advent_calendar.twb")
         if not path.exists():
             pytest.skip("Advent Calendar template not available")
         result = analyze_twb(str(path))

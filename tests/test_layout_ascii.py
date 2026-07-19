@@ -9,7 +9,7 @@ from cwtwb.twb_editor import TWBEditor
 
 def test_new_layout_flow():
     project_root = Path(__file__).parent.parent
-    template = str(project_root / 'templates' / 'twb' / 'superstore.twb')
+    template = str(project_root / 'src' / 'cwtwb' / 'references' / 'superstore.twb')
     json_out = str(project_root / 'output' / 'test_layout.json')
     twb_out = str(project_root / 'output' / 'test_layout.twb')
     

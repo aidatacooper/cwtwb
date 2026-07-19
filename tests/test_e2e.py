@@ -21,7 +21,7 @@ from cwtwb.server import (
     save_workbook,
 )
 
-TEMPLATE = Path("templates/twb/superstore.twb")
+TEMPLATE = Path("src/cwtwb/references/empty_template.twb")
 
 
 @pytest.fixture(autouse=True)

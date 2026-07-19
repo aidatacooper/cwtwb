@@ -1,7 +1,7 @@
 import xml.etree.ElementTree as ET
 import sys
 
-file_path = r'c:\Users\imgwho\Desktop\projects\20260227-cwtwb\templates\viz\Tableau Advent Calendar.twb'
+file_path = r'c:\Users\imgwho\Desktop\projects\20260227-cwtwb\tests\fixtures\advent_calendar.twb'
 tree = ET.parse(file_path)
 root = tree.getroot()
 

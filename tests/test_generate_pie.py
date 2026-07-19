@@ -13,7 +13,7 @@ import pytest
 
 from cwtwb.twb_editor import TWBEditor
 
-TEMPLATE = Path(__file__).parent.parent / "templates" / "twb" / "superstore.twb"
+TEMPLATE = Path(__file__).parent.parent / "src" / "cwtwb" / "references" / "superstore.twb"
 
 
 @pytest.fixture

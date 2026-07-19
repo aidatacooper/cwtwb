@@ -12,7 +12,7 @@ class TestParameters(unittest.TestCase):
     """Test add_parameter functionality."""
 
     def setUp(self):
-        template_path = Path(__file__).parent.parent / "templates" / "twb" / "superstore.twb"
+        template_path = Path(__file__).parent.parent / "src" / "cwtwb" / "references" / "superstore.twb"
         self.editor = TWBEditor(template_path)
 
     def test_add_parameter_range(self):
@@ -116,7 +116,7 @@ class TestMapChart(unittest.TestCase):
     """Test Map chart type in configure_chart."""
 
     def setUp(self):
-        template_path = Path(__file__).parent.parent / "templates" / "twb" / "superstore.twb"
+        template_path = Path(__file__).parent.parent / "src" / "cwtwb" / "references" / "superstore.twb"
         self.editor = TWBEditor(template_path)
 
     def test_configure_map_basic(self):
@@ -185,7 +185,7 @@ class TestFilterZones(unittest.TestCase):
     """Test filter and paramctrl zone types in layout."""
 
     def setUp(self):
-        template_path = Path(__file__).parent.parent / "templates" / "twb" / "superstore.twb"
+        template_path = Path(__file__).parent.parent / "src" / "cwtwb" / "references" / "superstore.twb"
         self.editor = TWBEditor(template_path)
 
     def test_dashboard_with_filter_zone(self):

@@ -29,12 +29,12 @@ from cwtwb.twb_editor import TWBEditor
 
 TWBX_FILE = (
     Path(__file__).parent.parent
-    / "templates"
-    / "dashboard"
+    / "tests"
+    / "fixtures"
     / "Customer Support Case Demo #VOTD.twbx"
 )
 TWB_FILE = (
-    Path(__file__).parent.parent / "templates" / "twb" / "superstore.twb"
+    Path(__file__).parent.parent / "src" / "cwtwb" / "references" / "superstore.twb"
 )
 
 pytestmark = pytest.mark.skipif(

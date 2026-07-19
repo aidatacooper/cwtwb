@@ -28,7 +28,7 @@ from cwtwb.server import (
 
 def main():
     project_root = Path(__file__).parent.parent
-    template = str(project_root / "templates" / "twb" / "superstore.twb")
+    template = str(project_root / "src" / "cwtwb" / "references" / "superstore.twb")
     output = str(project_root / "output" / "overview_full.twb")
 
     # ============================================================

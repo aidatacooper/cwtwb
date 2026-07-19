@@ -119,7 +119,7 @@ screenshot_workbook(workbook_id="xxx", output_dir="output/validation", env_path=
 from cwtwb.twb_editor import TWBEditor
 
 # Open a packaged workbook — extracts and images are preserved automatically
-editor = TWBEditor.open_existing("templates/dashboard/MyDashboard.twbx")
+editor = TWBEditor.open_existing("workbooks/MyDashboard.twbx")
 
 # Make changes as usual
 editor.add_calculated_field("Profit Ratio", "SUM([Profit])/SUM([Sales])")
@@ -134,7 +134,7 @@ editor.save("output/MyDashboard_v2.twb")
 A plain `.twb` can also be packaged:
 
 ```python
-editor = TWBEditor("templates/twb/superstore.twb")
+editor = TWBEditor("src/cwtwb/references/empty_template.twb")
 # ...
 editor.save("output/superstore.twbx")  # produces a single-entry ZIP with the .twb inside
 ```
@@ -425,7 +425,7 @@ import json
 
 # One-call guided migration
 result = migrate_twb_guided_json(
-    file_path="templates/SalesDashboard.twb",
+    file_path="workbooks/SalesDashboard.twb",
     target_source="data/new_data_source.xlsx",
     output_path="output/SalesDashboard_migrated.twb",
 )
@@ -436,7 +436,7 @@ if bundle["status"] == "warning_review_required":
     print(bundle["warning_review_bundle"])
     # Re-run with confirmed mappings
     result = migrate_twb_guided_json(
-        file_path="templates/SalesDashboard.twb",
+        file_path="workbooks/SalesDashboard.twb",
         target_source="data/new_data_source.xlsx",
         output_path="output/SalesDashboard_migrated.twb",
         mapping_overrides={"Old Field Name": "New Column Name"},
@@ -452,25 +452,25 @@ inspect_target_schema(target_source="data/new_data_source.xlsx")
 → returns column list and data types
 
 profile_twb_for_migration(
-    file_path="templates/SalesDashboard.twb",
+    file_path="workbooks/SalesDashboard.twb",
     target_source="data/new_data_source.xlsx"
 )
 → inventories source fields and workbook scope
 
 propose_field_mapping(
-    file_path="templates/SalesDashboard.twb",
+    file_path="workbooks/SalesDashboard.twb",
     target_source="data/new_data_source.xlsx"
 )
 → proposes source-to-target field mappings
 
 preview_twb_migration(
-    file_path="templates/SalesDashboard.twb",
+    file_path="workbooks/SalesDashboard.twb",
     target_source="data/new_data_source.xlsx"
 )
 → returns blockers, warnings, and planned rewrites
 
 apply_twb_migration(
-    file_path="templates/SalesDashboard.twb",
+    file_path="workbooks/SalesDashboard.twb",
     target_source="data/new_data_source.xlsx",
     output_path="output/SalesDashboard_migrated.twb"
 )

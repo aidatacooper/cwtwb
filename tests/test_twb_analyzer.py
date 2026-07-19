@@ -84,7 +84,7 @@ def test_analyze_generated_workbook_detects_core_and_advanced():
 
 
 def test_analyze_advent_calendar_detects_recipe_patterns():
-    path = Path("templates/viz/Tableau Advent Calendar.twb")
+    path = Path("tests/fixtures/advent_calendar.twb")
     report = analyze_workbook(path)
 
     detected = {(item.kind, item.canonical) for item in report.detected}
@@ -95,7 +95,7 @@ def test_analyze_advent_calendar_detects_recipe_patterns():
 
 
 def test_gap_summary_highlights_non_core_items():
-    path = Path("templates/viz/Tableau Advent Calendar.twb")
+    path = Path("tests/fixtures/advent_calendar.twb")
     report = analyze_workbook(path)
     gap_text = report.to_gap_text()
 
@@ -107,7 +107,7 @@ def test_gap_summary_highlights_non_core_items():
 
 
 def test_diff_template_gap_tool_returns_gap_summary():
-    path = Path("templates/viz/Tableau Advent Calendar.twb")
+    path = Path("tests/fixtures/advent_calendar.twb")
     result = diff_template_gap(str(path))
 
     assert "Capability gap:" in result

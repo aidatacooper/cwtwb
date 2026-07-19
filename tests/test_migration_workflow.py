@@ -23,7 +23,7 @@ from cwtwb.server import (  # noqa: E402
 )
 
 
-MIGRATE_DIR = Path("templates/migrate")
+MIGRATE_DIR = Path("examples/migrate_workflow")
 TEMPLATE_PATH = MIGRATE_DIR / "5 KPI Design Ideas (2).twb"
 TARGET_SOURCE = next(path for path in MIGRATE_DIR.glob("*.xls") if "Superstore" not in path.name)
 EXPECTED_WORKSHEETS = [

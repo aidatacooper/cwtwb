@@ -5,7 +5,7 @@ from cwtwb.twb_editor import TWBEditor
 
 class TestInteractiveFeatures(unittest.TestCase):
     def setUp(self):
-        template_path = Path(__file__).parent.parent / "templates" / "twb" / "superstore.twb"
+        template_path = Path(__file__).parent.parent / "src" / "cwtwb" / "references" / "superstore.twb"
         self.editor = TWBEditor(template_path)
         
     def test_tooltip(self):

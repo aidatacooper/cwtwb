@@ -18,7 +18,7 @@ from cwtwb.server import (  # noqa: E402
 
 
 def test_add_calculated_field_infers_aggregated_nominal_measure(tmp_path: Path) -> None:
-    template = Path("templates/twb/superstore.twb")
+    template = Path("src/cwtwb/references/empty_template.twb")
     output = tmp_path / "aggregated_nominal_calc.twb"
 
     create_workbook(str(template), "Calc Semantics")
@@ -40,7 +40,7 @@ def test_add_calculated_field_infers_aggregated_nominal_measure(tmp_path: Path) 
 
 
 def test_configure_dual_axis_exposes_recipe_controls(tmp_path: Path) -> None:
-    template = Path("templates/twb/superstore.twb")
+    template = Path("src/cwtwb/references/empty_template.twb")
     output = tmp_path / "dual_axis_controls.twb"
 
     create_workbook(str(template), "Dual Axis Controls")
@@ -83,7 +83,7 @@ def test_configure_dual_axis_exposes_recipe_controls(tmp_path: Path) -> None:
 
 
 def test_configure_chart_recipe_rejects_unknown_recipe(tmp_path: Path) -> None:
-    template = Path("templates/twb/superstore.twb")
+    template = Path("src/cwtwb/references/empty_template.twb")
 
     create_workbook(str(template), "Recipe Validation")
     add_worksheet("Unknown Recipe")
@@ -97,7 +97,7 @@ def test_configure_chart_recipe_rejects_unknown_recipe(tmp_path: Path) -> None:
 
 
 def test_configure_chart_recipe_requires_required_args(tmp_path: Path) -> None:
-    template = Path("templates/twb/superstore.twb")
+    template = Path("src/cwtwb/references/empty_template.twb")
 
     create_workbook(str(template), "Recipe Validation")
     add_worksheet("Broken Recipe")
@@ -111,7 +111,7 @@ def test_configure_chart_recipe_requires_required_args(tmp_path: Path) -> None:
 
 
 def test_configure_chart_recipe_auto_ensures_prerequisites(tmp_path: Path) -> None:
-    template = Path("templates/twb/superstore.twb")
+    template = Path("src/cwtwb/references/empty_template.twb")
     output = tmp_path / "recipe_prereqs.twb"
 
     create_workbook(str(template), "Recipe Prereqs")
@@ -143,7 +143,7 @@ def test_configure_chart_recipe_auto_ensures_prerequisites(tmp_path: Path) -> No
 
 
 def test_configure_chart_recipe_defaults_raw_measures_to_sum(tmp_path: Path) -> None:
-    template = Path("templates/twb/superstore.twb")
+    template = Path("src/cwtwb/references/empty_template.twb")
     output = tmp_path / "recipe_default_sum_raw_measures.twb"
 
     create_workbook(str(template), "Recipe Default Sum")
@@ -188,7 +188,7 @@ def test_configure_chart_recipe_defaults_raw_measures_to_sum(tmp_path: Path) -> 
 
 
 def test_mcp_tools_can_recreate_all_supported_charts_showcase(tmp_path: Path) -> None:
-    template = Path("templates/twb/superstore.twb")
+    template = Path("src/cwtwb/references/empty_template.twb")
     output = tmp_path / "all_supported_charts_from_mcp.twb"
 
     create_workbook(str(template), "All Supported Charts From MCP")

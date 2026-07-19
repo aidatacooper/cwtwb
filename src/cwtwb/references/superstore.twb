@@ -20,7 +20,7 @@
       <connection class='federated'>
         <named-connections>
           <named-connection caption='Sample - Superstore' name='excel-direct.1gzzs5t1wlixqg1bxauxn0fv1hll'>
-            <connection class='excel-direct' cleaning='no' compat='no' dataRefreshTime='' filename='C:/Users/imgwho/Desktop/projects/20260227-cwtwb/templates/Sample - Superstore.xls' interpretationMode='0' password='' server='' validate='no' />
+            <connection class='excel-direct' cleaning='no' compat='no' dataRefreshTime='' filename='C:/Users/imgwho/Desktop/projects/20260227-cwtwb/src/cwtwb/references/Sample _ Superstore (Simple).xls' interpretationMode='0' password='' server='' validate='no' />
           </named-connection>
         </named-connections>
         <relation connection='excel-direct.1gzzs5t1wlixqg1bxauxn0fv1hll' name='Orders' table='[Orders$]' type='table'>

@@ -24,7 +24,7 @@ from cwtwb.server import (  # noqa: E402
 
 
 def _build_seed_workbook(tmp_path: Path) -> Path:
-    template = Path("templates/twb/superstore.twb")
+    template = Path("src/cwtwb/references/empty_template.twb")
     output = tmp_path / "seed_existing_workbook.twb"
 
     create_workbook(str(template), "Seed Existing Workbook")

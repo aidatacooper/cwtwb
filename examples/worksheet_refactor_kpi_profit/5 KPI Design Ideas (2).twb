@@ -49,7 +49,7 @@
       <connection class="federated">
         <named-connections>
           <named-connection caption="示例 - 超市" name="excel-direct.0kz3azt1ex94vy18d6m7k1ov9a8b">
-            <connection class="excel-direct" cleaning="no" compat="no" dataRefreshTime="" filename="C:/Users/imgwho/Desktop/projects/20260227-cwtwb/templates/migrate/示例 - 超市.xls" interpretationMode="0" password="" server="" validate="no"/>
+            <connection class="excel-direct" cleaning="no" compat="no" dataRefreshTime="" filename="C:/Users/imgwho/Desktop/projects/20260227-cwtwb/examples/migrate_workflow/示例 - 超市.xls" interpretationMode="0" password="" server="" validate="no"/>
           </named-connection>
         </named-connections>
         <relation connection="excel-direct.0kz3azt1ex94vy18d6m7k1ov9a8b" name="订单" table="[订单$]" type="table">
@@ -3249,7 +3249,7 @@
         </drill-path>
       </drill-paths>
       <extract _.fcp.VConnDownstreamExtractsWithWarnings.true...user-specific="false" count="-1" enabled="false" object-id="" units="records">
-        <connection access_mode="readonly" authentication="auth-none" author-locale="en_US" class="hyper" dbname="C:/Users/imgwho/Desktop/projects/20260227-cwtwb/templates/migrate/5 KPI Design Ideas (2).twb 个文件/Data/Ep41. How to build world-class KPI.twb Files/Sample - Superstore (copy).hyper" default-settings="yes" schema="Extract" sslmode="" tablename="Extract" update-time="05/18/2025 04:04:44 PM" username="">
+        <connection access_mode="readonly" authentication="auth-none" author-locale="en_US" class="hyper" dbname="C:/Users/imgwho/Desktop/projects/20260227-cwtwb/examples/migrate_workflow/5 KPI Design Ideas (2).twb Files/Data/Sample - Superstore (copy).hyper" default-settings="yes" schema="Extract" sslmode="" tablename="Extract" update-time="05/18/2025 04:04:44 PM" username="">
           <relation type="collection">
             <relation name="Orders_ECFCA1FB690A41FE803BC071773BA862" table="[Extract].[Orders_ECFCA1FB690A41FE803BC071773BA862]" type="table"/>
             <relation name="People_D73023733B004CC1B3CB1ACF62F4A965" table="[Extract].[People_D73023733B004CC1B3CB1ACF62F4A965]" type="table"/>

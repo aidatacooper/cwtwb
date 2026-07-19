@@ -23,4 +23,4 @@ By default the script writes these files back into this same folder:
 - `migration_report.json`
 - `field_mapping.json`
 
-The copied `.twb` in this folder already points at the copied Excel files in this same folder, so you can also open it directly in Tableau Desktop without having to go back to `templates/migrate`.
+The copied `.twb` in this folder already points at the copied Excel files in this same folder, so you can also open it directly in Tableau Desktop without any repository-level template folder.

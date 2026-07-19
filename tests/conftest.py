@@ -15,7 +15,7 @@ def editor():
 @pytest.fixture
 def editor_superstore():
     """Provide a TWBEditor instance loaded with the Superstore template."""
-    template_path = Path(__file__).parent.parent / "templates" / "twb" / "superstore.twb"
+    template_path = Path(__file__).parent.parent / "src" / "cwtwb" / "references" / "superstore.twb"
     if template_path.exists():
         return TWBEditor(template_path)
     # Fallback to default template

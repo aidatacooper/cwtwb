@@ -5,6 +5,18 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## Unreleased
+
+### Changed
+
+- **Repository asset boundary**: removed root-level `scripts/` and `templates/`
+  assets from the GitHub tree. Runtime workbook references now live under
+  `src/cwtwb/references/`, while heavier migration examples stay under
+  `examples/`.
+- **Tests no longer depend on root templates**: test fixtures now use bundled
+  references, `tests/fixtures`, or `examples/migrate_workflow` instead of
+  repository-level `templates/...` paths.
+
 ## [0.23.0] - 2026-07-19
 
 ### Added
@@ -439,7 +451,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 - **Packaging**: Removed redundant `artifacts` declarations from `pyproject.toml`. All non-Python files under `src/cwtwb/` are git-tracked and included in the wheel automatically via `packages = ["src/cwtwb"]`.
 - **`.gitignore`**: Added `!src/cwtwb/references/*.hyper` exception so bundled Hyper files are tracked by git and always present at wheel build time.
-- **Examples — zero external dependencies**: All scripts in `examples/scripts/` and prompts in `examples/prompts/` updated to use `TWBEditor("")` / `create_workbook("")` (built-in default template) instead of hard-coded paths to `templates/twb/superstore.twb`. All work after a plain `pip install cwtwb`.
+- **Examples — zero external dependencies**: All scripts in `examples/scripts/` and prompts in `examples/prompts/` updated to use `TWBEditor("")` / `create_workbook("")` (built-in default template) instead of hard-coded paths to `src/cwtwb/references/empty_template.twb`. All work after a plain `pip install cwtwb`.
 
 ## [0.11.0] - 2026-03-13
 
