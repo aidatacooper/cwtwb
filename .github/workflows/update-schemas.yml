@@ -23,16 +23,41 @@ jobs:
           rm -rf /tmp/tds
 
       - name: Create PR if changed
-        id: pr
-        uses: peter-evans/create-pull-request@v7
-        with:
-          title: "chore: update tableau-document-schemas"
-          branch: auto/update-schemas
-          reviewers: imgwho
-          labels: dependencies
-
-      - name: Auto merge PR
-        if: steps.pr.outputs.pull-request-number
-        run: gh pr merge --auto --squash ${{ steps.pr.outputs.pull-request-number }}
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          # No changes? Exit early.
+          if git diff --exit-code; then
+            echo "No schema changes detected."
+            exit 0
+          fi
+
+          # Configure git identity for the bot
+          git config user.name  "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          # Commit to a dedicated branch and force-push (overwrites stale branch)
+          BRANCH="auto/update-schemas"
+          git checkout -b "$BRANCH"
+          git add vendor/tableau-document-schemas/schemas/
+          git commit -m "chore: update tableau-document-schemas"
+          git push --force origin "$BRANCH"
+
+          # Create PR (ignore error if one already exists)
+          gh pr create \
+            --title "chore: update tableau-document-schemas" \
+            --body  "Automated weekly update of vendored tableau-document-schemas from upstream." \
+            --base  main \
+            --head  "$BRANCH" \
+            --label dependencies \
+            2>/dev/null || true
+
+          # Grab the PR number and enable auto-merge
+          PR_NUMBER=$(gh pr list --head "$BRANCH" --json number --jq '.[0].number')
+          if [ -n "$PR_NUMBER" ]; then
+            echo "Enabling auto-merge for PR #$PR_NUMBER"
+            gh pr merge --auto --squash "$PR_NUMBER"
+          else
+            echo "Could not find PR for branch $BRANCH"
+            exit 1
+          fi
