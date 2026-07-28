@@ -415,6 +415,16 @@ class TWBAnalyzer:
                 xpath_hint=".//nav-action",
             )
 
+        for parameter_action in root.xpath(".//edit-parameter-action"):
+            self._resolve_and_record(
+                detected,
+                unknown,
+                kind="action",
+                raw_name="edit-parameter-action",
+                source=parameter_action.get("caption", "edit-parameter-action"),
+                xpath_hint=".//edit-parameter-action",
+            )
+
     def _detect_connections(
         self,
         root: etree._Element,

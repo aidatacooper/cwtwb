@@ -429,8 +429,14 @@ _ACTION_LABELS = {
     "highlight": "Highlight",
     "url": "URL",
     "go-to-sheet": "Go-To-Sheet",
+    "parameter": "Parameter",
 }
 _SUPPORTED_ACTION_TYPES = tuple(_ACTION_LABELS)
+_PARAMETER_ACTION_AGGREGATIONS = ("attr", "min", "max", "sum")
+_PARAMETER_ACTION_CLEAR_BEHAVIORS = {
+    "keep-current": "do-nothing",
+    "set-value": "assign-fixed-value",
+}
 
 
 def add_dashboard_action(
@@ -443,6 +449,11 @@ def add_dashboard_action(
     event_type: str = "on-select",
     caption: str = "",
     url: str = "",
+    source_field: str = "",
+    target_parameter: str = "",
+    aggregation: str = "attr",
+    clear_behavior: str = "keep-current",
+    clear_value: str = "",
 ) -> str:
     """Add an interaction action to a dashboard."""
 
@@ -465,16 +476,24 @@ def add_dashboard_action(
         action_type=normalized_type,
         target_sheet=target_sheet,
         url=url,
+        source_field=source_field,
+        target_parameter=target_parameter,
+        aggregation=aggregation,
+        clear_behavior=clear_behavior,
+        clear_value=clear_value,
     )
 
     actions_el = _ensure_actions_container(editor)
     action_index = (
-        len(actions_el.findall("action")) + len(actions_el.findall("nav-action")) + 1
+        len(actions_el.findall("action"))
+        + len(actions_el.findall("nav-action"))
+        + len(actions_el.findall("edit-parameter-action"))
+        + 1
     )
     action_caption = caption or f"{_ACTION_LABELS[normalized_type]} Action {action_index}"
 
     action_el = etree.Element(
-        "action",
+        "edit-parameter-action" if normalized_type == "parameter" else "action",
         nsmap={"user": "http://www.tableausoftware.com/xml/user"},
     )
     _append_action(actions_el, action_el)
@@ -482,13 +501,27 @@ def add_dashboard_action(
     action_el.set("name", f"[Action{action_index}]")
 
     activation_el = etree.SubElement(action_el, "activation")
-    activation_el.set("auto-clear", "true")
+    if normalized_type != "parameter":
+        activation_el.set("auto-clear", "true")
     activation_el.set("type", event_type if event_type != "on-select" else "on-select")
 
     source_el = etree.SubElement(action_el, "source")
     source_el.set("dashboard", dashboard_name)
     source_el.set("type", "sheet")
     source_el.set("worksheet", source_sheet)
+
+    if normalized_type == "parameter":
+        _ensure_parameter_action_manifest(editor)
+        _configure_parameter_action(
+            editor,
+            action_el,
+            source_field=source_field,
+            target_parameter=target_parameter,
+            aggregation=aggregation,
+            clear_behavior=clear_behavior,
+            clear_value=clear_value,
+        )
+        return f"Added parameter action '{action_caption}' to '{dashboard_name}'"
 
     dashboard_sheets = _collect_dashboard_worksheets(editor, db_el)
     exclude_sheets = [
@@ -519,7 +552,36 @@ def add_dashboard_action(
     return f"Added {normalized_type} action '{action_caption}' to '{dashboard_name}'"
 
 
-def _validate_action_targets(editor, *, action_type: str, target_sheet: str, url: str) -> None:
+def _ensure_parameter_action_manifest(editor) -> None:
+    """Enable Tableau's schema-gated parameter-action XML elements."""
+
+    manifest = editor.root.find("document-format-change-manifest")
+    if manifest is None:
+        manifest = etree.Element("document-format-change-manifest")
+        editor.root.insert(0, manifest)
+
+    for feature_name in ("ParameterAction", "ParameterActionClearSelection"):
+        if manifest.find(feature_name) is None:
+            feature = etree.Element(feature_name)
+            schema_viewer = manifest.find("SchemaViewerObjectModel")
+            if schema_viewer is not None:
+                schema_viewer.addprevious(feature)
+            else:
+                manifest.append(feature)
+
+
+def _validate_action_targets(
+    editor,
+    *,
+    action_type: str,
+    target_sheet: str,
+    url: str,
+    source_field: str,
+    target_parameter: str,
+    aggregation: str,
+    clear_behavior: str,
+    clear_value: str,
+) -> None:
     """Validate per-action required arguments with clear user-facing errors."""
 
     if action_type in {"filter", "highlight", "go-to-sheet"}:
@@ -531,6 +593,65 @@ def _validate_action_targets(editor, *, action_type: str, target_sheet: str, url
 
     if action_type == "url" and not url.strip():
         raise ValueError("action_type 'url' requires a non-empty url.")
+
+    if action_type == "parameter":
+        if not source_field.strip():
+            raise ValueError("action_type 'parameter' requires a non-empty source_field.")
+        editor.field_registry.parse_expression(source_field)
+        if target_parameter not in editor._parameters:
+            raise ValueError(
+                f"Parameter '{target_parameter}' not found. "
+                f"Available parameters: {sorted(editor._parameters)}"
+            )
+        if aggregation not in _PARAMETER_ACTION_AGGREGATIONS:
+            raise ValueError(
+                f"Unsupported parameter action aggregation '{aggregation}'. "
+                f"Use one of {_PARAMETER_ACTION_AGGREGATIONS}."
+            )
+        if clear_behavior not in _PARAMETER_ACTION_CLEAR_BEHAVIORS:
+            raise ValueError(
+                f"Unsupported clear_behavior '{clear_behavior}'. "
+                f"Use one of {tuple(_PARAMETER_ACTION_CLEAR_BEHAVIORS)}."
+            )
+        if not clear_value.strip():
+            raise ValueError(
+                "action_type 'parameter' requires clear_value in Tableau's "
+                "serialized format (for example 'd:2026-02-12' or 'i:0')."
+            )
+
+
+def _configure_parameter_action(
+    editor,
+    action_el: etree._Element,
+    *,
+    source_field: str,
+    target_parameter: str,
+    aggregation: str,
+    clear_behavior: str,
+    clear_value: str,
+) -> None:
+    """Populate Tableau's native edit-parameter-action payload."""
+
+    agg_el = etree.SubElement(action_el, "agg-type")
+    agg_el.set("type", aggregation)
+
+    clear_el = etree.SubElement(action_el, "clear-option")
+    clear_el.set("type", _PARAMETER_ACTION_CLEAR_BEHAVIORS[clear_behavior])
+    clear_el.set("value", clear_value)
+
+    source_instance = editor.field_registry.parse_expression(source_field).instance_name
+    source_reference = editor.field_registry.resolve_full_reference(source_instance)
+    parameter_reference = (
+        f"[Parameters].{editor._parameters[target_parameter]['internal_name']}"
+    )
+
+    params_el = etree.SubElement(action_el, "params")
+    source_param = etree.SubElement(params_el, "param")
+    source_param.set("name", "source-field")
+    source_param.set("value", source_reference)
+    target_param = etree.SubElement(params_el, "param")
+    target_param.set("name", "target-parameter")
+    target_param.set("value", parameter_reference)
 
 
 def _ensure_actions_container(editor) -> etree._Element:
@@ -815,6 +936,11 @@ class DashboardsMixin:
         event_type: str = "on-select",
         caption: str = "",
         url: str = "",
+        source_field: str = "",
+        target_parameter: str = "",
+        aggregation: str = "attr",
+        clear_behavior: str = "keep-current",
+        clear_value: str = "",
     ) -> str:
         """Add an interaction action to a dashboard."""
         return add_dashboard_action(
@@ -827,4 +953,9 @@ class DashboardsMixin:
             event_type,
             caption,
             url,
+            source_field,
+            target_parameter,
+            aggregation,
+            clear_behavior,
+            clear_value,
         )

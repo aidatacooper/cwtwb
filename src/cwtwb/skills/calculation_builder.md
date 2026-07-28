@@ -181,8 +181,10 @@ add_calculated_field(
 ```
 
 **Rules:**
-- `table_calc` must be `"Rows"` (partition by row) or `"Columns"` (partition by column).
-- The SDK automatically propagates the `<table-calc ordering-type="Columns"/>` element into every `<column-instance>` that references this field.
+- `table_calc` can be `"Rows"` or `"Columns"` for the common directional cases.
+- For richer Tableau-authored metadata, pass a mapping such as `{"ordering_type": "Field", "ordering_field": "[Datasource].[Date]"}`.
+- The SDK propagates the selected metadata into every `<column-instance>` that references this field; it does not replace it with a hard-coded direction.
+- When one table calculation references another, cwtwb emits the dependent `field="..."` table-calculation entry used by Tableau.
 - Set `field_type="ordinal"` when the result is a rank (integer used as a label, not summed).
 - Use `field_type="quantitative"` (default) for running totals / window aggregates.
 

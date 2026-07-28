@@ -59,6 +59,7 @@ def _apply_calculated_fields(editor, spec: dict[str, Any]) -> list[str]:
                 item.get("datatype", "real"),
                 role=item.get("role"),
                 field_type=item.get("field_type"),
+                table_calc=item.get("table_calc"),
                 default_format=item.get("default_format", ""),
                 internal_name=item.get("internal_name"),
             )

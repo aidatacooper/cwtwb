@@ -174,6 +174,7 @@ def add_calculated_field(
     datatype: str = "real",
     role: str = "",
     field_type: str = "",
+    table_calc: str | dict[str, str] | None = None,
     default_format: str = "",
     internal_name: str = "",
 ) -> str:
@@ -189,6 +190,7 @@ def add_calculated_field(
         datatype,
         role=role or None,
         field_type=field_type or None,
+        table_calc=table_calc,
         default_format=default_format,
         internal_name=internal_name or None,
     )
@@ -659,8 +661,18 @@ def add_dashboard_action(
     event_type: str = "on-select",
     caption: str = "",
     url: str = "",
+    source_field: str = "",
+    target_parameter: str = "",
+    aggregation: str = "attr",
+    clear_behavior: str = "keep-current",
+    clear_value: str = "",
 ) -> str:
-    """Add an interaction action to a dashboard."""
+    """Add a filter, highlight, URL, navigation, or parameter dashboard action.
+
+    For ``action_type="parameter"``, provide ``source_field``,
+    ``target_parameter``, and a Tableau-serialized ``clear_value`` such as
+    ``d:2026-02-12``, ``i:0``, or ``s:LROOT:All``.
+    """
 
     editor = get_editor()
     return editor.add_dashboard_action(
@@ -672,6 +684,11 @@ def add_dashboard_action(
         event_type=event_type,
         caption=caption,
         url=url,
+        source_field=source_field,
+        target_parameter=target_parameter,
+        aggregation=aggregation,
+        clear_behavior=clear_behavior,
+        clear_value=clear_value,
     )
 
 

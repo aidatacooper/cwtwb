@@ -36,6 +36,32 @@ _AGGREGATE_FUNCTION_RE = re.compile(
     re.IGNORECASE,
 )
 _FIELD_TOKEN_RE = re.compile(r"\[([^\]]+)\]")
+_TABLE_CALC_ATTRIBUTES = {
+    "aggregation",
+    "diff-options",
+    "field",
+    "from",
+    "level-address",
+    "level-break",
+    "ordering-field",
+    "ordering-type",
+    "rank-options",
+    "tc-options",
+    "to",
+    "type",
+    "window-options",
+}
+_TABLE_CALC_ORDERING_TYPES = {
+    "CellInPane",
+    "ColumnInPane",
+    "Columns",
+    "Field",
+    "Pane",
+    "PaneCol",
+    "Rows",
+    "Table",
+    "TableCol",
+}
 
 
 @dataclass
@@ -543,7 +569,7 @@ class TWBEditor(ParametersMixin, ConnectionsMixin, ChartsMixin, DashboardsMixin)
         datatype: str = "real",
         role: Optional[str] = None,
         field_type: Optional[str] = None,
-        table_calc: Optional[str] = None,
+        table_calc: Optional[str | dict[str, str]] = None,
         default_format: str = "",
         internal_name: Optional[str] = None,
     ) -> str:
@@ -555,6 +581,9 @@ class TWBEditor(ParametersMixin, ConnectionsMixin, ChartsMixin, DashboardsMixin)
             datatype: Data type: real/string/integer/date/boolean
             role: Optional explicit Tableau role override (dimension/measure)
             field_type: Optional explicit Tableau field type override
+            table_calc: Optional table-calculation metadata. A string is treated
+                as Tableau's ``ordering-type``. A mapping accepts Tableau
+                attributes using Python-style or XML-style keys.
             default_format: Optional Tableau number format string, e.g. 'c"$"#,##0,K'
             internal_name: Optional explicit internal name, e.g. "[Calculation_12345]".
 
@@ -612,9 +641,10 @@ class TWBEditor(ParametersMixin, ConnectionsMixin, ChartsMixin, DashboardsMixin)
         calc = etree.SubElement(col, "calculation")
         calc.set("class", "tableau")
         calc.set("formula", resolved_formula)
-        if table_calc:
+        if table_calc is not None:
             tc = etree.SubElement(calc, "table-calc")
-            tc.set("ordering-type", table_calc)
+            for key, value in self._normalize_table_calculation(table_calc).items():
+                tc.set(key, value)
 
         self._insert_datasource_column(col)
 
@@ -630,6 +660,42 @@ class TWBEditor(ParametersMixin, ConnectionsMixin, ChartsMixin, DashboardsMixin)
         )
 
         return f"Added calculated field '{field_name}' = {formula}"
+
+    @staticmethod
+    def _normalize_table_calculation(
+        table_calc: str | dict[str, str],
+    ) -> dict[str, str]:
+        """Normalize and validate Tableau ``table-calc`` XML attributes."""
+
+        if isinstance(table_calc, str):
+            attrs = {"ordering-type": table_calc.strip()}
+        elif isinstance(table_calc, dict):
+            attrs = {
+                str(key).strip().replace("_", "-"): str(value).strip()
+                for key, value in table_calc.items()
+                if value is not None and str(value).strip()
+            }
+        else:
+            raise TypeError("table_calc must be a string or a mapping of Tableau attributes")
+
+        unsupported = sorted(set(attrs) - _TABLE_CALC_ATTRIBUTES)
+        if unsupported:
+            raise ValueError(
+                "Unsupported table_calc attribute(s): "
+                + ", ".join(unsupported)
+                + ". Supported attributes: "
+                + ", ".join(sorted(_TABLE_CALC_ATTRIBUTES))
+            )
+
+        ordering_type = attrs.get("ordering-type", "")
+        if not ordering_type:
+            raise ValueError("table_calc requires a non-empty ordering_type")
+        if ordering_type not in _TABLE_CALC_ORDERING_TYPES:
+            raise ValueError(
+                f"Unsupported table_calc ordering_type '{ordering_type}'. "
+                f"Expected one of: {', '.join(sorted(_TABLE_CALC_ORDERING_TYPES))}"
+            )
+        return attrs
 
     def _infer_calculated_field_semantics(self, formula: str, datatype: str) -> tuple[str, str]:
         """Infer Tableau role/type for a calculated field."""

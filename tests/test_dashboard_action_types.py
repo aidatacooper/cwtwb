@@ -114,6 +114,106 @@ class TestGoToSheetAction:
             )
 
 
+class TestParameterAction:
+    def test_parameter_action_matches_tableau_native_structure(self, action_editor):
+        action_editor.add_parameter(
+            name="Selected Category",
+            datatype="string",
+            default_value="All",
+            domain_type="list",
+            allowed_values=["All", "Furniture"],
+        )
+
+        result = action_editor.add_dashboard_action(
+            dashboard_name="TestDash",
+            action_type="parameter",
+            source_sheet="Source",
+            source_field="Category",
+            target_parameter="Selected Category",
+            caption="Set Selected Category",
+            aggregation="attr",
+            clear_behavior="keep-current",
+            clear_value="s:LROOT:All",
+        )
+
+        assert "Added parameter action" in result
+        action = action_editor.root.find(".//actions/edit-parameter-action")
+        assert action is not None
+        assert action.get("caption") == "Set Selected Category"
+        manifest = action_editor.root.find("document-format-change-manifest")
+        assert manifest.find("ParameterAction") is not None
+        assert manifest.find("ParameterActionClearSelection") is not None
+        assert action.find("activation").attrib == {"type": "on-select"}
+        assert action.find("agg-type").attrib == {"type": "attr"}
+        assert action.find("clear-option").attrib == {
+            "type": "do-nothing",
+            "value": "s:LROOT:All",
+        }
+        params = {
+            param.get("name"): param.get("value")
+            for param in action.findall("./params/param")
+        }
+        assert params["source-field"].endswith(".[none:Category (Orders):nk]")
+        assert params["target-parameter"].startswith("[Parameters].[Parameter ")
+
+    def test_parameter_action_supports_fixed_clear_value(self, action_editor):
+        action_editor.add_parameter(
+            name="Minimum Date",
+            datatype="date",
+            default_value="2026-02-12",
+            domain_type="range",
+        )
+        action_editor.add_dashboard_action(
+            dashboard_name="TestDash",
+            action_type="parameter",
+            source_sheet="Detail",
+            source_field="MIN(Order Date)",
+            target_parameter="Minimum Date",
+            aggregation="min",
+            clear_behavior="set-value",
+            clear_value="d:2026-02-12",
+        )
+
+        action = action_editor.root.find(".//actions/edit-parameter-action")
+        assert action.find("agg-type").get("type") == "min"
+        assert action.find("clear-option").attrib == {
+            "type": "assign-fixed-value",
+            "value": "d:2026-02-12",
+        }
+
+    @pytest.mark.parametrize(
+        ("kwargs", "message"),
+        [
+            ({"source_field": ""}, "source_field"),
+            ({"target_parameter": "Missing"}, "not found"),
+            ({"aggregation": "median"}, "aggregation"),
+            ({"clear_behavior": "reset"}, "clear_behavior"),
+            ({"clear_value": ""}, "clear_value"),
+        ],
+    )
+    def test_parameter_action_validates_required_semantics(
+        self, action_editor, kwargs, message
+    ):
+        action_editor.add_parameter(
+            name="Selected Category",
+            datatype="string",
+            default_value="All",
+            domain_type="list",
+            allowed_values=["All"],
+        )
+        arguments = {
+            "dashboard_name": "TestDash",
+            "action_type": "parameter",
+            "source_sheet": "Source",
+            "source_field": "Category",
+            "target_parameter": "Selected Category",
+            "clear_value": "s:LROOT:All",
+            **kwargs,
+        }
+        with pytest.raises(ValueError, match=message):
+            action_editor.add_dashboard_action(**arguments)
+
+
 class TestActionValidation:
     def test_unknown_dashboard_raises(self, action_editor):
         with pytest.raises(ValueError, match="not found"):
@@ -154,7 +254,7 @@ class TestActionValidation:
 
 
 class TestMultipleActions:
-    def test_filter_highlight_url_and_go_to_sheet_can_coexist(self, action_editor):
+    def test_all_action_types_can_coexist(self, action_editor):
         action_editor.add_dashboard_action(
             dashboard_name="TestDash",
             action_type="filter",
@@ -181,9 +281,25 @@ class TestMultipleActions:
             source_sheet="Source",
             target_sheet="Detail",
         )
+        action_editor.add_parameter(
+            name="Selected Category",
+            datatype="string",
+            default_value="All",
+            domain_type="list",
+            allowed_values=["All"],
+        )
+        action_editor.add_dashboard_action(
+            dashboard_name="TestDash",
+            action_type="parameter",
+            source_sheet="Source",
+            source_field="Category",
+            target_parameter="Selected Category",
+            clear_value="s:LROOT:All",
+        )
 
         actions = action_editor.root.findall(".//actions/action")
         assert len(actions) == 4
+        assert len(action_editor.root.findall(".//actions/edit-parameter-action")) == 1
         commands = [
             action.find("command").get("command")
             for action in actions

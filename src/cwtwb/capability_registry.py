@@ -334,6 +334,18 @@ CAPABILITY_SPECS: tuple[CapabilitySpec, ...] = (
         rationale="Important authoring primitive for drill-down navigation inside a workbook.",
     ),
     CapabilitySpec(
+        key="parameter-action",
+        kind="action",
+        level="advanced",
+        canonical="Parameter Action",
+        aliases=("edit-parameter-action",),
+        rationale="Supports mark-driven parameter updates for interactive calculations and controls.",
+        notes=(
+            "Use add_dashboard_action(action_type='parameter', source_field=..., "
+            "target_parameter=..., clear_value=...)."
+        ),
+    ),
+    CapabilitySpec(
         key="excel-direct",
         kind="connection",
         level="core",
@@ -390,10 +402,14 @@ CAPABILITY_SPECS: tuple[CapabilitySpec, ...] = (
     CapabilitySpec(
         key="table-calculation",
         kind="feature",
-        level="unsupported",
+        level="advanced",
         canonical="Table Calculation",
         aliases=("table calc",),
-        rationale="Known Tableau feature outside cwtwb's current supported surface.",
+        rationale="Supports authored table-calculation metadata and worksheet-instance propagation.",
+        notes=(
+            "Use add_calculated_field(table_calc=...) to set ordering metadata. "
+            "Final view partitioning still requires case-level semantic validation."
+        ),
     ),
     CapabilitySpec(
         key="bin",

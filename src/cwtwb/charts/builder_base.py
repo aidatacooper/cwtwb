@@ -277,11 +277,12 @@ class BaseChartBuilder:
                 ci_el.set("name", ci.instance_name)
                 ci_el.set("pivot", ci.pivot)
                 ci_el.set("type", ci.ci_type)
-                # If source column has a table-calc (e.g. RANK functions), add to instance
+                # Tableau repeats table-calculation metadata on each worksheet
+                # column-instance. Preserve the authored direction and nested
+                # dependencies instead of guessing a hard-coded direction.
                 src_calc = self._datasource.find(f"column[@name='{ci.column_local_name}']/calculation")
                 if src_calc is not None and src_calc.find("table-calc") is not None:
-                    tc_el = etree.SubElement(ci_el, "table-calc")
-                    tc_el.set("ordering-type", "Columns")
+                    self._add_table_calculation_metadata(ci_el, src_calc, ds_name)
                 instance_elements.append(ci_el)
 
         for el in sorted(column_elements, key=lambda e: e.get("name", "")):
@@ -325,6 +326,49 @@ class BaseChartBuilder:
                         deps.append(dep_col)
                         
         self._add_calculated_field_deps(view, ds_name, all_exprs)
+
+    def _add_table_calculation_metadata(
+        self,
+        column_instance: etree._Element,
+        source_calculation: etree._Element,
+        datasource_name: str,
+    ) -> None:
+        """Copy table-calc metadata and declare nested table-calc dependencies."""
+
+        seen: set[tuple[tuple[str, str], ...]] = set()
+
+        def append(attrs: dict[str, str]) -> None:
+            key = tuple(sorted(attrs.items()))
+            if key in seen:
+                return
+            seen.add(key)
+            etree.SubElement(column_instance, "table-calc", attrs)
+
+        for table_calc in source_calculation.findall("table-calc"):
+            append(dict(table_calc.attrib))
+
+        visited_fields: set[str] = set()
+
+        def add_dependencies(calculation: etree._Element) -> None:
+            formula = calculation.get("formula", "")
+            for token in re.findall(r"\[([^\]]+)\]", formula):
+                local_name = f"[{token}]"
+                if local_name in visited_fields:
+                    continue
+                visited_fields.add(local_name)
+                source_column = self._datasource.find(f"column[@name='{local_name}']")
+                if source_column is None:
+                    continue
+                nested_calculation = source_column.find("calculation")
+                if nested_calculation is None:
+                    continue
+                for nested_table_calc in nested_calculation.findall("table-calc"):
+                    attrs = dict(nested_table_calc.attrib)
+                    attrs["field"] = f"[{datasource_name}].{local_name}"
+                    append(attrs)
+                add_dependencies(nested_calculation)
+
+        add_dependencies(source_calculation)
 
     def _add_calculated_field_deps(self, view: etree._Element, ds_name: str, all_exprs: list[str]) -> None:
         """Ensure calculated fields are present in dependency blocks when needed."""

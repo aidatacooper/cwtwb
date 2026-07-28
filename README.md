@@ -170,6 +170,8 @@ Both formats support the same wrapper structure:
 |---|---|
 | Workbook authoring | Generate `.twb` / `.twbx` files from templates or from scratch |
 | Chart building | Build bar, line, pie, map, KPI, and dual-axis workbooks |
+| Table calculations | Author calculation addressing metadata and propagate nested table-calculation dependencies |
+| Parameter actions | Update workbook parameters from selected dashboard marks with native Tableau actions |
 | Safety | Validate structure, Tableau XSD (2026.1/2026.2), and REST API semantic validation before publishing |
 | Cloud validation | REST API syntactic/semantic validation + upload to Tableau Cloud/Server with optional screenshot |
 | Migration | Repoint existing workbooks to new data sources with explicit steps |

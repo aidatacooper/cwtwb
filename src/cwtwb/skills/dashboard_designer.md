@@ -218,6 +218,29 @@ Best practices:
 - Keep the target sheet focused on a single deeper question.
 - Pair it with a caption or title that makes the drill path obvious.
 
+### Parameter Action
+
+Use parameter actions when selecting a mark should update a workbook parameter.
+
+```python
+add_dashboard_action(
+    dashboard_name="Analysis",
+    action_type="parameter",
+    source_sheet="Apply Button",
+    source_field="Minimum Date",
+    target_parameter="Selected Minimum Date",
+    aggregation="attr",
+    clear_behavior="keep-current",
+    clear_value="d:2026-02-12",
+    caption="Set Minimum Date",
+)
+```
+
+`clear_value` uses Tableau's serialized value format. Common examples are
+`d:2026-02-12` for a date, `i:0` for an integer, and `s:LROOT:All` for a
+string. Use `clear_behavior="set-value"` when clearing the selection should
+assign that fixed value; otherwise use `keep-current`.
+
 ### URL Action
 
 Use URL actions when analysis should open an external workflow or reference.

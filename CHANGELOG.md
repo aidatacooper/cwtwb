@@ -7,6 +7,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Unreleased
 
+## [0.23.1] - 2026-07-28
+
+### Added
+
+- **Table-calculation authoring**: calculated fields accept string or structured
+  `table_calc` metadata, including Tableau ordering and partition attributes.
+  Metadata is propagated to worksheet column instances and nested
+  table-calculation dependencies.
+- **Parameter dashboard actions**: `add_dashboard_action` now supports native
+  parameter actions with source fields, target parameters, aggregation, and
+  clear-selection behavior through both the Python and MCP surfaces.
+- **Donna Coles pilot showcase**: added a reproducible packaged-workbook example
+  combining a selectable category parameter action with a dynamic moving
+  average.
+
+### Fixed
+
+- **Table-calculation direction**: worksheet instances no longer hard-code
+  `ordering-type="Columns"` when the authored calculation specifies another
+  direction.
+- **Parameter-action schema declaration**: generated workbooks automatically
+  enable `ParameterAction` and `ParameterActionClearSelection` in the document
+  format manifest so Tableau Desktop accepts `edit-parameter-action` nodes.
+
 ### Changed
 
 - **Repository asset boundary**: removed root-level `scripts/` and `templates/`
