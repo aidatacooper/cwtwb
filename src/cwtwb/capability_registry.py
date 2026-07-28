@@ -412,6 +412,38 @@ CAPABILITY_SPECS: tuple[CapabilitySpec, ...] = (
         ),
     ),
     CapabilitySpec(
+        key="hierarchy",
+        kind="feature",
+        level="advanced",
+        canonical="Hierarchy",
+        aliases=("drill-path", "drill path"),
+        rationale="Supports ordered Tableau datasource drill paths.",
+        notes=("Use add_hierarchy(name, fields) with bare dimension fields.",),
+    ),
+    CapabilitySpec(
+        key="domain-completion",
+        kind="feature",
+        level="advanced",
+        canonical="Domain Completion",
+        aliases=("densification", "data densification"),
+        rationale="Supports INDEX()-driven mark densification for missing combinations.",
+        notes=(
+            "Use enable_domain_completion after configuring the worksheet; "
+            "the view grain must still provide the combinations to densify.",
+        ),
+    ),
+    CapabilitySpec(
+        key="subtotal",
+        kind="feature",
+        level="advanced",
+        canonical="Subtotal",
+        aliases=("subtotals", "visual totals", "average subtotal"),
+        rationale="Supports Tableau visual totals and custom subtotal labels.",
+        notes=(
+            "Use configure_subtotals with measures already present in the worksheet.",
+        ),
+    ),
+    CapabilitySpec(
         key="bin",
         kind="feature",
         level="unsupported",

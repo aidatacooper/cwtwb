@@ -206,6 +206,47 @@ def remove_calculated_field(field_name: str) -> str:
 
 
 @server.tool()
+def add_hierarchy(name: str, fields: list[str]) -> str:
+    """Create an ordered Tableau drill hierarchy from bare dimension fields."""
+
+    return get_editor().add_hierarchy(name=name, fields=fields)
+
+
+@server.tool()
+def enable_domain_completion(
+    worksheet_name: str,
+    field_name: str = "Domain Completion Index",
+    ordering_type: str = "Rows",
+) -> str:
+    """Add an INDEX() detail table calculation to trigger Tableau densification."""
+
+    return get_editor().enable_domain_completion(
+        worksheet_name,
+        field_name=field_name,
+        ordering_type=ordering_type,
+    )
+
+
+@server.tool()
+def configure_subtotals(
+    worksheet_name: str,
+    measure_fields: list[str],
+    aggregation: str = "Average",
+    subtotal_fields: list[str] | None = None,
+    label: str = "Avg.",
+) -> str:
+    """Configure visual subtotals and per-dimension subtotal labels."""
+
+    return get_editor().configure_subtotals(
+        worksheet_name,
+        measure_fields=measure_fields,
+        aggregation=aggregation,
+        subtotal_fields=subtotal_fields,
+        label=label,
+    )
+
+
+@server.tool()
 def add_parameter(
     name: str,
     datatype: str = "real",

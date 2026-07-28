@@ -83,6 +83,39 @@ def test_analyze_generated_workbook_detects_core_and_advanced():
     assert report.fit_level == "advanced-fit"
 
 
+def test_analyze_detects_case_c_semantic_features(tmp_path):
+    editor = TWBEditor("")
+    editor.add_hierarchy("Location", ["Region", "State/Province", "City"])
+    editor.add_calculated_field(
+        "Orders",
+        "ZN(COUNTD([Order ID]))",
+        datatype="integer",
+    )
+    editor.add_worksheet("Null-safe Average")
+    editor.configure_chart(
+        "Null-safe Average",
+        mark_type="Square",
+        rows=["Category", "Sub-Category"],
+        columns=["WEEKDAY(Order Date)"],
+        label="Orders",
+    )
+    editor.enable_domain_completion("Null-safe Average")
+    editor.configure_subtotals(
+        "Null-safe Average",
+        measure_fields=["Orders"],
+        subtotal_fields=["Sub-Category"],
+    )
+    output = tmp_path / "case-c.twb"
+    editor.save(output)
+
+    report = analyze_workbook(output)
+    detected = {(item.kind, item.canonical) for item in report.detected}
+
+    assert ("feature", "Hierarchy") in detected
+    assert ("feature", "Domain Completion") in detected
+    assert ("feature", "Subtotal") in detected
+
+
 def test_analyze_advent_calendar_detects_recipe_patterns():
     path = Path("tests/fixtures/advent_calendar.twb")
     report = analyze_workbook(path)

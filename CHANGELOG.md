@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Unreleased
 
+### Added
+
+- **Hierarchy authoring**: create ordered datasource drill paths through the
+  Python, MCP, and declarative spec surfaces.
+- **Domain completion**: add a worksheet-level `INDEX()` detail table
+  calculation that enables Tableau densification for missing combinations.
+- **Average subtotals**: configure measure visual totals and per-dimension
+  subtotal labels, including Donna Coles' null-safe average pattern.
+- **Semantic detection**: workbook analysis now recognizes hierarchies, domain
+  completion, and subtotals as explicit advanced capabilities.
+
 ## [0.23.1] - 2026-07-28
 
 ### Added

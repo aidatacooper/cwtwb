@@ -190,6 +190,7 @@ class TWBAnalyzer:
         self._detect_dashboard_zones(root, detected, unknown)
         self._detect_actions(root, detected, unknown)
         self._detect_connections(root, detected, unknown)
+        self._detect_semantic_features(root, detected, unknown)
         self._detect_unsupported_features(root, detected, unknown)
 
         return AnalysisReport(
@@ -203,6 +204,48 @@ class TWBAnalyzer:
                 key=lambda item: (item.kind, item.raw_name),
             ),
         )
+
+    def _detect_semantic_features(
+        self,
+        root: etree._Element,
+        detected: dict[tuple[str, str, str], DetectedCapability],
+        unknown: dict[tuple[str, str, str], DetectedCapability],
+    ) -> None:
+        """Detect hierarchy, densification, and subtotal semantics."""
+        checks = (
+            (root.find(".//drill-path"), "hierarchy", ".//drill-path"),
+            (
+                root.find(".//column-instance[@visual-totals]"),
+                "subtotal",
+                ".//column-instance[@visual-totals]",
+            ),
+        )
+        for element, raw_name, xpath_hint in checks:
+            if element is not None:
+                self._resolve_and_record(
+                    detected,
+                    unknown,
+                    kind="feature",
+                    raw_name=raw_name,
+                    source="xml-feature",
+                    xpath_hint=xpath_hint,
+                )
+
+        for column in root.findall(".//column"):
+            calculation = column.find("calculation")
+            if calculation is None:
+                continue
+            formula = calculation.get("formula", "").replace(" ", "").upper()
+            if formula == "INDEX()" and calculation.find("table-calc") is not None:
+                self._resolve_and_record(
+                    detected,
+                    unknown,
+                    kind="feature",
+                    raw_name="domain-completion",
+                    source=column.get("caption", "INDEX()"),
+                    xpath_hint=".//column/calculation[@formula='INDEX()']",
+                )
+                break
 
     def _record_detection(
         self,

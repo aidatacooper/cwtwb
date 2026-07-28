@@ -272,6 +272,7 @@ class FieldInfo:
     field_type: str         # nominal / quantitative / ordinal
     is_calculated: bool = False
     formula: str = ""       # Calculation formula (only for calculated fields)
+    is_table_calculation: bool = False
 
 
 @dataclass
@@ -310,6 +311,7 @@ class FieldRegistry:
         field_type: str,
         is_calculated: bool = False,
         formula: str = "",
+        is_table_calculation: bool = False,
     ) -> None:
         """Register one field and its Tableau metadata in the lookup table."""
         info = FieldInfo(
@@ -320,6 +322,7 @@ class FieldRegistry:
             field_type=field_type,
             is_calculated=is_calculated,
             formula=formula,
+            is_table_calculation=is_table_calculation,
         )
         self._fields[display_name] = info
         # Also register under local_name (stripped of brackets) so that
@@ -410,7 +413,9 @@ class FieldRegistry:
         # Calculated dimensions (boolean, nominal) keep derivation="None" so they
         # are treated as plain dimension values rather than user-aggregated expressions.
         if fi.is_calculated and fi.role == "measure" and derivation == "None":
-            if fi.formula and _AGGREGATE_FUNCTION_RE.search(fi.formula):
+            if fi.is_table_calculation:
+                derivation = "User"
+            elif fi.formula and _AGGREGATE_FUNCTION_RE.search(fi.formula):
                 derivation = "User"
             else:
                 derivation = "Sum"

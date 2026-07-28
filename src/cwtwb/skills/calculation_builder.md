@@ -101,6 +101,12 @@ handling to match the workbook. They are Tableau formulas, not a new cwtwb DSL.
 | Last 12 complete months | `DATEDIFF('month', [Order Date], TODAY()) BETWEEN 1 AND 12` | Excludes the incomplete current month. |
 | First order by customer | `{ FIXED [Customer Name] : MIN([Order Date]) }` | Use for new/returning customer flags. |
 | Boolean status label | `IF SUM([Profit]) > 0 THEN "Profitable" ELSE "Loss" END` | Use a descriptive categorical output. |
+| Domain completion | `INDEX()` | Call `enable_domain_completion` after chart configuration to place it on Detail and trigger densification. |
+
+For averages that must count missing dimension combinations as zero, combine
+`ZN(...)` null handling with `enable_domain_completion`; then use
+`configure_subtotals(..., aggregation="Average")`. These are separate Tableau
+semantics and should be validated together in the final worksheet.
 
 ### Performance and Compatibility
 

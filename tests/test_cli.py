@@ -8,6 +8,7 @@ import yaml
 
 from cwtwb import __version__
 from cwtwb.cli import main
+from cwtwb.twb_editor import TWBEditor
 
 
 def test_empty_interactive_invocation_prints_help(monkeypatch, capsys):
@@ -160,3 +161,54 @@ def test_run_spec_writes_workbook(tmp_path: Path):
 
     assert main(["run", str(spec), "--force", "--no-save-validation"]) == 0
     assert output.exists()
+
+
+def test_run_spec_applies_case_c_semantics(tmp_path: Path):
+    output = tmp_path / "case_c_spec.twb"
+    spec = tmp_path / "case_c_spec.yaml"
+    spec.write_text(
+        yaml.safe_dump(
+            {
+                "output": str(output),
+                "clear_worksheets": True,
+                "hierarchies": [
+                    {
+                        "name": "Location",
+                        "fields": ["Region", "State/Province", "City"],
+                    }
+                ],
+                "calculated_fields": [
+                    {
+                        "name": "Orders",
+                        "formula": "ZN(COUNTD([Order ID]))",
+                        "datatype": "integer",
+                    }
+                ],
+                "worksheets": [
+                    {
+                        "name": "Null-safe Average",
+                        "mark": "Square",
+                        "rows": ["Category", "Sub-Category"],
+                        "columns": ["WEEKDAY(Order Date)"],
+                        "label": "Orders",
+                        "domain_completion": True,
+                        "subtotals": {
+                            "measure_fields": ["Orders"],
+                            "subtotal_fields": ["Sub-Category"],
+                        },
+                    }
+                ],
+            },
+            sort_keys=False,
+        ),
+        encoding="utf-8",
+    )
+
+    assert main(["run", str(spec), "--force"]) == 0
+    reopened = TWBEditor.open_existing(output)
+    assert reopened._datasource.find(
+        "drill-paths/drill-path[@name='Location']"
+    ) is not None
+    worksheet = reopened._find_worksheet("Null-safe Average")
+    assert worksheet.find(".//column-instance[@visual-totals='Avg']") is not None
+    assert worksheet.find(".//pane/encodings/lod") is not None

@@ -28,6 +28,7 @@ from .config import _generate_uuid
 from .charts import ChartsMixin
 from .connections import ConnectionsMixin
 from .dashboards import DashboardsMixin
+from .validator import TWBValidationError
 
 logger = logging.getLogger(__name__)
 
@@ -496,6 +497,7 @@ class TWBEditor(ParametersMixin, ConnectionsMixin, ChartsMixin, DashboardsMixin)
                     role=role,
                     field_type=field_type,
                     is_calculated=not is_constant,
+                    is_table_calculation=calc.find("table-calc") is not None,
                 )
             else:
                 # Register semantic-role columns (e.g. geographic columns)
@@ -657,6 +659,7 @@ class TWBEditor(ParametersMixin, ConnectionsMixin, ChartsMixin, DashboardsMixin)
             field_type=field_type,
             is_calculated=True,
             formula=resolved_formula,
+            is_table_calculation=table_calc is not None,
         )
 
         return f"Added calculated field '{field_name}' = {formula}"
@@ -1266,6 +1269,242 @@ class TWBEditor(ParametersMixin, ConnectionsMixin, ChartsMixin, DashboardsMixin)
             normalized[source_alias["display_name"]] = target_alias["display_name"]
         return normalized
 
+    def add_hierarchy(self, name: str, fields: list[str]) -> str:
+        """Create a Tableau drill path such as Category > Sub-Category."""
+
+        hierarchy_name = str(name).strip()
+        if not hierarchy_name:
+            raise ValueError("Hierarchy name must be non-empty.")
+        if len(fields) < 2:
+            raise ValueError("A hierarchy requires at least two fields.")
+
+        resolved_fields: list[str] = []
+        for field in fields:
+            ci = self.field_registry.parse_expression(field)
+            if ci.derivation != "None":
+                raise ValueError(
+                    f"Hierarchy field '{field}' must be a bare dimension field."
+                )
+            if ci.column_local_name in resolved_fields:
+                raise ValueError(f"Hierarchy field '{field}' is duplicated.")
+            resolved_fields.append(ci.column_local_name)
+
+        drill_paths = self._datasource.find("drill-paths")
+        if drill_paths is None:
+            drill_paths = etree.Element("drill-paths")
+            later_sections = [
+                element
+                for tag in (
+                    "unlinked-server-hierarchies",
+                    "folders-common",
+                    "folders-parameters",
+                    "actions",
+                    "calculated-members",
+                    "extract",
+                    "layout",
+                    "style",
+                    "semantic-values",
+                    "date-options",
+                    "default-date-format",
+                    "default-sorts",
+                    "field-sort-info",
+                    "datasource-dependencies",
+                    "explainability",
+                    "filter",
+                    "object-graph",
+                )
+                if (element := self._datasource.find(tag)) is not None
+            ]
+            if later_sections:
+                children = list(self._datasource)
+                min(later_sections, key=children.index).addprevious(drill_paths)
+            else:
+                self._datasource.append(drill_paths)
+        if any(
+            path.get("name") == hierarchy_name
+            for path in drill_paths.findall("drill-path")
+        ):
+            raise ValueError(f"Hierarchy '{hierarchy_name}' already exists.")
+
+        drill_path = etree.SubElement(drill_paths, "drill-path")
+        drill_path.set("name", hierarchy_name)
+        for local_name in resolved_fields:
+            field_el = etree.SubElement(drill_path, "field")
+            field_el.text = local_name
+        return f"Added hierarchy '{hierarchy_name}' with {len(resolved_fields)} levels"
+
+    def enable_domain_completion(
+        self,
+        worksheet_name: str,
+        *,
+        field_name: str = "Domain Completion Index",
+        ordering_type: str = "Rows",
+    ) -> str:
+        """Add an INDEX() detail calculation that triggers Tableau densification."""
+
+        view = self._find_worksheet(worksheet_name).find("table/view")
+        if view is None:
+            raise ValueError(f"Worksheet '{worksheet_name}' has no configured view.")
+
+        try:
+            ci = self.field_registry.parse_expression(field_name)
+        except KeyError:
+            self.add_calculated_field(
+                field_name,
+                "INDEX()",
+                datatype="integer",
+                table_calc=ordering_type,
+                internal_name="[Calculation_DomainCompletionIndex]",
+            )
+            ci = self.field_registry.parse_expression(field_name)
+
+        source_column = self._datasource.find(f"column[@name='{ci.column_local_name}']")
+        if source_column is None:
+            raise ValueError(f"Domain completion field '{field_name}' was not found.")
+
+        ds_name = self._datasource.get("name", "")
+        dependencies = view.find(f"datasource-dependencies[@datasource='{ds_name}']")
+        if dependencies is None:
+            raise ValueError(
+                f"Worksheet '{worksheet_name}' has no datasource dependencies."
+            )
+
+        if dependencies.find(f"column[@name='{ci.column_local_name}']") is None:
+            dependencies.append(copy.deepcopy(source_column))
+
+        instance = dependencies.find(f"column-instance[@column='{ci.column_local_name}']")
+        if instance is None:
+            instance = etree.SubElement(dependencies, "column-instance")
+            instance.set("column", ci.column_local_name)
+            instance.set("derivation", ci.derivation)
+            instance.set("name", ci.instance_name)
+            instance.set("pivot", "key")
+            instance.set("type", ci.ci_type)
+            source_calc = source_column.find("calculation")
+            if source_calc is not None:
+                for table_calc in source_calc.findall("table-calc"):
+                    instance.append(copy.deepcopy(table_calc))
+
+        pane = self._find_worksheet(worksheet_name).find("table/panes/pane")
+        if pane is None:
+            raise ValueError(f"Worksheet '{worksheet_name}' has no marks pane.")
+        encodings = pane.find("encodings")
+        if encodings is None:
+            encodings = etree.SubElement(pane, "encodings")
+        full_reference = self.field_registry.resolve_full_reference(ci.instance_name)
+        if not any(
+            lod.get("column") == full_reference for lod in encodings.findall("lod")
+        ):
+            lod = etree.SubElement(encodings, "lod")
+            lod.set("column", full_reference)
+
+        return (
+            f"Enabled domain completion on '{worksheet_name}' using '{field_name}'"
+        )
+
+    def configure_subtotals(
+        self,
+        worksheet_name: str,
+        *,
+        measure_fields: list[str],
+        aggregation: str = "Average",
+        subtotal_fields: list[str] | None = None,
+        label: str = "Avg.",
+    ) -> str:
+        """Enable Tableau visual subtotals for selected measures and dimensions."""
+
+        aggregation_map = {
+            "average": "Avg",
+            "avg": "Avg",
+            "minimum": "Min",
+            "min": "Min",
+            "none": "None",
+        }
+        visual_total = aggregation_map.get(aggregation.strip().casefold())
+        if visual_total is None:
+            raise ValueError(
+                "Unsupported subtotal aggregation. Use Average, Minimum, or None."
+            )
+        if not measure_fields:
+            raise ValueError("measure_fields must contain at least one field.")
+
+        worksheet = self._find_worksheet(worksheet_name)
+        view = worksheet.find("table/view")
+        if view is None:
+            raise ValueError(f"Worksheet '{worksheet_name}' has no configured view.")
+        ds_name = self._datasource.get("name", "")
+        dependencies = view.find(f"datasource-dependencies[@datasource='{ds_name}']")
+        if dependencies is None:
+            raise ValueError(
+                f"Worksheet '{worksheet_name}' has no datasource dependencies."
+            )
+
+        configured_measures = 0
+        for field in measure_fields:
+            ci = self.field_registry.parse_expression(
+                self.field_registry.default_view_expression(field)
+            )
+            candidates = dependencies.findall(
+                f"column-instance[@column='{ci.column_local_name}']"
+            )
+            if not candidates:
+                raise ValueError(
+                    f"Measure '{field}' is not used by worksheet '{worksheet_name}'."
+                )
+            for instance in candidates:
+                instance.set("visual-totals", visual_total)
+            configured_measures += 1
+
+        subtotal_fields = subtotal_fields or []
+        if subtotal_fields:
+            style = worksheet.find("table/style")
+            if style is None:
+                style = etree.SubElement(worksheet.find("table"), "style")
+            header_rule = next(
+                (
+                    rule
+                    for rule in style.findall("style-rule")
+                    if rule.get("element") == "header"
+                ),
+                None,
+            )
+            if header_rule is None:
+                header_rule = etree.SubElement(style, "style-rule")
+                header_rule.set("element", "header")
+            for field in subtotal_fields:
+                ci = self.field_registry.parse_expression(field)
+                if dependencies.find(
+                    f"column-instance[@column='{ci.column_local_name}']"
+                ) is None:
+                    raise ValueError(
+                        f"Subtotal field '{field}' is not used by worksheet "
+                        f"'{worksheet_name}'."
+                    )
+                field_reference = self.field_registry.resolve_full_reference(
+                    ci.instance_name
+                )
+                fmt = next(
+                    (
+                        existing
+                        for existing in header_rule.findall("format")
+                        if existing.get("attr") == "total-label"
+                        and existing.get("data-class") == "subtotal"
+                        and existing.get("field") == field_reference
+                    ),
+                    None,
+                )
+                if fmt is None:
+                    fmt = etree.SubElement(header_rule, "format")
+                fmt.set("attr", "total-label")
+                fmt.set("data-class", "subtotal")
+                fmt.set("field", field_reference)
+                fmt.set("value", label)
+
+        return (
+            f"Configured {aggregation} subtotals for {configured_measures} measure(s) "
+            f"on '{worksheet_name}'"
+        )
+
     def _formula_field_token_map(self, replacements: dict[str, str]) -> dict[str, str]:
         """Build formula token replacements for base datasource fields."""
 
@@ -1442,6 +1681,7 @@ class TWBEditor(ParametersMixin, ConnectionsMixin, ChartsMixin, DashboardsMixin)
     def _insert_datasource_column(self, column: etree._Element) -> None:
         """Insert a datasource column before later datasource sections."""
 
+        anchors = []
         for tag in (
             "column-instance",
             "group",
@@ -1461,8 +1701,11 @@ class TWBEditor(ParametersMixin, ConnectionsMixin, ChartsMixin, DashboardsMixin)
         ):
             anchor = self._datasource.find(tag)
             if anchor is not None:
-                anchor.addprevious(column)
-                return
+                anchors.append(anchor)
+        if anchors:
+            children = list(self._datasource)
+            min(anchors, key=children.index).addprevious(column)
+            return
         self._datasource.append(column)
 
     def _ensure_unique_datasource_calc_name(self, source_name: str) -> str:

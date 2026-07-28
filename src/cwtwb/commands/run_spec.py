@@ -67,6 +67,17 @@ def _apply_calculated_fields(editor, spec: dict[str, Any]) -> list[str]:
     return messages
 
 
+def _apply_hierarchies(editor, spec: dict[str, Any]) -> list[str]:
+    messages: list[str] = []
+    for item in _as_list(spec.get("hierarchies")):
+        name = item.get("name")
+        fields = item.get("fields")
+        if not name or not fields:
+            raise ValueError("hierarchies entries require `name` and `fields`.")
+        messages.append(editor.add_hierarchy(name, fields))
+    return messages
+
+
 def _apply_worksheets(editor, spec: dict[str, Any]) -> list[str]:
     messages: list[str] = []
     for item in _as_list(spec.get("worksheets")):
@@ -85,48 +96,54 @@ def _apply_worksheets(editor, spec: dict[str, Any]) -> list[str]:
                     auto_ensure_prerequisites=item.get("auto_ensure_prerequisites", True),
                 )
             )
-            continue
-        if item.get("dual_axis"):
+        elif item.get("dual_axis"):
             dual = item["dual_axis"]
             messages.append(editor.configure_dual_axis(worksheet_name=name, **dual))
-            continue
-        chart_kwargs = {
-            key: value
-            for key, value in item.items()
-            if key
-            in {
-                "columns",
-                "rows",
-                "color",
-                "size",
-                "label",
-                "detail",
-                "wedge_size",
-                "sort_descending",
-                "tooltip",
-                "filters",
-                "geographic_field",
-                "measure_values",
-                "map_fields",
-                "mark_sizing_off",
-                "axis_fixed_range",
-                "customized_label",
-                "color_map",
-                "text_format",
-                "map_layers",
-                "label_runs",
-                "label_param",
+        else:
+            chart_kwargs = {
+                key: value
+                for key, value in item.items()
+                if key
+                in {
+                    "columns",
+                    "rows",
+                    "color",
+                    "size",
+                    "label",
+                    "detail",
+                    "wedge_size",
+                    "sort_descending",
+                    "tooltip",
+                    "filters",
+                    "geographic_field",
+                    "measure_values",
+                    "map_fields",
+                    "mark_sizing_off",
+                    "axis_fixed_range",
+                    "customized_label",
+                    "color_map",
+                    "text_format",
+                    "map_layers",
+                    "label_runs",
+                    "label_param",
+                }
             }
-        }
-        messages.append(
-            editor.configure_chart(
-                worksheet_name=name,
-                mark_type=item.get("mark", item.get("mark_type", "Automatic")),
-                **chart_kwargs,
+            messages.append(
+                editor.configure_chart(
+                    worksheet_name=name,
+                    mark_type=item.get("mark", item.get("mark_type", "Automatic")),
+                    **chart_kwargs,
+                )
             )
-        )
         if item.get("style"):
             messages.append(editor.configure_worksheet_style(name, **item["style"]))
+        if item.get("domain_completion"):
+            options = item["domain_completion"]
+            if options is True:
+                options = {}
+            messages.append(editor.enable_domain_completion(name, **options))
+        if item.get("subtotals"):
+            messages.append(editor.configure_subtotals(name, **item["subtotals"]))
     return messages
 
 
@@ -173,6 +190,7 @@ def run(args: Any) -> int:
     messages.extend(_apply_connection(editor, spec.get("connection")))
     messages.extend(_apply_parameters(editor, spec))
     messages.extend(_apply_calculated_fields(editor, spec))
+    messages.extend(_apply_hierarchies(editor, spec))
     messages.extend(_apply_worksheets(editor, spec))
     messages.extend(_apply_dashboards(editor, spec))
     messages.append(
