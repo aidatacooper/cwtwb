@@ -745,6 +745,13 @@ class TWBEditor(ParametersMixin, ConnectionsMixin, ChartsMixin, DashboardsMixin)
             for db in list(dashboards):
                 dashboards.remove(db)
 
+        # Dashboard actions reference worksheet/dashboard names. Keeping them
+        # after clearing the views leaves stale sources and can also violate
+        # the action content model when new parameter actions are appended.
+        actions = self.root.find("actions")
+        if actions is not None:
+            self.root.remove(actions)
+
         windows = self.root.find("windows")
         if windows is not None:
             self.root.remove(windows)
