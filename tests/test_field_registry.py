@@ -107,3 +107,27 @@ def test_column_instance_names_are_rejected_inside_aggregations() -> None:
     ):
         with pytest.raises(ValueError, match="column-instance"):
             registry.parse_expression(expr)
+
+
+def test_spatial_fields_use_collection_derivation() -> None:
+    registry = FieldRegistry("federated.test")
+    registry.register(
+        "Route",
+        "[Calculation_Route]",
+        "spatial",
+        "measure",
+        "nominal",
+        is_calculated=True,
+        formula=(
+            "MAKELINE(MAKEPOINT([Start Lat], [Start Long]), "
+            "MAKEPOINT([End Lat], [End Long]))"
+        ),
+    )
+
+    bare = registry.parse_expression("Route")
+    explicit = registry.parse_expression("COLLECT(Route)")
+
+    assert bare.derivation == "Collection"
+    assert bare.instance_name == "[clct:Calculation_Route:nk]"
+    assert explicit.derivation == "Collection"
+    assert explicit.instance_name == "[clct:Calculation_Route:nk]"

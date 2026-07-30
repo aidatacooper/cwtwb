@@ -71,6 +71,27 @@ add_parameter(
 | What-if estimate | `[Sales]*(1-[Parameters].[Churn Rate])*(1+[Parameters].[Growth])` | `real` |
 | Rounded estimate | `ROUND([Quantity]*(1-[Parameters].[Rate]), 0)` | `integer` |
 
+### Categorical Groups
+
+Use `add_group` when several existing dimension members must behave as one
+named category. Supply the source dimension and a mapping from each output
+group to its members:
+
+```python
+add_group(
+    field_name="Sales Region",
+    source_field="Region",
+    groups={
+        "Coasts": ["East", "West"],
+        "Central": ["Central", "South"],
+    },
+    default_value="Other",
+)
+```
+
+Each source member can belong to only one group. Unlisted members use
+`default_value`.
+
 ### LOD Expressions
 - **FIXED**: `{FIXED [Order ID] : SUM([Profit])} > 0` — computes at specified granularity
 - Use `datatype="string"` for LOD boolean flags (Tableau treats them as dimensions)

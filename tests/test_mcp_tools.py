@@ -20,6 +20,7 @@ import pytest
 from cwtwb.mcp.app import get_mcp_status, server
 from cwtwb.server import (
     add_calculated_field,
+    add_group,
     add_worksheet,
     apply_worksheet_refactor,
     clone_worksheet,
@@ -124,6 +125,25 @@ class TestToolDescriptions:
 
 
 # ── remove_calculated_field ───────────────────────────────────────────────────
+
+class TestAddGroup:
+    def test_add_group_is_available_through_public_mcp_surface(self, tmp_path):
+        result = add_group(
+            "Sales Region",
+            "Region",
+            {"Coasts": ["East", "West"]},
+        )
+        assert "Sales Region" in result
+        assert "Sales Region" in list_fields()
+
+        output = tmp_path / "with_group.twb"
+        save_workbook(str(output))
+        calculation = ET.parse(output).find(
+            ".//datasource/column[@caption='Sales Region']/calculation"
+        )
+        assert calculation is not None
+        assert calculation.get("class") == "categorical-bin"
+
 
 class TestRemoveCalculatedField:
     def test_remove_existing_field(self):

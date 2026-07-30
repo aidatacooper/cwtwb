@@ -20,7 +20,7 @@ from typing import Iterable, Optional
 # - If formula has aggregation (e.g. SUM(...)) -> derivation="User" (don't aggregate again)
 # - If formula has no aggregation (e.g. [Profit] / [Sales]) -> derivation="Sum"
 _AGGREGATE_FUNCTION_RE = re.compile(
-    r"\b(SUM|AVG|COUNT|COUNTD|MIN|MAX|MEDIAN|ATTR)\s*\(",
+    r"\b(SUM|AVG|COUNT|COUNTD|MIN|MAX|MEDIAN|ATTR|COLLECT)\s*\(",
     re.IGNORECASE,
 )
 
@@ -36,6 +36,7 @@ _DERIVATION_MAP: dict[str, str] = {
     "MAX": "Max",
     "MEDIAN": "Median",
     "ATTR": "Attr",
+    "COLLECT": "Collection",
     "AGG": "User",
     "YEAR": "Year",
     "QUARTER": "Quarter",
@@ -59,6 +60,7 @@ _DERIVATION_ABBR: dict[str, str] = {
     "Max": "max",
     "Median": "med",
     "Attr": "attr",
+    "Collection": "clct",
     "Year": "yr",
     "Quarter": "qr",
     "Month": "mn",
@@ -81,7 +83,7 @@ _EXPR_RE = re.compile(
 # Example: [sum:Sales:qk] is the internal reference for SUM(Sales).
 _COLUMN_INSTANCE_RE = re.compile(
     r"^(?:\[[^\]]+\]\.)?\[?"
-    r"(sum|avg|cnt|cntd|min|max|med|attr|none|usr|yr|qr|mn|day|wk|wd|my|tdy)"
+    r"(sum|avg|cnt|cntd|min|max|med|attr|clct|none|usr|yr|qr|mn|day|wk|wd|my|tdy)"
     r":.+:(nk|qk|ok)(?::\d+)?\]?$",
     re.IGNORECASE,
 )
@@ -413,7 +415,9 @@ class FieldRegistry:
         #   use derivation="Sum" so Tableau applies default SUM aggregation.
         # Calculated dimensions (boolean, nominal) keep derivation="None" so they
         # are treated as plain dimension values rather than user-aggregated expressions.
-        if fi.is_calculated and fi.role == "measure" and derivation == "None":
+        if fi.datatype == "spatial" and derivation == "None":
+            derivation = "Collection"
+        elif fi.is_calculated and fi.role == "measure" and derivation == "None":
             if fi.is_table_calculation:
                 derivation = "User"
             elif fi.formula and _AGGREGATE_FUNCTION_RE.search(fi.formula):
@@ -422,7 +426,7 @@ class FieldRegistry:
                 derivation = "Sum"
 
         # Determine type suffix
-        if derivation in ("None", "User"):
+        if derivation in ("None", "User", "Collection"):
             ci_type = fi.field_type   # nominal / quantitative — preserve field's own type
         elif derivation in _TEMPORAL_DERIVATIONS:
             ci_type = "ordinal"

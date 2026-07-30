@@ -665,6 +665,85 @@ class TWBEditor(ParametersMixin, ConnectionsMixin, ChartsMixin, DashboardsMixin)
 
         return f"Added calculated field '{field_name}' = {formula}"
 
+    def add_group(
+        self,
+        field_name: str,
+        source_field: str,
+        groups: dict[str, list[str]],
+        *,
+        default_value: str = "Other",
+        internal_name: Optional[str] = None,
+    ) -> str:
+        """Create a categorical group field from members of a source dimension."""
+
+        field_name = field_name.strip()
+        source_field = source_field.strip()
+        if not field_name:
+            raise ValueError("field_name must not be empty")
+        if not source_field:
+            raise ValueError("source_field must not be empty")
+        if not groups:
+            raise ValueError("groups must contain at least one named group")
+        if self.field_registry.get(field_name) is not None:
+            raise ValueError(f"Field '{field_name}' already exists")
+
+        source_info = self.field_registry._find_field(source_field)
+        normalized_groups: dict[str, list[str]] = {}
+        assigned_members: set[str] = set()
+        for raw_group_name, raw_members in groups.items():
+            group_name = str(raw_group_name).strip()
+            if not group_name:
+                raise ValueError("group names must not be empty")
+            members = [str(member) for member in raw_members]
+            if not members:
+                raise ValueError(f"Group '{group_name}' must contain at least one member")
+            duplicates = assigned_members.intersection(members)
+            if duplicates:
+                duplicate_list = ", ".join(sorted(duplicates))
+                raise ValueError(f"Members may only belong to one group: {duplicate_list}")
+            assigned_members.update(members)
+            normalized_groups[group_name] = members
+
+        def tableau_string(value: str) -> str:
+            return f'"{value.replace(chr(34), chr(34) * 2)}"'
+
+        if internal_name is None:
+            internal_name = f"[Calculation_{_generate_uuid().strip('{}').replace('-','')}]"
+
+        col = etree.Element("column")
+        col.set("caption", field_name)
+        col.set("datatype", "string")
+        col.set("name", internal_name)
+        col.set("role", "dimension")
+        col.set("type", "nominal")
+
+        calc = etree.SubElement(col, "calculation")
+        calc.set("class", "categorical-bin")
+        calc.set("column", source_info.local_name)
+        calc.set("default", tableau_string(str(default_value)))
+        calc.set("new-bin", "true")
+        for group_name, members in normalized_groups.items():
+            bin_element = etree.SubElement(calc, "bin")
+            bin_element.set("default-name", "false")
+            bin_element.set("value", tableau_string(group_name))
+            for member in members:
+                value_element = etree.SubElement(bin_element, "value")
+                value_element.text = tableau_string(member)
+
+        self._insert_datasource_column(col)
+        self.field_registry.register(
+            display_name=field_name,
+            local_name=internal_name,
+            datatype="string",
+            role="dimension",
+            field_type="nominal",
+            is_calculated=True,
+        )
+        return (
+            f"Added categorical group '{field_name}' from '{source_field}' "
+            f"with {len(normalized_groups)} groups"
+        )
+
     @staticmethod
     def _normalize_table_calculation(
         table_calc: str | dict[str, str],

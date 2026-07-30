@@ -155,6 +155,34 @@ configure_chart("Sales Map", mark_type="Map",
 - Set `map_fields` to include parent geographic levels
 - Always add tooltip for detail-on-demand
 
+For spatial calculations such as `MAKEPOINT()` and `MAKELINE()`, bind each
+spatial field explicitly on its map layer:
+
+```python
+configure_chart(
+    "Hub and Spoke",
+    mark_type="Map",
+    geographic_field="Route",
+    map_layers=[
+        {
+            "geometry": "Route",
+            "size": "# Concerts",
+            "detail": "Venue",
+            "tooltip": ["Artist", "Concert"],
+        },
+        {
+            "geometry": "Destination",
+            "detail": "Venue",
+            "has_stroke": True,
+            "stroke_color": "#ffffff",
+        },
+    ],
+)
+```
+
+Bare spatial fields use Tableau's `Collection` (`clct`) derivation. Explicit
+`COLLECT(Route)` is also supported.
+
 ### Pie Charts
 
 For composition/parts of whole:

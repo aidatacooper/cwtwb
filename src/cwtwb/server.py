@@ -10,6 +10,7 @@ from .mcp_server import (
     add_calculated_field,
     add_dashboard,
     add_dashboard_action,
+    add_group,
     add_parameter,
     add_worksheet,
     apply_twb_migration,

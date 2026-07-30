@@ -11,6 +11,36 @@ from cwtwb.validator import TWBValidationError, validate_workbook_file
 from twb_assert import TWBAssert
 
 
+class TestCategoricalGroup:
+    def test_group_serializes_categorical_bin(self, editor_superstore):
+        editor_superstore.add_group(
+            "Sales Region",
+            "Region",
+            {
+                "Coasts": ["East", "West"],
+                "Interior": ["Central", "South"],
+            },
+        )
+
+        column = editor_superstore._datasource.find("column[@caption='Sales Region']")
+        assert column is not None
+        calculation = column.find("calculation")
+        assert calculation is not None
+        assert calculation.get("class") == "categorical-bin"
+        assert calculation.get("column") == "[Region (Orders)]"
+        assert calculation.get("default") == '"Other"'
+        assert [item.get("value") for item in calculation.findall("bin")] == [
+            '"Coasts"',
+            '"Interior"',
+        ]
+        assert [item.text for item in calculation.findall("bin/value")] == [
+            '"East"',
+            '"West"',
+            '"Central"',
+            '"South"',
+        ]
+
+
 class TestBarChart:
     """Bar chart structure validation."""
 
@@ -195,6 +225,56 @@ class TestMapChart:
         (TWBAssert(editor)
             .worksheet_exists("MapNoFields")
             .has_encoding("MapNoFields", "geometry"))
+
+    def test_map_layers_accept_spatial_geometry_fields(self, editor):
+        editor.add_calculated_field(
+            "Route",
+            "MAKELINE(MAKEPOINT(1, 2), MAKEPOINT(3, 4))",
+            datatype="spatial",
+            role="measure",
+            field_type="nominal",
+        )
+        editor.add_calculated_field(
+            "Destination",
+            "MAKEPOINT(3, 4)",
+            datatype="spatial",
+            role="measure",
+            field_type="nominal",
+        )
+        editor.add_worksheet("Spatial Layers")
+        editor.configure_chart(
+            "Spatial Layers",
+            mark_type="Map",
+            geographic_field="Route",
+            map_layers=[
+                {
+                    "geometry": "Route",
+                    "size": "SUM(Sales)",
+                    "detail": "Category",
+                    "tooltip": ["Category", "SUM(Sales)"],
+                },
+                {
+                    "geometry": "Destination",
+                    "detail": "State/Province",
+                    "has_stroke": True,
+                    "stroke_color": "#ffffff",
+                },
+            ],
+        )
+
+        worksheet = editor._find_worksheet("Spatial Layers")
+        panes = worksheet.findall(".//panes/pane")
+        assert len(panes) == 2
+        route_geometry = panes[0].find("encodings/geometry").get("column")
+        destination_geometry = panes[1].find("encodings/geometry").get("column")
+        assert ".[clct:" in route_geometry
+        assert ".[clct:" in destination_geometry
+        assert route_geometry != destination_geometry
+        assert panes[0].find("encodings/lod") is not None
+        assert (
+            panes[1].find("style/style-rule/format[@attr='has-stroke']")
+            is not None
+        )
 
 
 class TestKPICard:

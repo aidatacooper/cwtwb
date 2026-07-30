@@ -1381,6 +1381,7 @@ class MapChartBuilder(BaseChartBuilder):
     Layer dict keys
     ---------------
     mark_type       : str   – e.g. "Automatic", "Multipolygon"
+    geometry        : str   – spatial field expression for geometry encoding
     color           : str   – field expression for color encoding
     size            : str   – field expression for size encoding
     tooltip         : str | list[str]
@@ -1502,7 +1503,7 @@ class MapChartBuilder(BaseChartBuilder):
             exprs.extend(self.map_fields)
 
         for layer in self.map_layers:
-            for key in ("color", "size", "label", "detail"):
+            for key in ("geometry", "color", "size", "label", "detail"):
                 val = layer.get(key)
                 if val and val not in exprs:
                     # Skip numeric literals (e.g. size="0.01") — not field expressions
@@ -1566,11 +1567,13 @@ class MapChartBuilder(BaseChartBuilder):
         for idx, layer_cfg in enumerate(self.map_layers):
             mark_type = layer_cfg.get("mark_type", "Automatic")
             is_multipolygon = mark_type == "Multipolygon"
+            layer_geometry = layer_cfg.get("geometry")
 
             pane = etree.SubElement(panes_el, "pane")
             if idx > 0:
-                pane.set("generated-title", f"{self.geographic_field} ({idx + 1})" if idx > 1
-                         else self.geographic_field)
+                layer_title = layer_geometry or self.geographic_field
+                pane.set("generated-title", f"{layer_title} ({idx + 1})" if idx > 1
+                         else layer_title)
             pane.set("id", str(idx))
             pane.set("selection-relaxation-option",
                      "selection-relaxation-disallow" if is_multipolygon
@@ -1592,9 +1595,21 @@ class MapChartBuilder(BaseChartBuilder):
             # --- Encodings ---
             l_color = layer_cfg.get("color")
             l_size = layer_cfg.get("size")
+            l_label = layer_cfg.get("label")
+            l_detail = layer_cfg.get("detail")
             l_tooltip = layer_cfg.get("tooltip")
 
-            has_enc = any(x is not None for x in (l_color, l_size, l_tooltip)) \
+            has_enc = any(
+                x is not None
+                for x in (
+                    layer_geometry,
+                    l_color,
+                    l_size,
+                    l_label,
+                    l_detail,
+                    l_tooltip,
+                )
+            ) \
                 or is_multipolygon or self.geographic_field or self.map_fields
             if has_enc:
                 enc_el = etree.SubElement(pane, "encodings")
@@ -1608,6 +1623,16 @@ class MapChartBuilder(BaseChartBuilder):
                     se = etree.SubElement(enc_el, "size")
                     se.set("column", self.field_registry.resolve_full_reference(
                         instances[l_size].instance_name))
+
+                if l_label and l_label in instances:
+                    text = etree.SubElement(enc_el, "text")
+                    text.set("column", self.field_registry.resolve_full_reference(
+                        instances[l_label].instance_name))
+
+                if l_detail and l_detail in instances:
+                    lod = etree.SubElement(enc_el, "lod")
+                    lod.set("column", self.field_registry.resolve_full_reference(
+                        instances[l_detail].instance_name))
 
                 if l_tooltip:
                     tt_list = [l_tooltip] if isinstance(l_tooltip, str) else l_tooltip
@@ -1624,7 +1649,11 @@ class MapChartBuilder(BaseChartBuilder):
                                 tt_ci.instance_name))
 
                 # LOD fields (geographic + map_fields) on every layer
-                if self.geographic_field and self.geographic_field in instances:
+                if (
+                    not layer_geometry
+                    and self.geographic_field
+                    and self.geographic_field in instances
+                ):
                     lod = etree.SubElement(enc_el, "lod")
                     lod.set("column", self.field_registry.resolve_full_reference(
                         instances[self.geographic_field].instance_name))
@@ -1639,8 +1668,11 @@ class MapChartBuilder(BaseChartBuilder):
                         except (KeyError, ValueError):
                             pass
 
-                # Geometry encoding only for Multipolygon layers
-                if is_multipolygon:
+                if layer_geometry and layer_geometry in instances:
+                    geom = etree.SubElement(enc_el, "geometry")
+                    geom.set("column", self.field_registry.resolve_full_reference(
+                        instances[layer_geometry].instance_name))
+                elif is_multipolygon:
                     geom = etree.SubElement(enc_el, "geometry")
                     geom.set("column", f"[{ds_name}].[Geometry (generated)]")
 

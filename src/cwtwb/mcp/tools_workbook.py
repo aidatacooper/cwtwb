@@ -206,6 +206,25 @@ def remove_calculated_field(field_name: str) -> str:
 
 
 @server.tool()
+def add_group(
+    field_name: str,
+    source_field: str,
+    groups: dict[str, list[str]],
+    default_value: str = "Other",
+    internal_name: str = "",
+) -> str:
+    """Create a categorical dimension by grouping source-field members."""
+
+    return get_editor().add_group(
+        field_name=field_name,
+        source_field=source_field,
+        groups=groups,
+        default_value=default_value,
+        internal_name=internal_name or None,
+    )
+
+
+@server.tool()
 def add_hierarchy(name: str, fields: list[str]) -> str:
     """Create an ordered Tableau drill hierarchy from bare dimension fields."""
 

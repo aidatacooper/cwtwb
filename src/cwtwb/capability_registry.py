@@ -463,10 +463,13 @@ CAPABILITY_SPECS: tuple[CapabilitySpec, ...] = (
     CapabilitySpec(
         key="bin",
         kind="feature",
-        level="unsupported",
+        level="advanced",
         canonical="Bin",
-        aliases=("bins",),
-        rationale="Known Tableau feature outside cwtwb's current supported surface.",
+        aliases=("bins", "categorical-bin", "group", "groups"),
+        rationale=(
+            "Supports categorical member grouping through TWBEditor.add_group "
+            "and the add_group MCP tool."
+        ),
     ),
     CapabilitySpec(
         key="set",
