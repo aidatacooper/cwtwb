@@ -2070,15 +2070,22 @@ class TWBEditor(ParametersMixin, ConnectionsMixin, ChartsMixin, DashboardsMixin)
             with zipfile.ZipFile(write_path, "w", zipfile.ZIP_DEFLATED) as zout:
                 # Write the updated workbook XML
                 zout.writestr(inner_twb_name, twb_bytes)
+                written_names = {inner_twb_name}
                 # Copy bundled extracts / images from the source .twbx if available
                 if self._twbx_source and self._twbx_source.exists():
                     with zipfile.ZipFile(self._twbx_source) as zsrc:
                         for info in zsrc.infolist():
-                            if info.filename != self._twbx_twb_name:
+                            if (
+                                info.filename != self._twbx_twb_name
+                                and info.filename not in written_names
+                            ):
                                 zout.writestr(info, zsrc.read(info.filename))
+                                written_names.add(info.filename)
                 # Bundle external data files (CSV, Excel, Hyper)
                 for data_file in external_files:
-                    zout.write(data_file, data_file.name)
+                    if data_file.name not in written_names:
+                        zout.write(data_file, data_file.name)
+                        written_names.add(data_file.name)
         else:
             buf = io.BytesIO()
             self.tree.write(buf, xml_declaration=True, encoding="utf-8", pretty_print=False)
