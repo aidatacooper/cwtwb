@@ -238,6 +238,7 @@ def configure_chart(
     color_map: Optional[dict[str, str]] = None,
     text_format: Optional[dict[str, str]] = None,
     map_layers: Optional[list[dict]] = None,
+    map_partition: Optional[str] = None,
     label_extra: Optional[list[str]] = None,
     label_runs: Optional[list[dict]] = None,
     label_param: Optional[str] = None,
@@ -265,6 +266,7 @@ def configure_chart(
             map_fields,
             filters,
             map_layers=map_layers,
+            map_partition=map_partition,
         )
         return builder.build()
 

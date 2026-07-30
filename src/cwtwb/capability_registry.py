@@ -238,6 +238,14 @@ CAPABILITY_SPECS: tuple[CapabilitySpec, ...] = (
         rationale="Required for geographic map rendering.",
     ),
     CapabilitySpec(
+        key="spatial-layer-partition",
+        kind="encoding",
+        level="advanced",
+        canonical="Spatial Layer Partition",
+        aliases=("map partition", "spatial small multiples"),
+        rationale="Partitions repeated spatial geometry axes by a dimension.",
+    ),
+    CapabilitySpec(
         key="lod",
         kind="encoding",
         level="advanced",

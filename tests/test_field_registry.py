@@ -109,7 +109,7 @@ def test_column_instance_names_are_rejected_inside_aggregations() -> None:
             registry.parse_expression(expr)
 
 
-def test_spatial_fields_use_collection_derivation() -> None:
+def test_spatial_fields_use_collect_derivation() -> None:
     registry = FieldRegistry("federated.test")
     registry.register(
         "Route",
@@ -127,7 +127,7 @@ def test_spatial_fields_use_collection_derivation() -> None:
     bare = registry.parse_expression("Route")
     explicit = registry.parse_expression("COLLECT(Route)")
 
-    assert bare.derivation == "Collection"
+    assert bare.derivation == "Collect"
     assert bare.instance_name == "[clct:Calculation_Route:nk]"
-    assert explicit.derivation == "Collection"
+    assert explicit.derivation == "Collect"
     assert explicit.instance_name == "[clct:Calculation_Route:nk]"

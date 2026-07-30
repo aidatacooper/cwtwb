@@ -290,6 +290,7 @@ class TestMapChart:
             "Spatial Layers",
             mark_type="Map",
             geographic_field="Route",
+            map_partition="Category",
             map_layers=[
                 {
                     "geometry": "Route",
@@ -308,17 +309,24 @@ class TestMapChart:
 
         worksheet = editor._find_worksheet("Spatial Layers")
         panes = worksheet.findall(".//panes/pane")
-        assert len(panes) == 2
-        route_geometry = panes[0].find("encodings/geometry").get("column")
-        destination_geometry = panes[1].find("encodings/geometry").get("column")
+        assert len(panes) == 3
+        assert panes[0].find("encodings/geometry") is None
+        route_geometry = panes[1].find("encodings/geometry").get("column")
+        destination_geometry = panes[2].find("encodings/geometry").get("column")
         assert ".[clct:" in route_geometry
         assert ".[clct:" in destination_geometry
+        spatial_instances = worksheet.findall(
+            ".//datasource-dependencies/column-instance[@derivation='Collect']"
+        )
+        assert len(spatial_instances) == 2
         assert route_geometry != destination_geometry
-        assert panes[0].find("encodings/lod") is not None
+        assert panes[1].find("encodings/lod") is not None
         assert (
-            panes[1].find("style/style-rule/format[@attr='has-stroke']")
+            panes[2].find("style/style-rule/format[@attr='has-stroke']")
             is not None
         )
+        assert "none:Category" in worksheet.findtext(".//cols")
+        assert worksheet.findtext(".//cols").count("Longitude (generated)") == 2
 
 
 class TestKPICard:

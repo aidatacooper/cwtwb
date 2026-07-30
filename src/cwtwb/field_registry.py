@@ -36,7 +36,7 @@ _DERIVATION_MAP: dict[str, str] = {
     "MAX": "Max",
     "MEDIAN": "Median",
     "ATTR": "Attr",
-    "COLLECT": "Collection",
+    "COLLECT": "Collect",
     "AGG": "User",
     "YEAR": "Year",
     "QUARTER": "Quarter",
@@ -60,7 +60,7 @@ _DERIVATION_ABBR: dict[str, str] = {
     "Max": "max",
     "Median": "med",
     "Attr": "attr",
-    "Collection": "clct",
+    "Collect": "clct",
     "Year": "yr",
     "Quarter": "qr",
     "Month": "mn",
@@ -420,7 +420,7 @@ class FieldRegistry:
         # Calculated dimensions (boolean, nominal) keep derivation="None" so they
         # are treated as plain dimension values rather than user-aggregated expressions.
         if fi.datatype == "spatial" and derivation == "None":
-            derivation = "Collection"
+            derivation = "Collect"
         elif fi.is_calculated and fi.role == "measure" and derivation == "None":
             if fi.is_table_calculation:
                 derivation = "User"
@@ -430,7 +430,7 @@ class FieldRegistry:
                 derivation = "Sum"
 
         # Determine type suffix
-        if derivation in ("None", "User", "Collection"):
+        if derivation in ("None", "User", "Collect"):
             ci_type = fi.field_type   # nominal / quantitative — preserve field's own type
         elif derivation in _TEMPORAL_DERIVATIONS:
             ci_type = "ordinal"

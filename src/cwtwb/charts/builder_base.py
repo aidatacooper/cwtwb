@@ -1429,6 +1429,9 @@ class MapChartBuilder(BaseChartBuilder):
     has_stroke      : bool  – show stroke on marks
     stroke_color    : str   – stroke colour hex
     mark_size_value : str   – explicit size style value
+
+    ``map_partition`` creates repeated longitude axes grouped by a dimension,
+    matching Tableau's small-multiple spatial layer structure.
     """
 
     def __init__(self, editor, worksheet_name: str,
@@ -1440,7 +1443,8 @@ class MapChartBuilder(BaseChartBuilder):
                  tooltip: Optional[Union[str, list[str]]] = None,
                  map_fields: Optional[list[str]] = None,
                  filters: Optional[list[dict]] = None,
-                 map_layers: Optional[list[dict]] = None) -> None:
+                 map_layers: Optional[list[dict]] = None,
+                 map_partition: Optional[str] = None) -> None:
         """Capture map-specific encodings and layer settings."""
         super().__init__(editor)
         self.worksheet_name = worksheet_name
@@ -1454,6 +1458,7 @@ class MapChartBuilder(BaseChartBuilder):
         self.map_fields = map_fields
         self.filters = filters
         self.map_layers = map_layers
+        self.map_partition = map_partition
 
     # ------------------------------------------------------------------
     # Public entry point
@@ -1491,7 +1496,22 @@ class MapChartBuilder(BaseChartBuilder):
 
         cols_el = table.find("cols")
         if cols_el is not None:
-            cols_el.text = f"[{ds_name}].[Longitude (generated)]"
+            longitude = f"[{ds_name}].[Longitude (generated)]"
+            if self.map_layers:
+                axes = " + ".join(longitude for _ in self.map_layers)
+                if self.map_partition:
+                    partition_ci = instances.get(self.map_partition)
+                    if partition_ci is not None:
+                        partition = self.field_registry.resolve_full_reference(
+                            partition_ci.instance_name
+                        )
+                        cols_el.text = f"({partition} * ({axes}))"
+                    else:
+                        cols_el.text = f"({axes})"
+                else:
+                    cols_el.text = f"({axes})"
+            else:
+                cols_el.text = longitude
 
         self.editor._setup_mapsources(view)
 
@@ -1540,6 +1560,8 @@ class MapChartBuilder(BaseChartBuilder):
             exprs.append(self.geographic_field)
         if self.map_fields:
             exprs.extend(self.map_fields)
+        if self.map_partition and self.map_partition not in exprs:
+            exprs.append(self.map_partition)
 
         for layer in self.map_layers:
             for key in ("geometry", "color", "size", "label", "detail"):
@@ -1601,7 +1623,36 @@ class MapChartBuilder(BaseChartBuilder):
             table.remove(old_panes)
 
         panes_el = etree.SubElement(table, "panes")
-        panes_el.set("customization-axis", "layer")
+
+        # Tableau spatial layer worksheets retain a base pane for the
+        # geographic canvas, followed by one pane per authored geometry.
+        base_cfg = self.map_layers[0]
+        base_pane = etree.SubElement(panes_el, "pane")
+        base_pane.set("selection-relaxation-option", "selection-relaxation-disallow")
+        base_view = etree.SubElement(base_pane, "view")
+        etree.SubElement(base_view, "breakdown").set("value", "auto")
+        etree.SubElement(base_pane, "mark").set("class", "Automatic")
+        if base_cfg.get("mark_sizing_off"):
+            etree.SubElement(
+                base_pane, "mark-sizing",
+                {"mark-sizing-setting": "marks-scaling-off"},
+            )
+        base_enc = etree.SubElement(base_pane, "encodings")
+        for tag, field in (
+            ("color", base_cfg.get("color")),
+            ("lod", base_cfg.get("detail")),
+        ):
+            if field and field in instances:
+                etree.SubElement(
+                    base_enc,
+                    tag,
+                    {
+                        "column": self.field_registry.resolve_full_reference(
+                            instances[field].instance_name
+                        )
+                    },
+                )
+        etree.SubElement(base_pane, "style")
 
         for idx, layer_cfg in enumerate(self.map_layers):
             mark_type = layer_cfg.get("mark_type", "Automatic")
@@ -1613,7 +1664,10 @@ class MapChartBuilder(BaseChartBuilder):
                 layer_title = layer_geometry or self.geographic_field
                 pane.set("generated-title", f"{layer_title} ({idx + 1})" if idx > 1
                          else layer_title)
-            pane.set("id", str(idx))
+            pane.set("id", str(idx + 1))
+            pane.set("x-axis-name", f"[{ds_name}].[Longitude (generated)]")
+            if idx > 0:
+                pane.set("x-index", str(idx))
             pane.set("selection-relaxation-option",
                      "selection-relaxation-disallow" if is_multipolygon
                      else "selection-relaxation-allow")
@@ -1708,6 +1762,9 @@ class MapChartBuilder(BaseChartBuilder):
                             pass
 
                 if layer_geometry and layer_geometry in instances:
+                    geom_lod = etree.SubElement(enc_el, "lod")
+                    geom_lod.set("column", self.field_registry.resolve_full_reference(
+                        instances[layer_geometry].instance_name))
                     geom = etree.SubElement(enc_el, "geometry")
                     geom.set("column", self.field_registry.resolve_full_reference(
                         instances[layer_geometry].instance_name))
