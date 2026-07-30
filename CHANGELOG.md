@@ -7,6 +7,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Unreleased
 
+## [0.25.0] - 2026-07-30
+
+### Added
+
+- **Field-backed reference lines**: author Tableau reference lines whose values
+  come from workbook fields, enabling month-level order benchmarks.
+- **Native dashboard navigation**: create go-to-sheet actions and navigation
+  buttons for multi-dashboard KPI experiences.
+- **Spatial map authoring**: build point, line, and partitioned geometry layers
+  for hub-and-spoke maps while preserving categorical field semantics.
+- **Recipe detection**: workbook analysis and the capability registry now
+  identify step-area charts and high-pane formatted-table constructions.
+
+### Fixed
+
+- **Bounded date filters**: serialize exact dates for authored date ranges.
+- **Packaged workbook integrity**: deduplicate packaged assets and clear stale
+  actions when dashboard views are replaced.
+
 ## [0.24.0] - 2026-07-28
 
 ### Added
