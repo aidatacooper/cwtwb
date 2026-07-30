@@ -57,7 +57,13 @@ from typing import Optional, Union
 
 from lxml import etree
 
-from ..field_registry import FieldRegistry, ColumnInstance, _DERIVATION_ABBR, _EXPR_RE
+from ..field_registry import (
+    ColumnInstance,
+    FieldRegistry,
+    _DERIVATION_ABBR,
+    _EXPR_RE,
+    _TEMPORAL_DERIVATIONS,
+)
 from .helpers import _get_or_create_table_style
 
 logger = logging.getLogger(__name__)
@@ -131,6 +137,14 @@ class BaseChartBuilder:
                 if f.get("type") == "quantitative" and f["column"] in instances:
                     expr = f["column"]
                     ci = instances[expr]
+                    # A bounded filter on a bare date field represents an exact
+                    # date range. The normal view default for date fields is
+                    # MONTH(...), which Tableau rejects when the bounds are
+                    # literal dates. Bind the filter to continuous exact dates.
+                    has_range = "min" in f or "max" in f
+                    is_bare_expression = _EXPR_RE.match(str(expr).strip()) is None
+                    if has_range and is_bare_expression and ci.derivation in _TEMPORAL_DERIVATIONS:
+                        ci = self.field_registry.parse_expression(f"DAYTRUNC({expr})")
                     new_inst_name = ci.instance_name
                     if new_inst_name.endswith(":nk]"):
                         new_inst_name = new_inst_name[:-4] + ":qk]"

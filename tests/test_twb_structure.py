@@ -367,3 +367,27 @@ class TestFilters:
 
         (TWBAssert(editor)
             .has_filter("QFilter", "Order Date"))
+
+    def test_bounded_date_filter_uses_exact_date(self, editor):
+        editor.add_worksheet("DateRangeFilter")
+        editor.configure_chart(
+            "DateRangeFilter",
+            mark_type="Bar",
+            rows=["Category"],
+            columns=["SUM(Sales)"],
+            filters=[
+                {
+                    "column": "Order Date",
+                    "type": "quantitative",
+                    "min": "#2025-07-11#",
+                    "max": "#2025-07-23#",
+                }
+            ],
+        )
+
+        worksheet = editor._find_worksheet("DateRangeFilter")
+        filter_el = worksheet.find(".//filter")
+        assert filter_el is not None
+        assert "tdy:" in filter_el.get("column")
+        exact_date = worksheet.find(".//column-instance[@derivation='Day-Trunc']")
+        assert exact_date is not None
