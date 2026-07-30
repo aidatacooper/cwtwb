@@ -87,6 +87,7 @@ VALID_LAYOUT_NODE_TYPES = {
     "filter",
     "paramctrl",
     "color",
+    "navigation_button",
     "empty",
 }
 
@@ -492,6 +493,27 @@ def add_dashboard_action(
     )
     action_caption = caption or f"{_ACTION_LABELS[normalized_type]} Action {action_index}"
 
+    if normalized_type == "go-to-sheet":
+        action_el = etree.Element("nav-action")
+        _append_action(actions_el, action_el)
+        action_el.set("caption", action_caption)
+        action_el.set("name", f"[Action{action_index}]")
+        activation_el = etree.SubElement(action_el, "activation")
+        activation_el.set(
+            "type", event_type if event_type != "on-select" else "on-select"
+        )
+        source_el = etree.SubElement(action_el, "source")
+        source_el.set("dashboard", dashboard_name)
+        source_el.set("type", "sheet")
+        source_el.set("worksheet", source_sheet)
+        params = etree.SubElement(action_el, "params")
+        target = etree.SubElement(params, "param")
+        target.set("name", "sheet")
+        target.set("value", target_sheet)
+        return (
+            f"Added go-to-sheet action '{action_caption}' to '{dashboard_name}'"
+        )
+
     action_el = etree.Element(
         "edit-parameter-action" if normalized_type == "parameter" else "action",
         nsmap={"user": "http://www.tableausoftware.com/xml/user"},
@@ -589,7 +611,14 @@ def _validate_action_targets(
             raise ValueError(
                 f"action_type '{action_type}' requires a non-empty target_sheet."
             )
-        editor._find_worksheet(target_sheet)
+        if action_type == "go-to-sheet":
+            target_dashboard = editor.root.find(
+                f"./dashboards/dashboard[@name='{target_sheet}']"
+            )
+            if target_dashboard is None:
+                editor._find_worksheet(target_sheet)
+        else:
+            editor._find_worksheet(target_sheet)
 
     if action_type == "url" and not url.strip():
         raise ValueError("action_type 'url' requires a non-empty url.")

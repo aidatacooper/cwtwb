@@ -5,6 +5,68 @@ import shutil
 import yaml
 
 from cwtwb.twb_editor import TWBEditor
+from cwtwb.twb_analyzer import analyze_workbook
+
+
+def test_navigation_button_targets_dashboard_window(tmp_superstore, tmp_path):
+    editor = TWBEditor(tmp_superstore)
+    editor.clear_worksheets()
+    editor.add_worksheet("Home Sheet")
+    editor.configure_chart(
+        "Home Sheet",
+        mark_type="Text",
+        label="SUM(Sales)",
+    )
+    editor.add_worksheet("Detail Sheet")
+    editor.configure_chart(
+        "Detail Sheet",
+        mark_type="Bar",
+        rows=["Category"],
+        columns=["SUM(Sales)"],
+    )
+    editor.add_dashboard(
+        "Home Dashboard",
+        layout={"type": "worksheet", "name": "Home Sheet"},
+        worksheet_names=["Home Sheet"],
+    )
+    editor.add_dashboard(
+        "Detail Dashboard",
+        layout={
+            "type": "container",
+            "direction": "vertical",
+            "children": [
+                {
+                    "type": "navigation_button",
+                    "target_dashboard": "Home Dashboard",
+                    "caption": "GO BACK",
+                    "background_color": "#1ba3c6",
+                    "font_color": "#ffffff",
+                    "bold": True,
+                    "fixed_size": 60,
+                },
+                {"type": "worksheet", "name": "Detail Sheet"},
+            ],
+        },
+        worksheet_names=["Detail Sheet"],
+    )
+
+    home = editor.root.find(
+        "./dashboards/dashboard[@name='Home Dashboard']/simple-id"
+    )
+    button = editor.root.find(
+        "./dashboards/dashboard[@name='Detail Dashboard']"
+        "//zone[@type='dashboard-object']/button"
+    )
+    assert home is not None
+    assert button is not None
+    assert home.get("uuid") in button.get("action")
+    assert button.findtext("button-visual-state/caption") == "GO BACK"
+
+    output = tmp_path / "navigation-button.twb"
+    editor.save(output, validate=False)
+    report = analyze_workbook(output)
+    detected = {(item.kind, item.canonical) for item in report.detected}
+    assert ("dashboard_zone", "Navigation Button") in detected
 
 
 @pytest.fixture

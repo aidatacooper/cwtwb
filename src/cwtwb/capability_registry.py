@@ -278,6 +278,14 @@ CAPABILITY_SPECS: tuple[CapabilitySpec, ...] = (
         rationale="Supports dashboard annotation and KPI placeholder composition.",
     ),
     CapabilitySpec(
+        key="navigation-button",
+        kind="dashboard_zone",
+        level="advanced",
+        canonical="Navigation Button",
+        aliases=("dashboard-object", "navigation_button", "nav button"),
+        rationale="Text dashboard buttons can navigate to another dashboard window.",
+    ),
+    CapabilitySpec(
         key="empty-zone",
         kind="dashboard_zone",
         level="advanced",

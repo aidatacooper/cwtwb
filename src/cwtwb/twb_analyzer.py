@@ -408,7 +408,7 @@ class TWBAnalyzer:
     ) -> None:
         """Detect dashboard zone/control types used in the workbook."""
         for zone in root.findall(".//dashboard//zone"):
-            raw_name = zone.get("type-v2") or "worksheet"
+            raw_name = zone.get("type-v2") or zone.get("type") or "worksheet"
             self._resolve_and_record(
                 detected,
                 unknown,

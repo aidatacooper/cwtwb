@@ -52,6 +52,9 @@ class FlexNode:
         self.show_title = d.get("show_title", True)
 
         self.parameter = d.get("parameter")
+        self.target_dashboard = d.get("target_dashboard")
+        self.caption = d.get("caption", "GO BACK")
+        self.background_color = d.get("background_color", "#1ba3c6")
 
         self.x = 0
         self.y = 0
@@ -204,6 +207,8 @@ def render_flex_node(
         _render_paramctrl(node, zone, context)
     elif node.type == "color":
         _render_color(node, zone, context)
+    elif node.type == "navigation_button":
+        _render_navigation_button(node, zone, context)
     elif node.type == "empty":
         _render_empty(node, zone)
 
@@ -317,6 +322,47 @@ def _render_text(node: FlexNode, zone: etree._Element) -> None:
 def _render_empty(node: FlexNode, zone: etree._Element) -> None:
     """Render an empty spacer zone."""
     zone.set("type-v2", "empty")
+
+
+def _render_navigation_button(
+    node: FlexNode,
+    zone: etree._Element,
+    context: dict[str, Any],
+) -> None:
+    """Render a text navigation button targeting another dashboard."""
+
+    editor = context.get("editor")
+    if editor is None:
+        raise ValueError("Navigation button rendering requires editor context.")
+    target = str(node.target_dashboard or "").strip()
+    if not target:
+        raise ValueError("navigation_button requires target_dashboard.")
+    target_dashboard = editor.root.find(
+        f"./dashboards/dashboard[@name='{target}']"
+    )
+    if target_dashboard is None:
+        raise ValueError(f"Target dashboard '{target}' was not found.")
+    simple_id = target_dashboard.find("simple-id")
+    if simple_id is None or not simple_id.get("uuid"):
+        raise ValueError(f"Target dashboard '{target}' has no window id.")
+
+    zone.set("type", "dashboard-object")
+    button = etree.SubElement(zone, "button")
+    button.set(
+        "action",
+        f'tabdoc:goto-sheet window-id="{simple_id.get("uuid")}"',
+    )
+    button.set("button-type", "text")
+    visual_state = etree.SubElement(button, "button-visual-state")
+    caption = etree.SubElement(visual_state, "caption")
+    caption.text = str(node.caption)
+    font = etree.SubElement(visual_state, "button-caption-font-style")
+    font.set("bold", "true" if node.bold else "false")
+    font.set("fontcolor", str(node.font_color or "#ffffff"))
+    font.set("fontname", "Tableau Medium")
+    background = etree.SubElement(visual_state, "format")
+    background.set("attr", "background-color")
+    background.set("value", str(node.background_color))
 
 
 def _render_filter(

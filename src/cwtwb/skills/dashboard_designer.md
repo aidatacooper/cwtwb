@@ -67,6 +67,9 @@ Recommended defaults:
 - Never use absolute-position schemas (`x/y/w/h`, `dashboard`, `zone`) as layout input.
 - Use `fixed_size` for KPI rows and filter sidebars.
 - Use `weight` for the main analytical areas.
+- Use a `navigation_button` node with `target_dashboard`, `caption`,
+  `background_color`, and `font_color` for a native dashboard-to-dashboard
+  button. Create the target dashboard first so its window id is available.
 - Do not pass a large inline layout dict to `add_dashboard`.
 - Generate a layout JSON file first, then pass the file path to `add_dashboard`.
 - Prefer filling a small template over free-form structure generation.

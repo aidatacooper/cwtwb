@@ -83,7 +83,7 @@ class TestUrlAction:
 
 
 class TestGoToSheetAction:
-    def test_go_to_sheet_action_uses_navigation_command(self, action_editor):
+    def test_go_to_sheet_action_uses_native_nav_action(self, action_editor):
         action_editor.add_dashboard_action(
             dashboard_name="TestDash",
             action_type="go-to-sheet",
@@ -92,18 +92,45 @@ class TestGoToSheetAction:
             caption="Open Detail Sheet",
         )
 
-        action_el = action_editor.root.find(".//actions/action")
+        action_el = action_editor.root.find(".//actions/nav-action")
         assert action_el is not None
-        cmd = action_el.find("command")
-        assert cmd is not None
-        assert cmd.get("command") == "tabdoc:goto-sheet"
+        source = action_el.find("source")
+        assert source is not None
+        assert source.get("dashboard") == "TestDash"
+        assert source.get("worksheet") == "Source"
 
         target = next(
-            (param for param in cmd.findall("param") if param.get("name") == "target"),
+            (
+                param
+                for param in action_el.findall("params/param")
+                if param.get("name") == "sheet"
+            ),
             None,
         )
         assert target is not None
         assert target.get("value") == "Detail"
+
+    def test_go_to_sheet_action_accepts_dashboard_target(self, action_editor):
+        action_editor.add_dashboard(
+            "Detail Dashboard",
+            layout={
+                "type": "worksheet",
+                "name": "Detail",
+            },
+            worksheet_names=["Detail"],
+        )
+        action_editor.add_dashboard_action(
+            dashboard_name="TestDash",
+            action_type="go-to-sheet",
+            source_sheet="Source",
+            target_sheet="Detail Dashboard",
+        )
+
+        target = action_editor.root.find(
+            ".//actions/nav-action/params/param[@name='sheet']"
+        )
+        assert target is not None
+        assert target.get("value") == "Detail Dashboard"
 
     def test_go_to_sheet_action_requires_target_sheet(self, action_editor):
         with pytest.raises(ValueError, match="requires a non-empty target_sheet"):
@@ -298,7 +325,8 @@ class TestMultipleActions:
         )
 
         actions = action_editor.root.findall(".//actions/action")
-        assert len(actions) == 4
+        assert len(actions) == 3
+        assert len(action_editor.root.findall(".//actions/nav-action")) == 1
         assert len(action_editor.root.findall(".//actions/edit-parameter-action")) == 1
         commands = [
             action.find("command").get("command")
@@ -307,4 +335,3 @@ class TestMultipleActions:
         ]
         assert "tsc:tsl-filter" in commands
         assert "tsc:brush" in commands
-        assert "tabdoc:goto-sheet" in commands
