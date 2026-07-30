@@ -60,6 +60,14 @@ CAPABILITY_SPECS: tuple[CapabilitySpec, ...] = (
         rationale="Common trend + composition primitive built directly from native marks.",
     ),
     CapabilitySpec(
+        key="gantt-bar",
+        kind="chart",
+        level="advanced",
+        canonical="GanttBar",
+        aliases=("gantt", "gantt bar"),
+        rationale="Native Gantt mark supported through configure_chart encodings.",
+    ),
+    CapabilitySpec(
         key="pie",
         kind="chart",
         level="core",
@@ -386,10 +394,11 @@ CAPABILITY_SPECS: tuple[CapabilitySpec, ...] = (
     CapabilitySpec(
         key="reference-line",
         kind="feature",
-        level="unsupported",
+        level="advanced",
         canonical="Reference Line",
         aliases=("reference line",),
-        rationale="Known Tableau feature outside cwtwb's current supported surface.",
+        rationale="Field-backed pane reference lines are supported by add_reference_line.",
+        notes="Supports explicit axis/value fields, scope, formula, label, tooltip, and pane selection.",
     ),
     CapabilitySpec(
         key="trend-line",

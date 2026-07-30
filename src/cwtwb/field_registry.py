@@ -36,6 +36,7 @@ _DERIVATION_MAP: dict[str, str] = {
     "MAX": "Max",
     "MEDIAN": "Median",
     "ATTR": "Attr",
+    "AGG": "User",
     "YEAR": "Year",
     "QUARTER": "Quarter",
     "MONTH": "Month",

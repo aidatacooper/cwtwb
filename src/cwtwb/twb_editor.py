@@ -497,6 +497,7 @@ class TWBEditor(ParametersMixin, ConnectionsMixin, ChartsMixin, DashboardsMixin)
                     role=role,
                     field_type=field_type,
                     is_calculated=not is_constant,
+                    formula=formula,
                     is_table_calculation=calc.find("table-calc") is not None,
                 )
             else:
@@ -1510,6 +1511,114 @@ class TWBEditor(ParametersMixin, ConnectionsMixin, ChartsMixin, DashboardsMixin)
         return (
             f"Configured {aggregation} subtotals for {configured_measures} measure(s) "
             f"on '{worksheet_name}'"
+        )
+
+    def add_reference_line(
+        self,
+        worksheet_name: str,
+        *,
+        axis_field: str,
+        value_field: str,
+        scope: str = "per-pane",
+        formula: str = "average",
+        label_type: str = "value",
+        tooltip: str = "Average = <Value>",
+        pane_index: int = 0,
+    ) -> str:
+        """Add a field-backed Tableau reference line to a worksheet pane."""
+
+        supported_scopes = {"per-pane", "per-cell", "entire-table"}
+        if scope not in supported_scopes:
+            raise ValueError(
+                f"Unsupported reference-line scope '{scope}'. "
+                f"Use one of: {', '.join(sorted(supported_scopes))}."
+            )
+        if pane_index < 0:
+            raise ValueError("pane_index must be zero or greater.")
+
+        worksheet = self._find_worksheet(worksheet_name)
+        view = worksheet.find("table/view")
+        if view is None:
+            raise ValueError(f"Worksheet '{worksheet_name}' has no configured view.")
+        ds_name = self._datasource.get("name", "")
+        dependencies = view.find(f"datasource-dependencies[@datasource='{ds_name}']")
+        if dependencies is None:
+            raise ValueError(
+                f"Worksheet '{worksheet_name}' has no datasource dependencies."
+            )
+
+        def ensure_instance(expression: str) -> ColumnInstance:
+            normalized = self.field_registry.default_view_expression(expression)
+            ci = self.field_registry.parse_expression(normalized)
+            source_column = self._datasource.find(
+                f"column[@name='{ci.column_local_name}']"
+            )
+            if source_column is not None and dependencies.find(
+                f"column[@name='{ci.column_local_name}']"
+            ) is None:
+                dependencies.append(copy.deepcopy(source_column))
+            instance = dependencies.find(
+                f"column-instance[@name='{ci.instance_name}']"
+            )
+            if instance is None:
+                instance = etree.SubElement(dependencies, "column-instance")
+                instance.set("column", ci.column_local_name)
+                instance.set("derivation", ci.derivation)
+                instance.set("name", ci.instance_name)
+                instance.set("pivot", "key")
+                instance.set("type", ci.ci_type)
+                if source_column is not None:
+                    source_calc = source_column.find("calculation")
+                    if source_calc is not None:
+                        for table_calc in source_calc.findall("table-calc"):
+                            instance.append(copy.deepcopy(table_calc))
+            return ci
+
+        axis_ci = ensure_instance(axis_field)
+        value_ci = ensure_instance(value_field)
+        panes = worksheet.findall("table/panes/pane")
+        if pane_index >= len(panes):
+            raise ValueError(
+                f"Worksheet '{worksheet_name}' has {len(panes)} pane(s); "
+                f"pane_index={pane_index} is out of range."
+            )
+        pane = panes[pane_index]
+        reference_id = f"refline{len(pane.findall('reference-line'))}"
+        reference_line = etree.Element("reference-line")
+        reference_line.set(
+            "axis-column",
+            self.field_registry.resolve_full_reference(axis_ci.instance_name),
+        )
+        reference_line.set("enable-instant-analytics", "true")
+        reference_line.set("formula", formula)
+        reference_line.set("id", reference_id)
+        reference_line.set("label-type", label_type)
+        reference_line.set("probability", "95")
+        reference_line.set("scope", scope)
+        reference_line.set("tooltip", tooltip)
+        reference_line.set("tooltip-type", "custom")
+        reference_line.set(
+            "value-column",
+            self.field_registry.resolve_full_reference(value_ci.instance_name),
+        )
+        reference_line.set("z-order", "1")
+
+        insert_before = next(
+            (
+                child
+                for child in pane
+                if child.tag in {"customized-tooltip", "style"}
+            ),
+            None,
+        )
+        if insert_before is None:
+            pane.append(reference_line)
+        else:
+            insert_before.addprevious(reference_line)
+
+        return (
+            f"Added reference line '{reference_id}' to '{worksheet_name}' "
+            f"using '{value_field}'"
         )
 
     def _formula_field_token_map(self, replacements: dict[str, str]) -> dict[str, str]:

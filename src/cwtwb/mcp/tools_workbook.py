@@ -247,6 +247,32 @@ def configure_subtotals(
 
 
 @server.tool()
+def add_reference_line(
+    worksheet_name: str,
+    axis_field: str,
+    value_field: str,
+    scope: str = "per-pane",
+    formula: str = "average",
+    label_type: str = "value",
+    tooltip: str = "Average = <Value>",
+    pane_index: int = 0,
+) -> str:
+    """Add a field-backed reference line to a configured worksheet pane."""
+
+    result = get_editor().add_reference_line(
+        worksheet_name,
+        axis_field=axis_field,
+        value_field=value_field,
+        scope=scope,
+        formula=formula,
+        label_type=label_type,
+        tooltip=tooltip,
+        pane_index=pane_index,
+    )
+    return result + _skill_hint("configure_chart")
+
+
+@server.tool()
 def add_parameter(
     name: str,
     datatype: str = "real",

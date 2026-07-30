@@ -171,6 +171,14 @@ configure_chart("Market Share", mark_type="Pie",
 - Leave columns and rows empty for Pie charts
 - Always add label to show values
 
+### Gantt Bars and Reference Lines
+
+Use `configure_chart(..., mark_type="GanttBar")` for a native Gantt mark. Put
+the starting measure on the axis and the signed span on `size`. After the chart
+is configured, call `add_reference_line(worksheet_name, axis_field=...,
+value_field=...)` to add a field-backed reference line. `pane_index` selects a
+specific pane when the worksheet contains multiple axes.
+
 ## Advanced Patterns (configure_chart / configure_dual_axis)
 
 ### KPI Difference Badge (MIN(1) dummy axis + fixed range + color_map + customized_label)
