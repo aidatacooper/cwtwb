@@ -499,6 +499,7 @@ class TWBEditor(ParametersMixin, ConnectionsMixin, ChartsMixin, DashboardsMixin)
                     is_calculated=not is_constant,
                     formula=formula,
                     is_table_calculation=calc.find("table-calc") is not None,
+                    calculation_class=calc.get("class", ""),
                 )
             else:
                 # Register semantic-role columns (e.g. geographic columns)
@@ -738,6 +739,7 @@ class TWBEditor(ParametersMixin, ConnectionsMixin, ChartsMixin, DashboardsMixin)
             role="dimension",
             field_type="nominal",
             is_calculated=True,
+            calculation_class="categorical-bin",
         )
         return (
             f"Added categorical group '{field_name}' from '{source_field}' "

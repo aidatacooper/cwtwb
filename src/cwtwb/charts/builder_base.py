@@ -60,6 +60,7 @@ from lxml import etree
 from ..field_registry import (
     ColumnInstance,
     FieldRegistry,
+    _AGGREGATE_FUNCTION_RE,
     _DERIVATION_ABBR,
     _EXPR_RE,
     _TEMPORAL_DERIVATIONS,
@@ -194,6 +195,14 @@ class BaseChartBuilder:
             fi = self.field_registry._find_field(text)
         except KeyError:
             return None
+        if fi.calculation_class == "categorical-bin":
+            return self.field_registry.parse_expression(text)
+        if (
+            fi.is_calculated
+            and fi.formula
+            and _AGGREGATE_FUNCTION_RE.search(fi.formula)
+        ):
+            return self.field_registry.parse_expression(text)
         if fi.role == "dimension":
             target_deriv_xml = "Attribute"     # written into <column-instance derivation="…">
             target_deriv_key = "Attr"          # key into _DERIVATION_ABBR
@@ -283,7 +292,7 @@ class BaseChartBuilder:
                     if src_col is not None and src_col.get("semantic-role"):
                         col_el.set("semantic-role", src_col.get("semantic-role"))
                 column_elements.append(col_el)
-            if ci.instance_name not in seen_instances:
+            if not ci.is_direct and ci.instance_name not in seen_instances:
                 seen_instances.add(ci.instance_name)
                 ci_el = etree.Element("column-instance")
                 ci_el.set("column", ci.column_local_name)
@@ -310,7 +319,11 @@ class BaseChartBuilder:
             if calc_el is None:
                 continue
             formula = calc_el.get("formula", "")
-            for ref_name in _re.findall(r"\[([^\]]+)\]", formula):
+            referenced_names = _re.findall(r"\[([^\]]+)\]", formula)
+            source_column = calc_el.get("column", "")
+            if source_column.startswith("[") and source_column.endswith("]"):
+                referenced_names.append(source_column[1:-1])
+            for ref_name in referenced_names:
                 local_ref = f"[{ref_name}]"
                 if local_ref in seen_columns:
                     continue
@@ -320,19 +333,45 @@ class BaseChartBuilder:
                 if raw_col is None:
                     for mr in self._datasource.findall(".//metadata-record[@class='column']"):
                         rn = mr.findtext("remote-name", "")
-                        if rn == ref_name:
-                            ln = mr.findtext("local-name", "")
+                        ln = mr.findtext("local-name", "")
+                        if rn == ref_name or ln == local_ref:
                             raw_col = self._datasource.find(f"column[@name='{ln}']")
                             if raw_col is not None:
                                 local_ref = ln
                             break
-                if raw_col is not None and local_ref not in seen_columns:
+                dependency_info = next(
+                    (
+                        field_info
+                        for field_info in self.field_registry._fields.values()
+                        if field_info.local_name == local_ref
+                    ),
+                    None,
+                )
+                if (
+                    (raw_col is not None or dependency_info is not None)
+                    and local_ref not in seen_columns
+                ):
                     seen_columns.add(local_ref)
                     dep_col = etree.Element("column")
-                    dep_col.set("datatype", raw_col.get("datatype", "string"))
+                    dep_col.set(
+                        "datatype",
+                        raw_col.get("datatype", "string")
+                        if raw_col is not None
+                        else dependency_info.datatype,
+                    )
                     dep_col.set("name", local_ref)
-                    dep_col.set("role", raw_col.get("role", "dimension"))
-                    dep_col.set("type", raw_col.get("type", "nominal"))
+                    dep_col.set(
+                        "role",
+                        raw_col.get("role", "dimension")
+                        if raw_col is not None
+                        else dependency_info.role,
+                    )
+                    dep_col.set(
+                        "type",
+                        raw_col.get("type", "nominal")
+                        if raw_col is not None
+                        else dependency_info.field_type,
+                    )
                     first_ci = deps.find("column-instance")
                     if first_ci is not None:
                         first_ci.addprevious(dep_col)

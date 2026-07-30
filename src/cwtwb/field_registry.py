@@ -276,6 +276,7 @@ class FieldInfo:
     is_calculated: bool = False
     formula: str = ""       # Calculation formula (only for calculated fields)
     is_table_calculation: bool = False
+    calculation_class: str = ""
 
 
 @dataclass
@@ -287,6 +288,7 @@ class ColumnInstance:
     instance_name: str       # e.g. [sum:Sales (Orders):qk]
     pivot: str = "key"
     ci_type: str = ""        # nominal / quantitative / ordinal
+    is_direct: bool = False  # categorical groups bind to the column itself
 
 
 class FieldRegistry:
@@ -315,6 +317,7 @@ class FieldRegistry:
         is_calculated: bool = False,
         formula: str = "",
         is_table_calculation: bool = False,
+        calculation_class: str = "",
     ) -> None:
         """Register one field and its Tableau metadata in the lookup table."""
         info = FieldInfo(
@@ -326,6 +329,7 @@ class FieldRegistry:
             is_calculated=is_calculated,
             formula=formula,
             is_table_calculation=is_table_calculation,
+            calculation_class=calculation_class,
         )
         self._fields[display_name] = info
         # Also register under local_name (stripped of brackets) so that
@@ -439,6 +443,15 @@ class FieldRegistry:
         type_suffix = {"nominal": "nk", "quantitative": "qk", "ordinal": "ok"}[
             ci_type
         ]
+
+        if fi.calculation_class == "categorical-bin" and derivation == "None":
+            return ColumnInstance(
+                column_local_name=fi.local_name,
+                derivation="None",
+                instance_name=fi.local_name,
+                ci_type=ci_type,
+                is_direct=True,
+            )
 
         # Derivation abbreviation
         deriv_abbr = _DERIVATION_ABBR[derivation]

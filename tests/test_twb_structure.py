@@ -40,6 +40,50 @@ class TestCategoricalGroup:
             '"South"',
         ]
 
+        editor_superstore.add_worksheet("Grouped Sales")
+        editor_superstore.configure_chart(
+            "Grouped Sales",
+            mark_type="Bar",
+            rows=["Sales Region"],
+            columns=["SUM(Sales)"],
+        )
+        worksheet = editor_superstore._find_worksheet("Grouped Sales")
+        dependencies = worksheet.find(".//datasource-dependencies")
+        assert dependencies is not None
+        assert dependencies.find("column[@caption='Sales Region']") is not None
+        assert dependencies.find("column[@name='[Region (Orders)]']") is not None
+        group_local_name = column.get("name")
+        assert dependencies.find(
+            f"column-instance[@column='{group_local_name}']"
+        ) is None
+        assert worksheet.find(".//rows").text.endswith(f".{group_local_name}")
+
+
+class TestAggregateCalculatedFieldTooltip:
+    def test_tooltip_uses_user_derivation_for_aggregate_calculation(self, editor):
+        editor.add_calculated_field(
+            "Distinct Orders",
+            "COUNTD([Order ID])",
+            datatype="integer",
+        )
+        editor.add_worksheet("Order Count")
+        editor.configure_chart(
+            "Order Count",
+            mark_type="Text",
+            label="Distinct Orders",
+            tooltip=["Distinct Orders"],
+        )
+
+        worksheet = editor._find_worksheet("Order Count")
+        dependencies = worksheet.find(".//datasource-dependencies")
+        assert dependencies is not None
+        assert dependencies.find(
+            "column-instance[@derivation='User']"
+        ) is not None
+        assert dependencies.find(
+            "column-instance[@derivation='Sum']"
+        ) is None
+
 
 class TestBarChart:
     """Bar chart structure validation."""
