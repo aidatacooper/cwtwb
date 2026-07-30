@@ -1,5 +1,7 @@
 from pathlib import Path
 
+from lxml import etree
+
 from cwtwb.server import describe_capability, diff_template_gap
 from cwtwb.twb_analyzer import analyze_workbook
 from cwtwb.twb_editor import TWBEditor
@@ -81,6 +83,25 @@ def test_analyze_generated_workbook_detects_core_and_advanced():
     assert ("action", "Filter Action") in detected
     assert ("connection", "excel-direct") in detected
     assert report.fit_level == "advanced-fit"
+
+
+def test_analyze_detects_three_pane_step_area_recipe(tmp_path):
+    editor = TWBEditor("")
+    editor.add_worksheet("Stepped Sales")
+    worksheet = editor._find_worksheet("Stepped Sales")
+    panes = worksheet.find("table/panes")
+    pane = panes.find("pane")
+    pane.find("mark").set("class", "Area")
+    for mark_type in ("Area", "Line"):
+        clone = etree.fromstring(etree.tostring(pane))
+        clone.find("mark").set("class", mark_type)
+        panes.append(clone)
+    output = tmp_path / "step-area.twb"
+    editor.save(output, validate=False)
+
+    report = analyze_workbook(output)
+    detected = {(item.kind, item.canonical) for item in report.detected}
+    assert ("chart", "Step Area") in detected
 
 
 def test_analyze_detects_case_c_semantic_features(tmp_path):

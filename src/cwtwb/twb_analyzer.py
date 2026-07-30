@@ -349,6 +349,23 @@ class TWBAnalyzer:
                     source="multi-pane",
                     xpath_hint=xpath_hint,
                 )
+                pane_marks = {
+                    mark.get("class", "")
+                    for mark in panes.findall("pane/mark")
+                }
+                if (
+                    len(panes.findall("pane")) >= 3
+                    and "Area" in pane_marks
+                    and "Line" in pane_marks
+                ):
+                    self._resolve_and_record(
+                        detected,
+                        unknown,
+                        kind="chart",
+                        raw_name="Step Area",
+                        source="multi-pane-step-area",
+                        xpath_hint=xpath_hint,
+                    )
 
             self._resolve_chart_name_patterns(worksheet_name, xpath_hint, detected, unknown)
 

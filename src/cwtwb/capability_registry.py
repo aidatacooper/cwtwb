@@ -60,6 +60,14 @@ CAPABILITY_SPECS: tuple[CapabilitySpec, ...] = (
         rationale="Common trend + composition primitive built directly from native marks.",
     ),
     CapabilitySpec(
+        key="step-area",
+        kind="chart",
+        level="recipe",
+        canonical="Step Area",
+        aliases=("step area chart", "stepped area"),
+        rationale="Multi-pane Area and Line recipe with table-calculation-driven step geometry.",
+    ),
+    CapabilitySpec(
         key="gantt-bar",
         kind="chart",
         level="advanced",
