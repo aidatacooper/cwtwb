@@ -68,6 +68,14 @@ CAPABILITY_SPECS: tuple[CapabilitySpec, ...] = (
         rationale="Multi-pane Area and Line recipe with table-calculation-driven step geometry.",
     ),
     CapabilitySpec(
+        key="formatted-table",
+        kind="chart",
+        level="recipe",
+        canonical="Formatted Table",
+        aliases=("formatted table", "table formatting"),
+        rationale="Multi-pane axis-and-label recipe for row-level table formatting.",
+    ),
+    CapabilitySpec(
         key="gantt-bar",
         kind="chart",
         level="advanced",

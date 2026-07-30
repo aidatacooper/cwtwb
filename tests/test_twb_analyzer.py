@@ -104,6 +104,23 @@ def test_analyze_detects_three_pane_step_area_recipe(tmp_path):
     assert ("chart", "Step Area") in detected
 
 
+def test_analyze_detects_multi_pane_formatted_table_recipe(tmp_path):
+    editor = TWBEditor("")
+    editor.add_worksheet("Formatted Metrics")
+    worksheet = editor._find_worksheet("Formatted Metrics")
+    panes = worksheet.find("table/panes")
+    pane = panes.find("pane")
+    pane.find("mark").set("class", "Bar")
+    for _ in range(7):
+        panes.append(etree.fromstring(etree.tostring(pane)))
+    output = tmp_path / "formatted-table.twb"
+    editor.save(output, validate=False)
+
+    report = analyze_workbook(output)
+    detected = {(item.kind, item.canonical) for item in report.detected}
+    assert ("chart", "Formatted Table") in detected
+
+
 def test_analyze_detects_case_c_semantic_features(tmp_path):
     editor = TWBEditor("")
     editor.add_hierarchy("Location", ["Region", "State/Province", "City"])

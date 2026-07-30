@@ -366,6 +366,22 @@ class TWBAnalyzer:
                         source="multi-pane-step-area",
                         xpath_hint=xpath_hint,
                     )
+                if (
+                    len(panes.findall("pane")) >= 8
+                    and sum(
+                        mark.get("class") == "Bar"
+                        for mark in panes.findall("pane/mark")
+                    )
+                    >= 6
+                ):
+                    self._resolve_and_record(
+                        detected,
+                        unknown,
+                        kind="chart",
+                        raw_name="Formatted Table",
+                        source="multi-pane-formatted-table",
+                        xpath_hint=xpath_hint,
+                    )
 
             self._resolve_chart_name_patterns(worksheet_name, xpath_hint, detected, unknown)
 
