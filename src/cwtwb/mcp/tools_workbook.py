@@ -11,6 +11,7 @@ Tools must be called in this order within each session:
        → Inspect which datasource fields are available.
   3. add_worksheet(name)  [repeat as needed]
   4. configure_chart(name, ...) / configure_dual_axis(name, ...)
+       / configure_layered_chart(name, ...)
   5. configure_worksheet_style(name, ...)  [optional per sheet]
   6. add_dashboard(name, worksheet_names=[...])
   7. save_workbook(output_path)
@@ -27,6 +28,7 @@ TOOL INVENTORY
   add_worksheet      — append a blank worksheet to the workbook
   configure_chart    — set mark type, shelves, encodings, filters for a worksheet
   configure_dual_axis — set up a two-pane overlaid chart
+  configure_layered_chart — build an explicit multi-pane composition
   configure_chart_recipe — apply a named showcase recipe (e.g. "lollipop")
   configure_worksheet_style — apply background, axis, grid, cell formatting
   add_dashboard      — create a dashboard from a list of worksheet names
@@ -49,6 +51,7 @@ _SKILL_REFERENCES = {
     "add_calculated_field": "calculation_builder",
     "configure_chart": "chart_builder",
     "configure_dual_axis": "chart_builder",
+    "configure_layered_chart": "chart_builder",
     "configure_chart_recipe": "chart_builder",
     "configure_worksheet_style": "formatting",
     "add_dashboard": "dashboard_designer",
@@ -384,6 +387,13 @@ def set_worksheet_caption(worksheet_name: str, caption: str) -> str:
 
 
 @server.tool()
+def set_worksheet_title(worksheet_name: str, title: str) -> str:
+    """Set or clear the visible plain-text worksheet title."""
+
+    return get_editor().set_worksheet_title(worksheet_name, title)
+
+
+@server.tool()
 def set_worksheet_hidden(worksheet_name: str, hidden: bool = True) -> str:
     """Hide or unhide a worksheet tab by updating worksheet window metadata."""
 
@@ -523,6 +533,32 @@ def configure_dual_axis(
         color_map_1=color_map_1,
     )
     return result + _skill_hint("configure_dual_axis")
+
+
+@server.tool()
+def configure_layered_chart(
+    worksheet_name: str,
+    columns: list[str] | None = None,
+    rows: list[str] | None = None,
+    panes: list[dict] | None = None,
+    axis_shelf: str = "rows",
+    synchronized: bool = True,
+    hide_axes: bool = False,
+    table_calc_overrides: dict[str, list[dict]] | None = None,
+) -> str:
+    """Build an explicit multi-pane worksheet, including Multiple Values axes."""
+
+    result = get_editor().configure_layered_chart(
+        worksheet_name=worksheet_name,
+        columns=columns,
+        rows=rows,
+        panes=panes,
+        axis_shelf=axis_shelf,
+        synchronized=synchronized,
+        hide_axes=hide_axes,
+        table_calc_overrides=table_calc_overrides,
+    )
+    return result + _skill_hint("configure_layered_chart")
 
 
 @server.tool()

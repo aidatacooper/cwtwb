@@ -140,6 +140,68 @@ def _infer_external_field_type(role: str, datatype: str) -> str:
     return "nominal"
 
 
+def _inspect_hyper_fields(filepath: str, table_name: str) -> list[dict[str, Any]]:
+    """Read a local Hyper table schema when tableauhyperapi is available."""
+
+    path = Path(filepath)
+    if not path.exists():
+        return []
+    try:
+        from tableauhyperapi import (
+            Connection,
+            HyperProcess,
+            TableName,
+            Telemetry,
+        )
+    except ImportError:
+        return []
+
+    fields: list[dict[str, Any]] = []
+    try:
+        with HyperProcess(Telemetry.DO_NOT_SEND_USAGE_DATA_TO_TABLEAU) as hyper:
+            with Connection(hyper.endpoint, str(path)) as connection:
+                target = TableName("Extract", table_name)
+                definition = connection.catalog.get_table_definition(target)
+                for ordinal, column in enumerate(definition.columns):
+                    type_name = str(column.type).upper()
+                    if "BOOL" in type_name:
+                        datatype = "boolean"
+                    elif "DATE" in type_name and "TIMESTAMP" not in type_name:
+                        datatype = "date"
+                    elif "TIMESTAMP" in type_name:
+                        datatype = "datetime"
+                    elif any(
+                        token in type_name
+                        for token in ("BIG_INT", "SMALL_INT", "INTEGER")
+                    ):
+                        datatype = "integer"
+                    elif any(
+                        token in type_name
+                        for token in ("DOUBLE", "NUMERIC", "DECIMAL")
+                    ):
+                        datatype = "real"
+                    else:
+                        datatype = "string"
+                    name = str(column.name).strip('"')
+                    role = _infer_external_role(name, datatype)
+                    fields.append(
+                        {
+                            "name": name,
+                            "ordinal": ordinal,
+                            "datatype": datatype,
+                            "role": role,
+                            "field_type": _infer_external_field_type(
+                                role,
+                                datatype,
+                            ),
+                            "semantic_role": infer_tableau_semantic_role(name),
+                        }
+                    )
+    except Exception:
+        return []
+    return fields
+
+
 def _default_local_name(field_name: str, source_object: str, semantic_role: str) -> str:
     if semantic_role in {"[Country].[ISO3166_2]", "[State].[Name]", "[ZipCode].[Name]"}:
         return f"[{field_name}]"
@@ -1721,6 +1783,12 @@ class ConnectionsMixin:
             key and may have an optional ``"columns"`` list of column-name
             strings.  The first entry is the *primary* table.
         """
+        inspected_fields = (
+            _inspect_hyper_fields(filepath, table_name)
+            if not tables
+            else []
+        )
+
         # 1. Update <connection class='federated'>
         fed_conn = self._datasource.find("connection[@class='federated']")
         if fed_conn is None:
@@ -1802,26 +1870,35 @@ class ConnectionsMixin:
         for mr in self._datasource.findall(".//metadata-record"):
             mr.getparent().remove(mr)
 
-        registered_fields: list[dict[str, Any]] = []
-        if tables:
-            for table in tables:
-                for column in table.get("columns", []):
-                    if isinstance(column, dict):
-                        field_name = str(column.get("name", "")).strip()
-                    else:
-                        field_name = str(column).strip()
-                    if not field_name:
-                        continue
-                    registered_fields.append(
-                        {
-                            "name": field_name,
-                            "role": "dimension",
-                            "field_type": "nominal",
-                            "datatype": "string",
-                        }
-                    )
+        if inspected_fields:
+            self._rebuild_external_datasource_metadata(
+                source_object=table_name,
+                fields=inspected_fields,
+                relation=relation,
+                prefer_existing_metadata=False,
+                local_name_source_object="",
+            )
+        else:
+            registered_fields: list[dict[str, Any]] = []
+            if tables:
+                for table in tables:
+                    for column in table.get("columns", []):
+                        if isinstance(column, dict):
+                            field_name = str(column.get("name", "")).strip()
+                        else:
+                            field_name = str(column).strip()
+                        if not field_name:
+                            continue
+                        registered_fields.append(
+                            {
+                                "name": field_name,
+                                "role": "dimension",
+                                "field_type": "nominal",
+                                "datatype": "string",
+                            }
+                        )
 
-        self._register_external_fields(registered_fields)
+            self._register_external_fields(registered_fields)
         if tables and len(tables) > 1:
             names = ", ".join(t["name"] for t in tables)
             return f"Configured Hyper connection to {filepath} (tables: {names})"

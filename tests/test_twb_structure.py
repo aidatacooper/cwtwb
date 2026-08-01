@@ -523,3 +523,83 @@ class TestFilters:
         assert "tdy:" in filter_el.get("column")
         exact_date = worksheet.find(".//column-instance[@derivation='Day-Trunc']")
         assert exact_date is not None
+
+
+class TestLayeredCharts:
+    """Declarative multi-pane worksheet structure."""
+
+    def test_layered_chart_builds_multiple_values_axis(self, editor):
+        editor.add_worksheet("Layered")
+        editor.configure_layered_chart(
+            "Layered",
+            columns=["Category"],
+            rows=["SUM(Sales)", "Multiple Values"],
+            panes=[
+                {
+                    "mark_type": "Area",
+                    "axis": "SUM(Sales)",
+                    "color": "Category",
+                },
+                {
+                    "mark_type": "Line",
+                    "axis": "Multiple Values",
+                    "color": "Region",
+                    "color_map": {"East": "#112233"},
+                    "measure_values": ["SUM(Sales)", "SUM(Profit)"],
+                    "mark_sizing_off": True,
+                },
+            ],
+            hide_axes=True,
+            table_calc_overrides={
+                "SUM(Sales)": [
+                    {"ordering_type": "Rows"},
+                    {"field": "Profit", "ordering_type": "Rows"},
+                    {
+                        "ordering_field": "Category",
+                        "ordering_type": "Field",
+                    },
+                ]
+            },
+        )
+
+        worksheet = editor._find_worksheet("Layered")
+        panes = worksheet.findall("table/panes/pane")
+        assert [pane.find("mark").get("class") for pane in panes] == [
+            "Area",
+            "Line",
+        ]
+        assert panes[1].get("y-axis-name").endswith(".[Multiple Values]")
+        assert "Multiple Values" in worksheet.findtext("table/rows")
+        measure_names_filter = worksheet.find(
+            "table/view/filter[@column][@class='categorical']"
+        )
+        assert measure_names_filter is not None
+        assert measure_names_filter.get("column").endswith(".[:Measure Names]")
+        assert worksheet.findtext("table/view/slices/column").endswith(
+            ".[:Measure Names]"
+        )
+        sales_instance = worksheet.find(
+            ".//column-instance[@column='[Sales (Orders)]']"
+        )
+        assert sales_instance is not None
+        table_calcs = sales_instance.findall("table-calc")
+        assert len(table_calcs) == 3
+        assert table_calcs[1].get("field").endswith(".[Profit (Orders)]")
+        assert "none:Category" in table_calcs[2].get("ordering-field")
+        palette_map = editor._datasource.find(
+            ".//style-rule[@element='mark']/encoding[@attr='color']/map"
+        )
+        assert palette_map is not None
+        assert palette_map.get("to") == "#112233"
+        assert palette_map.findtext("bucket") == '"East"'
+
+    def test_worksheet_title_is_authored_from_public_api(self, editor):
+        editor.add_worksheet("Titled")
+        editor.set_worksheet_title("Titled", "A generated title")
+        worksheet = editor._find_worksheet("Titled")
+        assert (
+            worksheet.findtext("layout-options/title/formatted-text/run")
+            == "A generated title"
+        )
+        editor.set_worksheet_title("Titled", "")
+        assert worksheet.find("layout-options/title") is None

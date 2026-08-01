@@ -384,3 +384,32 @@ def configure_dual_axis(
         color_map_1=color_map_1,
     )
     return builder.build()
+
+
+def configure_layered_chart(
+    editor,
+    worksheet_name: str,
+    *,
+    columns: Optional[list[str]] = None,
+    rows: Optional[list[str]] = None,
+    panes: Optional[list[dict]] = None,
+    axis_shelf: str = "rows",
+    synchronized: bool = True,
+    hide_axes: bool = False,
+    table_calc_overrides: Optional[dict[str, list[dict]]] = None,
+) -> str:
+    """Build an explicitly declared multi-pane worksheet."""
+
+    from .builder_layered import LayeredChartBuilder
+
+    return LayeredChartBuilder(
+        editor,
+        worksheet_name,
+        columns=columns,
+        rows=rows,
+        panes=panes,
+        axis_shelf=axis_shelf,
+        synchronized=synchronized,
+        hide_axes=hide_axes,
+        table_calc_overrides=table_calc_overrides,
+    ).build()

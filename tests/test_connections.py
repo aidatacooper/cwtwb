@@ -155,6 +155,74 @@ def test_set_hyper_connection(superstore_template, tmp_path):
     assert relation.get("table") == "[Extract].[Extract]"
 
 
+def test_set_hyper_connection_packages_external_extract(superstore_template, tmp_path):
+    hyper_path = tmp_path / "case-data.hyper"
+    hyper_path.write_bytes(b"locked-case-hyper")
+    editor = TWBEditor(superstore_template)
+    editor.set_hyper_connection(str(hyper_path), table_name="Extract")
+
+    output = tmp_path / "packaged.twbx"
+    editor.save(output, validate=False)
+
+    import zipfile
+
+    with zipfile.ZipFile(output) as archive:
+        assert "case-data.hyper" in archive.namelist()
+        twb_name = next(
+            name for name in archive.namelist() if name.endswith(".twb")
+        )
+        root = ET.fromstring(archive.read(twb_name))
+    connection = root.find(".//connection[@class='hyper']")
+    assert connection is not None
+    assert connection.get("dbname") == "case-data.hyper"
+
+
+def test_set_hyper_connection_introspects_real_hyper_schema(
+    superstore_template, tmp_path
+):
+    hyper = pytest.importorskip("tableauhyperapi")
+    hyper_path = tmp_path / "schema.hyper"
+    with hyper.HyperProcess(
+        hyper.Telemetry.DO_NOT_SEND_USAGE_DATA_TO_TABLEAU
+    ) as process:
+        with hyper.Connection(
+            process.endpoint,
+            str(hyper_path),
+            hyper.CreateMode.CREATE_AND_REPLACE,
+        ) as connection:
+            connection.catalog.create_schema("Extract")
+            table = hyper.TableDefinition(
+                hyper.TableName("Extract", "Extract"),
+                [
+                    hyper.TableDefinition.Column(
+                        "Category", hyper.SqlType.text()
+                    ),
+                    hyper.TableDefinition.Column(
+                        "Sales", hyper.SqlType.double()
+                    ),
+                ],
+            )
+            connection.catalog.create_table(table)
+
+    editor = TWBEditor(superstore_template)
+    editor.set_hyper_connection(str(hyper_path), table_name="Extract")
+
+    datasource = editor._datasource
+    metadata = datasource.findall(
+        ".//metadata-records/metadata-record[@class='column']"
+    )
+    assert [item.findtext("remote-name") for item in metadata] == [
+        "Category",
+        "Sales",
+    ]
+    assert datasource.find("column[@name='[Category]']") is not None
+    sales = next(
+        item for item in metadata if item.findtext("remote-name") == "Sales"
+    )
+    assert sales.findtext("local-type") == "real"
+    assert sales.findtext("aggregation") == "Sum"
+
+
 def test_infer_tableau_semantic_role_returns_qualified_names():
     assert infer_tableau_semantic_role("State/Province") == "[State].[Name]"
     assert infer_tableau_semantic_role("Country/Region") == "[Country].[ISO3166_2]"

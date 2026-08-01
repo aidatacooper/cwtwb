@@ -209,6 +209,66 @@ specific pane when the worksheet contains multiple axes.
 
 ## Advanced Patterns (configure_chart / configure_dual_axis)
 
+### Explicit Multi-Pane Charts (`configure_layered_chart`)
+
+Use `configure_layered_chart` when a worksheet needs three or more mark panes,
+or when one synchronized axis is Tableau's special `Multiple Values` axis.
+Declare every pane independently; do not copy pane XML from a reference TWB.
+
+```python
+configure_layered_chart(
+    "Step Area",
+    columns=["Category", "DAYTRUNC(Month Position)"],
+    rows=["SUM(Month Sales)", "Multiple Values"],
+    panes=[
+        {"mark_type": "Area"},
+        {
+            "mark_type": "Area",
+            "axis": "SUM(Month Sales)",
+            "color": "Category",
+        },
+        {
+            "mark_type": "Line",
+            "axis": "Multiple Values",
+            "color": "Change Type",
+            "size": "Change Size",
+            "measure_values": ["Current Endpoint", "Next Endpoint"],
+            "color_map": {
+                "rise": "#305d8a",
+                "drop": "#da020e",
+                "other": "#b3b3b3",
+            },
+        },
+    ],
+    synchronized=True,
+    hide_axes=True,
+)
+```
+
+For nested table calculations, `table_calc_overrides` configures each generated
+column instance independently. `field` values name calculated-field
+dependencies; `ordering_field` values use the same user-facing expressions as
+the shelves.
+
+```python
+table_calc_overrides={
+    "Change Type": [
+        {"ordering_type": "Rows"},
+        {"field": "Change", "ordering_type": "Rows"},
+        {
+            "field": "Maximum Change",
+            "ordering_field": "DAYTRUNC(Month Position)",
+            "ordering_type": "Field",
+        },
+    ],
+}
+```
+
+String-valued table calculations used on Color may still need
+`role="measure", field_type="nominal"` when created. This produces Tableau's
+`usr:` instance; a normal string dimension produces `none:` and changes the
+query semantics.
+
 ### KPI Difference Badge (MIN(1) dummy axis + fixed range + color_map + customized_label)
 
 Used for "vs PY" KPI comparison cards where you want a tiny coloured pill showing a percentage difference:

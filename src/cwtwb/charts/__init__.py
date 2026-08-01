@@ -31,6 +31,7 @@ from typing import Optional, Union
 
 from .dispatcher import configure_chart as dispatch_configure_chart
 from .dispatcher import configure_dual_axis as dispatch_configure_dual_axis
+from .dispatcher import configure_layered_chart as dispatch_configure_layered_chart
 from .helpers import (
     apply_chart_macros,
     apply_measure_values,
@@ -170,6 +171,32 @@ class ChartsMixin:
             reverse_axis_1=reverse_axis_1,
             extra_axes=extra_axes,
             color_map_1=color_map_1,
+        )
+
+    def configure_layered_chart(
+        self,
+        worksheet_name: str,
+        *,
+        columns: Optional[list[str]] = None,
+        rows: Optional[list[str]] = None,
+        panes: Optional[list[dict]] = None,
+        axis_shelf: str = "rows",
+        synchronized: bool = True,
+        hide_axes: bool = False,
+        table_calc_overrides: Optional[dict[str, list[dict]]] = None,
+    ) -> str:
+        """Configure three or more independently encoded mark panes."""
+
+        return dispatch_configure_layered_chart(
+            self,
+            worksheet_name,
+            columns=columns,
+            rows=rows,
+            panes=panes,
+            axis_shelf=axis_shelf,
+            synchronized=synchronized,
+            hide_axes=hide_axes,
+            table_calc_overrides=table_calc_overrides,
         )
 
     def configure_worksheet_style(

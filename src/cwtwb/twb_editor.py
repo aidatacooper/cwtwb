@@ -954,6 +954,41 @@ class TWBEditor(ParametersMixin, ConnectionsMixin, ChartsMixin, DashboardsMixin)
 
         return f"Set caption for worksheet '{worksheet_name}'"
 
+    def set_worksheet_title(self, worksheet_name: str, title: str) -> str:
+        """Set or clear the visible plain-text worksheet title."""
+
+        worksheet = self._find_worksheet(worksheet_name)
+        layout_options = worksheet.find("layout-options")
+        if not title:
+            if layout_options is None:
+                return f"Cleared title for worksheet '{worksheet_name}'"
+            title_element = layout_options.find("title")
+            if title_element is not None:
+                layout_options.remove(title_element)
+            if len(layout_options) == 0 and not (
+                layout_options.text or ""
+            ).strip():
+                worksheet.remove(layout_options)
+            return f"Cleared title for worksheet '{worksheet_name}'"
+
+        if layout_options is None:
+            layout_options = etree.Element("layout-options")
+            table = worksheet.find("table")
+            if table is not None:
+                table.addprevious(layout_options)
+            else:
+                worksheet.append(layout_options)
+        title_element = layout_options.find("title")
+        if title_element is None:
+            title_element = etree.SubElement(layout_options, "title")
+        else:
+            for child in list(title_element):
+                title_element.remove(child)
+        formatted_text = etree.SubElement(title_element, "formatted-text")
+        run = etree.SubElement(formatted_text, "run")
+        run.text = title
+        return f"Set title for worksheet '{worksheet_name}'"
+
     def clone_worksheet(self, source_worksheet: str, target_worksheet: str) -> str:
         """Clone an existing worksheet and its worksheet window."""
 
@@ -2209,7 +2244,11 @@ class TWBEditor(ParametersMixin, ConnectionsMixin, ChartsMixin, DashboardsMixin)
 
                 # Get the file path from connection attributes
                 directory = conn.get("directory", "")
-                filename = conn.get("filename", "")
+                filename = (
+                    conn.get("dbname", "")
+                    if conn_class == "hyper"
+                    else conn.get("filename", "")
+                )
 
                 if not filename:
                     continue
@@ -2236,7 +2275,7 @@ class TWBEditor(ParametersMixin, ConnectionsMixin, ChartsMixin, DashboardsMixin)
 
             # Serialize the XML into memory
             # Temporarily update connection paths to be relative for TWBX packaging
-            original_paths: list[tuple[etree._Element, str, str]] = []
+            original_paths: list[tuple[etree._Element, str, str, str]] = []
             external_files = self._collect_external_data_files()
 
             if external_files:
@@ -2247,17 +2286,31 @@ class TWBEditor(ParametersMixin, ConnectionsMixin, ChartsMixin, DashboardsMixin)
                     for conn in datasource.iter("connection"):
                         conn_class = conn.get("class", "")
                         if conn_class in FILE_CONN_CLASSES:
-                            filename = conn.get("filename", "")
+                            path_attribute = (
+                                "dbname" if conn_class == "hyper" else "filename"
+                            )
+                            filename = conn.get(path_attribute, "")
                             if filename:
-                                original_paths.append((conn, conn.get("directory", ""), filename))
-                                conn.set("directory", "")
+                                original_paths.append(
+                                    (
+                                        conn,
+                                        path_attribute,
+                                        conn.get("directory", ""),
+                                        filename,
+                                    )
+                                )
+                                if path_attribute == "dbname":
+                                    conn.set(path_attribute, Path(filename).name)
+                                else:
+                                    conn.set("directory", "")
 
             buf = io.BytesIO()
             self.tree.write(buf, xml_declaration=True, encoding="utf-8", pretty_print=False)
             twb_bytes = self._fix_namespace_prefix(buf.getvalue())
 
             # Restore original paths after serialization
-            for conn, orig_dir, _ in original_paths:
+            for conn, path_attribute, orig_dir, original_value in original_paths:
+                conn.set(path_attribute, original_value)
                 if orig_dir:
                     conn.set("directory", orig_dir)
 

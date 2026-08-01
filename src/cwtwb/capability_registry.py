@@ -62,10 +62,13 @@ CAPABILITY_SPECS: tuple[CapabilitySpec, ...] = (
     CapabilitySpec(
         key="step-area",
         kind="chart",
-        level="recipe",
+        level="advanced",
         canonical="Step Area",
         aliases=("step area chart", "stepped area"),
-        rationale="Multi-pane Area and Line recipe with table-calculation-driven step geometry.",
+        rationale=(
+            "Multi-pane Area and Line composition supported through "
+            "configure_layered_chart and explicit table-calculation addressing."
+        ),
     ),
     CapabilitySpec(
         key="formatted-table",
@@ -449,7 +452,9 @@ CAPABILITY_SPECS: tuple[CapabilitySpec, ...] = (
         rationale="Supports authored table-calculation metadata and worksheet-instance propagation.",
         notes=(
             "Use add_calculated_field(table_calc=...) to set ordering metadata. "
-            "Final view partitioning still requires case-level semantic validation."
+            "Use configure_layered_chart(table_calc_overrides=...) when nested "
+            "calculation dependencies need instance-specific addressing. Final "
+            "view partitioning still requires case-level semantic validation."
         ),
     ),
     CapabilitySpec(

@@ -24,6 +24,7 @@ from cwtwb.server import (
     add_worksheet,
     apply_worksheet_refactor,
     clone_worksheet,
+    configure_layered_chart,
     create_workbook,
     list_capabilities,
     list_fields,
@@ -35,6 +36,7 @@ from cwtwb.server import (
     set_hyper_connection,
     set_mysql_connection,
     set_worksheet_hidden,
+    set_worksheet_title,
     set_tableauserver_connection,
     analyze_twb,
     inspect_target_schema,
@@ -372,6 +374,34 @@ class TestWorksheetCloneRefactorTools:
         window = root.find(".//windows/window[@class='worksheet'][@name='1. KPI Visible MCP Tool']")
         assert window is not None
         assert window.get("hidden") is None
+
+
+class TestLayeredChartTools:
+    def test_layered_chart_and_title_are_exposed_through_mcp(self):
+        add_worksheet("Layered MCP")
+        result = configure_layered_chart(
+            "Layered MCP",
+            columns=["Category"],
+            rows=["SUM(Sales)", "Multiple Values"],
+            panes=[
+                {
+                    "mark_type": "Area",
+                    "axis": "SUM(Sales)",
+                    "color": "Category",
+                },
+                {
+                    "mark_type": "Line",
+                    "axis": "Multiple Values",
+                    "measure_values": ["SUM(Sales)", "SUM(Profit)"],
+                },
+            ],
+            hide_axes=True,
+        )
+        assert "Layered MCP" in result
+        assert "chart_builder" in result
+        assert "Set title" in set_worksheet_title(
+            "Layered MCP", "Generated layered chart"
+        )
 
 
 # ── list_capabilities ─────────────────────────────────────────────────────────
