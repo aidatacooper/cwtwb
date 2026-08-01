@@ -503,10 +503,34 @@ CAPABILITY_SPECS: tuple[CapabilitySpec, ...] = (
     CapabilitySpec(
         key="set",
         kind="feature",
-        level="unsupported",
+        level="advanced",
         canonical="Set",
         aliases=("sets",),
-        rationale="Known Tableau feature outside cwtwb's current supported surface.",
+        rationale=(
+            "Supports datasource set definitions through TWBEditor.add_set, "
+            "including top-N sets ranked by an aggregation and empty-level sets "
+            "used as Set Action targets."
+        ),
+        notes=(
+            "Use add_set(name, dimension_field, basis_field=..., top_n=...) for "
+            "top-N sets and add_set(name, dimension_field) for an empty set. "
+            "Sets serialize as <group user:ui-builder='filter-group'> nodes."
+        ),
+    ),
+    CapabilitySpec(
+        key="set-action",
+        kind="action",
+        level="advanced",
+        canonical="Set Action",
+        aliases=("edit-group-action", "set-action"),
+        rationale=(
+            "Supports hover/select driven set membership via "
+            "add_dashboard_set_action (edit-group-action)."
+        ),
+        notes=(
+            "Use add_dashboard_set_action(dashboard_name, source_sheet, "
+            "target_set, event_type='on-hover', clear_option='exclude-all')."
+        ),
     ),
 )
 

@@ -271,7 +271,10 @@ class BaseChartBuilder:
         for expr, ci in instances.items():
             if ci.column_local_name not in seen_columns:
                 seen_columns.add(ci.column_local_name)
-                fi = self.field_registry._find_field(expr.split("(")[-1].rstrip(")").strip() if "(" in expr else expr.strip())
+                try:
+                    fi = self.field_registry._find_field(ci.column_local_name)
+                except (KeyError, ValueError):
+                    fi = self.field_registry._find_field(expr.split("(")[-1].rstrip(")").strip() if "(" in expr else expr.strip())
                 if fi.is_calculated:
                     src_col = self._datasource.find(f"column[@name='{fi.local_name}']")
                     if src_col is not None:

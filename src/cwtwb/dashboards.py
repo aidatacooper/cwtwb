@@ -574,6 +574,82 @@ def add_dashboard_action(
     return f"Added {normalized_type} action '{action_caption}' to '{dashboard_name}'"
 
 
+def add_dashboard_set_action(
+    editor,
+    dashboard_name: str,
+    source_sheet: str,
+    target_set: str,
+    *,
+    event_type: str = "on-hover",
+    caption: str = "",
+    clear_option: str = "exclude-all",
+) -> str:
+    """Add a Set Action (``edit-group-action``) to a dashboard.
+
+    Set Actions fill a target set with the marks under the pointer and clear it
+    when the pointer leaves, letting calculations branch on hover selection.
+
+    Args:
+        dashboard_name: Dashboard containing the source sheet.
+        source_sheet: Worksheet that owns the triggering marks.
+        target_set: Display name of the set to populate, e.g.
+            "Highlighted Manufacturer".
+        event_type: "on-hover", "on-select", or "on-menu".
+        caption: Optional action caption.
+        clear_option: "exclude-all" clears the set when the pointer leaves;
+            "keep-members" retains the current membership.
+
+    Returns:
+        Confirmation message.
+    """
+    normalized_clear = str(clear_option).strip()
+    if normalized_clear not in _SET_ACTION_CLEAR_OPTIONS:
+        raise ValueError(
+            f"Unsupported clear_option '{clear_option}'. "
+            f"Use one of: {', '.join(_SET_ACTION_CLEAR_OPTIONS)}."
+        )
+
+    if not target_set.strip():
+        raise ValueError("target_set must not be empty")
+
+    db_el = editor.root.find(f".//dashboards/dashboard[@name='{dashboard_name}']")
+    if db_el is None:
+        raise ValueError(f"Dashboard '{dashboard_name}' not found.")
+
+    editor._find_worksheet(source_sheet)
+    editor.field_registry._find_field(target_set)
+
+    actions_el = _ensure_actions_container(editor)
+    action_index = (
+        len(actions_el.findall("action"))
+        + len(actions_el.findall("nav-action"))
+        + len(actions_el.findall("edit-parameter-action"))
+        + len(actions_el.findall("edit-group-action"))
+        + 1
+    )
+    action_caption = caption or f"Set Action {action_index}"
+
+    action_el = etree.Element(
+        "edit-group-action",
+        nsmap={"user": "http://www.tableausoftware.com/xml/user"},
+    )
+    _append_action(actions_el, action_el)
+    action_el.set("caption", action_caption)
+    action_el.set("name", f"[Action{action_index}]")
+
+    _configure_set_action(
+        editor,
+        action_el,
+        dashboard_name,
+        source_sheet,
+        target_set,
+        event_type,
+        normalized_clear,
+    )
+
+    return f"Added set action '{action_caption}' to '{dashboard_name}'"
+
+
 def _ensure_parameter_action_manifest(editor) -> None:
     """Enable Tableau's schema-gated parameter-action XML elements."""
 
@@ -843,6 +919,53 @@ def _configure_go_to_sheet_action(
     param_tgt.set("value", target_sheet)
 
 
+_SET_ACTION_CLEAR_OPTIONS = ("exclude-all", "keep-members")
+
+
+def _configure_set_action(
+    editor,
+    action_el: etree._Element,
+    dashboard_name: str,
+    source_sheet: str,
+    target_set: str,
+    event_type: str,
+    clear_option: str,
+) -> None:
+    """Populate XML for a set action (``edit-group-action``).
+
+    Matches the source workbook format: activation + source + params carrying
+    ``selection-clear-set-option`` and ``target-group``.
+    """
+    activation_el = etree.SubElement(action_el, "activation")
+    activation_el.set("type", event_type)
+
+    source_el = etree.SubElement(action_el, "source")
+    source_el.set("dashboard", dashboard_name)
+    source_el.set("type", "sheet")
+    source_el.set("worksheet", source_sheet)
+
+    ds_name = editor._datasource.get("name", "")
+    fi = editor.field_registry._find_field(target_set)
+    set_local = fi.local_name if set_local_ok(fi) else f"[{target_set.strip('[]')}]"
+    target_group = f"[{ds_name}].{set_local}"
+
+    params = etree.SubElement(action_el, "params")
+    clear_param = etree.SubElement(params, "param")
+    clear_param.set("name", "selection-clear-set-option")
+    clear_param.set("value", clear_option)
+    target_param = etree.SubElement(params, "param")
+    target_param.set("name", "target-group")
+    target_param.set("value", target_group)
+
+
+def set_local_ok(fi) -> bool:
+    """Return whether a field-info local name is safe to embed in a qualified ref."""
+    if fi is None:
+        return False
+    local = fi.local_name
+    return bool(local) and local.startswith("[") and local.endswith("]")
+
+
 # ---------------------------------------------------------------------------
 # DashboardsMixin
 # ---------------------------------------------------------------------------
@@ -987,4 +1110,25 @@ class DashboardsMixin:
             aggregation,
             clear_behavior,
             clear_value,
+        )
+
+    def add_dashboard_set_action(
+        self,
+        dashboard_name: str,
+        source_sheet: str,
+        target_set: str,
+        *,
+        event_type: str = "on-hover",
+        caption: str = "",
+        clear_option: str = "exclude-all",
+    ) -> str:
+        """Add a Set Action (``edit-group-action``) to a dashboard."""
+        return add_dashboard_set_action(
+            self,
+            dashboard_name,
+            source_sheet,
+            target_set,
+            event_type=event_type,
+            caption=caption,
+            clear_option=clear_option,
         )

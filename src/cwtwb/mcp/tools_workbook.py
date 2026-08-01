@@ -228,6 +228,34 @@ def add_group(
 
 
 @server.tool()
+def add_set(
+    set_name: str,
+    dimension_field: str,
+    basis_field: str = "",
+    aggregation: str = "Sum",
+    top_n: int | str = 0,
+    direction: str = "DESC",
+    internal_name: str = "",
+) -> str:
+    """Create a Tableau set (datasource filter-group) for membership logic.
+
+    Use basis_field + top_n to build a top-N set (e.g. Top Central ranked by
+    SUM(Central - Qty)); omit both to create an empty set used as a Set Action
+    target (e.g. Highlighted Manufacturer).
+    """
+
+    return get_editor().add_set(
+        set_name=set_name,
+        dimension_field=dimension_field,
+        basis_field=basis_field,
+        aggregation=aggregation,
+        top_n=top_n or None,
+        direction=direction,
+        internal_name=internal_name or None,
+    )
+
+
+@server.tool()
 def add_hierarchy(name: str, fields: list[str]) -> str:
     """Create an ordered Tableau drill hierarchy from bare dimension fields."""
 
@@ -813,6 +841,32 @@ def add_dashboard_action(
         aggregation=aggregation,
         clear_behavior=clear_behavior,
         clear_value=clear_value,
+    )
+
+
+@server.tool()
+def add_dashboard_set_action(
+    dashboard_name: str,
+    source_sheet: str,
+    target_set: str,
+    event_type: str = "on-hover",
+    caption: str = "",
+    clear_option: str = "exclude-all",
+) -> str:
+    """Add a Set Action (edit-group-action) to a dashboard.
+
+    The set fills with the marks under the pointer and clears when it leaves,
+    enabling hover-driven labels and calculations.
+    """
+
+    editor = get_editor()
+    return editor.add_dashboard_set_action(
+        dashboard_name=dashboard_name,
+        source_sheet=source_sheet,
+        target_set=target_set,
+        event_type=event_type,
+        caption=caption,
+        clear_option=clear_option,
     )
 
 

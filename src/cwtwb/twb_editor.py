@@ -518,6 +518,26 @@ class TWBEditor(ParametersMixin, ConnectionsMixin, ChartsMixin, DashboardsMixin)
                         is_calculated=False,
                     )
 
+        # 3. Parse <group> set definitions (user:ui-builder='filter-group').
+        #    Sets are referenced in formulas and Set Actions by bare name, so
+        #    they must resolve through the field registry.
+        for grp in self._datasource.findall("group"):
+            if grp.get("name-style") != "unqualified":
+                continue
+            name = grp.get("name", "")
+            caption = grp.get("caption", name.strip("[]"))
+            if not name or not caption:
+                continue
+            self.field_registry.register(
+                display_name=caption,
+                local_name=name,
+                datatype="string",
+                role="dimension",
+                field_type="nominal",
+                is_calculated=True,
+                calculation_class="set",
+            )
+
     def _reinit_fields(self) -> None:
         """Clear the field registry and re-initialize it."""
         ds_name = self._datasource.get("name", "")
@@ -744,6 +764,189 @@ class TWBEditor(ParametersMixin, ConnectionsMixin, ChartsMixin, DashboardsMixin)
         return (
             f"Added categorical group '{field_name}' from '{source_field}' "
             f"with {len(normalized_groups)} groups"
+        )
+
+    def _insert_datasource_group(self, group: etree._Element) -> None:
+        """Insert a datasource ``<group>`` node after columns, before extract.
+
+        Sets are serialized as ``<group>`` elements (``user:ui-builder='filter-group'``)
+        directly inside the datasource. Tableau expects them between the
+        ``<column>``/``<column-instance>`` block and the ``<extract>`` section.
+        """
+        anchors = []
+        for tag in (
+            "extract",
+            "layout",
+            "style",
+            "semantic-values",
+            "date-options",
+            "default-date-format",
+            "default-sorts",
+            "field-sort-info",
+            "datasource-dependencies",
+            "explainability",
+            "filter",
+            "object-graph",
+        ):
+            anchor = self._datasource.find(tag)
+            if anchor is not None:
+                anchors.append(anchor)
+        if anchors:
+            children = list(self._datasource)
+            min(anchors, key=children.index).addprevious(group)
+            return
+        self._datasource.append(group)
+
+    def _resolve_field_local(self, field_ref: str) -> str:
+        """Resolve a user-facing field name to its bracketed internal TWB name.
+
+        Unknown fields are returned as a bracketed literal so set definitions
+        can still target the ``[Product Name]``-style base columns.
+        """
+        field_ref = str(field_ref).strip()
+        if field_ref.startswith("[") and field_ref.endswith("]"):
+            field_ref = field_ref.strip("[]")
+        try:
+            fi = self.field_registry._find_field(field_ref)
+            local = fi.local_name
+            if local.startswith("[") and local.endswith("]"):
+                return local
+            return f"[{local}]"
+        except (KeyError, ValueError):
+            return f"[{field_ref}]"
+
+    def add_set(
+        self,
+        set_name: str,
+        dimension_field: str,
+        *,
+        basis_field: str = "",
+        aggregation: str = "Sum",
+        top_n: Optional[int | str] = None,
+        direction: str = "DESC",
+        internal_name: Optional[str] = None,
+    ) -> str:
+        """Create a Tableau set as a datasource ``<group filter-group>`` node.
+
+        Sets let a calculation test membership (``[Top Central]``) and act as a
+        ``edit-group-action`` target for hover/select interactions.
+
+        Args:
+            set_name: Display name, e.g. "Top Central".
+            dimension_field: The dimension whose members form the set level,
+                e.g. "Manufacturer".
+            basis_field: Optional measure (or expression) used to rank members.
+                When omitted along with ``top_n``, an empty-level set is created
+                (the standard Set Action target).
+            aggregation: Aggregation applied to ``basis_field``, e.g. "Sum".
+            top_n: Top/bottom N limit. An int means a fixed count; a string is
+                treated as a parameter name whose current value drives the count.
+            direction: "DESC" for top N, "ASC" for bottom N.
+            internal_name: Optional explicit bracketed internal name. Defaults to
+                ``[SetName]`` which matches how the source references the set.
+
+        Returns:
+            Confirmation message.
+        """
+        set_name = str(set_name).strip()
+        if not set_name:
+            raise ValueError("set_name must not be empty")
+        if not dimension_field:
+            raise ValueError("dimension_field must not be empty")
+
+        aggregation = str(aggregation).strip()
+        if aggregation not in ("Sum", "Avg", "Min", "Max", "Count", "Countd"):
+            raise ValueError(
+                f"Unsupported aggregation '{aggregation}'. "
+                "Use one of Sum/Avg/Min/Max/Count/Countd."
+            )
+
+        direction = str(direction).strip().upper()
+        if direction not in ("DESC", "ASC"):
+            raise ValueError("direction must be 'DESC' or 'ASC'")
+
+        if internal_name is None:
+            internal_name = f"[{set_name}]"
+        elif not internal_name.startswith("["):
+            internal_name = f"[{internal_name}]"
+
+        existing = self._datasource.find(f"group[@name='{internal_name}']")
+        if existing is not None:
+            raise ValueError(f"Set '{set_name}' already exists in the datasource")
+
+        level_local = self._resolve_field_local(dimension_field)
+
+        group = etree.Element(
+            "group",
+            nsmap={"user": "http://www.tableausoftware.com/xml/user"},
+        )
+        group.set("caption", set_name)
+        group.set("name", internal_name)
+        group.set("name-style", "unqualified")
+        group.set(
+            "{http://www.tableausoftware.com/xml/user}ui-builder", "filter-group"
+        )
+
+        is_empty = top_n is None or str(top_n).strip() == "" or not basis_field
+        if is_empty:
+            gfilter = etree.SubElement(group, "groupfilter")
+            gfilter.set("function", "empty-level")
+            gfilter.set("member", level_local)
+        else:
+            basis_local = self._resolve_field_local(basis_field)
+
+            # Count may be a fixed int or a parameter reference.
+            if isinstance(top_n, int):
+                count_value = str(top_n)
+            else:
+                count_value = str(top_n).strip()
+                if count_value.startswith("[") and count_value.endswith("]"):
+                    count_value = count_value.strip("[]")
+                param_name = count_value
+                if self._parameters.get(param_name):
+                    count_value = (
+                        f"[Parameters].{self._parameters[param_name]['internal_name']}"
+                    )
+
+            end = etree.SubElement(group, "groupfilter")
+            end.set("count", count_value)
+            end.set("end", "top" if direction == "DESC" else "bottom")
+            end.set("function", "end")
+            end.set("units", "records")
+            end.set("{http://www.tableausoftware.com/xml/user}ui-marker", "end")
+            end.set("{http://www.tableausoftware.com/xml/user}ui-top-by-field", "true")
+
+            order = etree.SubElement(end, "groupfilter")
+            order.set("direction", direction)
+            order.set("expression", f"{aggregation}({basis_local})")
+            order.set("function", "order")
+            order.set("{http://www.tableausoftware.com/xml/user}ui-marker", "order")
+
+            members = etree.SubElement(order, "groupfilter")
+            members.set("function", "level-members")
+            members.set("level", level_local)
+            members.set("{http://www.tableausoftware.com/xml/user}ui-enumeration", "all")
+            members.set("{http://www.tableausoftware.com/xml/user}ui-marker", "enumerate")
+
+        self._insert_datasource_group(group)
+
+        # Register the set so formulas such as [Top Central] resolve.
+        self.field_registry.register(
+            display_name=set_name,
+            local_name=internal_name,
+            datatype="string",
+            role="dimension",
+            field_type="nominal",
+            is_calculated=True,
+            calculation_class="set",
+        )
+
+        if is_empty:
+            return f"Added empty set '{set_name}' over '{dimension_field}'"
+        count_desc = count_value if isinstance(top_n, int) else f"parameter '{top_n}'"
+        return (
+            f"Added top-{direction.lower()}-{count_desc} set '{set_name}' "
+            f"over '{dimension_field}' ranked by {aggregation}({basis_field})"
         )
 
     @staticmethod

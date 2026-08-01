@@ -501,6 +501,16 @@ class TWBAnalyzer:
                 xpath_hint=".//edit-parameter-action",
             )
 
+        for group_action in root.xpath(".//edit-group-action"):
+            self._resolve_and_record(
+                detected,
+                unknown,
+                kind="action",
+                raw_name="edit-group-action",
+                source=group_action.get("caption", "edit-group-action"),
+                xpath_hint=".//edit-group-action",
+            )
+
     def _detect_connections(
         self,
         root: etree._Element,
@@ -555,7 +565,9 @@ class TWBAnalyzer:
                 source="xml-feature",
                 xpath_hint=".//bin",
             )
-        if root.find(".//group[@type='set']") is not None:
+        if root.find(".//group[@type='set']") is not None or root.xpath(
+            ".//group[@name-style='unqualified'][@*[local-name()='ui-builder']='filter-group']"
+        ):
             self._resolve_and_record(
                 detected,
                 unknown,
