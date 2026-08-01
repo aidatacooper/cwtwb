@@ -462,13 +462,30 @@ class TableauUploader:
                 error="Authentication failed (HTTP 401). Check your PAT credentials.",
             )
         if resp.status_code == 400:
+            # The server returns a JSON body even on 400. For extract-based
+            # workbooks the body explains that the data source (Hyper) could
+            # not be resolved -- an inherent limitation of submitting a bare
+            # .twb (which never embeds its extract) to this endpoint, NOT a
+            # structural defect. Surface the real diagnostic instead of a
+            # generic "Bad request".
+            detail = ""
+            try:
+                payload = resp.json()
+                detail = payload.get("message") or payload.get("error") or ""
+            except Exception:
+                detail = resp.text[:500]
             return ValidationResult(
                 success=False,
                 validation_level=level,
                 error=(
                     "Bad request (HTTP 400). "
-                    "Ensure the file is a valid .twb (not .twbx) "
-                    "and the Content-Disposition filename ends with '.twb'."
+                    + (detail + " " if detail else "")
+                    + "If this mentions an unresolved Hyper/database path, it is "
+                    "the known limitation that the Validate Workbook API only "
+                    "accepts a .twb (which carries no embedded extract) yet "
+                    "always attempts to load the data source -- affecting the "
+                    "source workbook identically. It is not a structural defect "
+                    "in the replicated workbook."
                 ),
             )
 
