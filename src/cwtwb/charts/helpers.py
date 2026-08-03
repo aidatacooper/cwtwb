@@ -468,8 +468,9 @@ def apply_measure_values(
         cols_el.text = f"[{ds_name}].[:Measure Names]"
 
     rows_el = table.find("rows")
-    if rows_el is not None:
-        rows_el.text = None
+    # Measure Values adds the measure-name shelf; it must not erase an
+    # existing row dimension. Clearing rows makes a text table collapse into
+    # one aggregate instead of one row per dimension member.
 
     old_enc = pane.find("encodings")
     if old_enc is not None:

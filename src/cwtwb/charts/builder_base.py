@@ -205,7 +205,7 @@ class BaseChartBuilder:
             return self.field_registry.parse_expression(text)
         if fi.role == "dimension":
             target_deriv_xml = "Attribute"     # written into <column-instance derivation="…">
-            target_deriv_key = "Attr"          # key into _DERIVATION_ABBR
+            target_deriv_key = "Attribute"    # key into _DERIVATION_ABBR
             ci_type = "nominal"
         else:
             target_deriv_xml = "Sum"
@@ -1374,6 +1374,13 @@ class TextChartBuilder(BaseChartBuilder):
                 instances,
                 self.measure_values,
             )
+            # Measure Values owns the columns shelf, but row dimensions still
+            # need to be emitted for a genuine text table (for example one
+            # row per Sub-Category).
+            rows_el = table.find("rows")
+            if rows_el is None:
+                rows_el = etree.SubElement(table, "rows")
+            rows_el.text = self.editor._build_dimension_shelf(instances, self.rows) if self.rows else None
         else:
             # Detect if this is a simple KPI card (no dimensions, only measures).
             # In KPI mode, measures should only appear in text encoding, not on shelves.

@@ -183,15 +183,6 @@ class DualAxisChartBuilder(BaseChartBuilder):
         ref_m1 = self.field_registry.resolve_full_reference(ci_m1.instance_name)
         ref_m2 = self.field_registry.resolve_full_reference(ci_m2.instance_name)
         
-        # Pane 0: Primary (Automatic mark acts as a container/layout base)
-        pane_0 = etree.SubElement(panes_el, "pane")
-        pane_0.set("selection-relaxation-option", "selection-relaxation-allow")
-        p0_view = etree.SubElement(pane_0, "view")
-        etree.SubElement(p0_view, "breakdown", value="auto")
-        etree.SubElement(pane_0, "mark", {"class": "Automatic"})
-        if not self.show_labels:
-            self._add_pane_label_style(pane_0, show=False)
-        
         # Pane 1: Primary Axis Mark
         pane_1 = etree.SubElement(panes_el, "pane")
         pane_1.set("id", "1")

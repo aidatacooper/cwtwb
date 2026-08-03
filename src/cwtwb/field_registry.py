@@ -35,7 +35,10 @@ _DERIVATION_MAP: dict[str, str] = {
     "MIN": "Min",
     "MAX": "Max",
     "MEDIAN": "Median",
-    "ATTR": "Attr",
+    # Tableau's column-instance derivation enum is ``Attribute``.  The
+    # historical ``Attr`` shorthand is only an internal abbreviation and is
+    # rejected by Tableau's workbook semantic validator.
+    "ATTR": "Attribute",
     "COLLECT": "Collect",
     "AGG": "User",
     "YEAR": "Year",
@@ -60,6 +63,7 @@ _DERIVATION_ABBR: dict[str, str] = {
     "Max": "max",
     "Median": "med",
     "Attr": "attr",
+    "Attribute": "attr",
     "Collect": "clct",
     "Year": "yr",
     "Quarter": "qr",
