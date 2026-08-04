@@ -168,7 +168,7 @@ Both formats support the same wrapper structure:
 
 | Area | What you get |
 |---|---|
-| Workbook authoring | Generate `.twb` / `.twbx` files from templates or from scratch |
+| Workbook authoring | Generate `.twb` / `.twbx` files from templates or from scratch with rich dynamic titles and parameter placeholders |
 | Chart building | Build bar, line, pie, map, KPI, and dual-axis workbooks |
 | Table calculations | Author calculation addressing metadata and propagate nested table-calculation dependencies |
 | Parameter actions | Update workbook parameters from selected dashboard marks with native Tableau actions |

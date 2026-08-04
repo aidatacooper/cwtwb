@@ -11,6 +11,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - **Worksheet rich title text formatting**: `set_worksheet_rich_title` now assigns `r.text` for title text runs, ensuring rich text title runs and parameter placeholders (such as `<[Parameters].[Selected Region]>`) render correctly in output `.twb`/`.twbx` workbooks instead of emitting empty `<run>` elements.
 
+### Added
+
+- **Parameter placeholder resolution in rich titles**: `set_worksheet_rich_title` converts parameter references like `<[Parameters].[Selected Region]>` to canonical Tableau internal names (`<[Parameters].[Parameter N]>`) while preserving custom font, size, and color attributes across multiple text runs.
+
 ## [0.25.0] - 2026-07-30
 
 ### Added
