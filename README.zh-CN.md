@@ -14,6 +14,14 @@
 
 它的定位是 **workbook engineering layer**，不是对话式分析 Agent。重点是可复现、可检查，以及在本地工作流、脚本和 CI 中安全自动化。
 
+### 设计工作流参考
+
+Agent 的设计工作流和 `design_advisor` skill 参考了 Adam Mico 的
+[adammico-lab Tableau workflow skills](https://github.com/adammico-lab/adammico-lab)，
+尤其是 Tableau Dashboard Blueprint 从设计规格到实现的思路。cwtwb 将这些想法独立适配为可复现的
+`.twb` / `.twbx` authoring；不依赖、不打包、也不复制 adammico-lab 的代码或 skill 内容。
+cwtwb 与 Adam Mico、Salesforce、Tableau 均无隶属关系。
+
 `cwtwb` 中的 `cw` 来自 `Cooper Wenhua`。
 
 **作者：** Cooper Wenhua &lt;imgwho@gmail.com&gt;
@@ -152,8 +160,10 @@ generate_layout_yaml("output/layout.yaml", layout_tree, ascii_preview)
 
 | 领域 | 能力 |
 |---|---|
-| Workbook authoring | 从模板或从零生成 `.twb` / `.twbx` |
-| Chart building | 构建 bar、line、pie、map、KPI、dual-axis 等工作簿 |
+| Workbook authoring | 从模板或从零生成 `.twb` / `.twbx`，支持 hierarchy、set、富文本动态标题和参数占位符 |
+| Chart building | 构建 bar、line、pie、map、KPI、dual-axis、layered 和有序多列表格等工作簿 |
+| Table calculations | 编写 table calculation addressing、domain completion、subtotal 和嵌套 table calculation 依赖 |
+| Dashboard actions | 通过 Python 或 MCP 添加 filter、highlight、URL、navigation、parameter、set action |
 | Safety | 保存前验证结构、Tableau XSD（2026.1/2026.2）和 REST API 语义 |
 | Cloud validation | REST API 语法/语义验证，上传到 Tableau Cloud/Server，并可截图 |
 | Migration | 以明确步骤把现有 workbook 迁移到新数据源 |

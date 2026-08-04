@@ -40,6 +40,22 @@ editor.add_dashboard(
 editor.save("output/my_workbook.twb")
 ```
 
+### Advanced Authoring API
+
+The same editor surface supports Tableau semantics that normally require
+multiple manual Desktop steps. Use `add_hierarchy`, `add_set`,
+`enable_domain_completion`, and `configure_subtotals` for datasource and
+table-calculation semantics; use `add_reference_line`,
+`configure_layered_chart`, and `configure_multi_column_table` for advanced
+worksheet construction. Dashboard interactions use `add_dashboard_action`
+for filter, highlight, URL, navigation, and parameter actions, and
+`add_dashboard_set_action` for set actions.
+
+Each operation is also available to MCP clients. Before using a composition,
+agents can call `list_capabilities` or `describe_capability` to confirm its
+support level and read `cwtwb://skills/chart_builder` or
+`cwtwb://skills/dashboard_designer` for the expected authoring sequence.
+
 ### Clone and Refactor an Existing Worksheet
 
 Use worksheet clone/refactor when you want to duplicate an existing visual module and rebind only the cloned worksheet to a different core measure. This is especially useful for KPI cards such as turning a Sales KPI worksheet into an independent Profit KPI worksheet while preserving the original sheet.

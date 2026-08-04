@@ -168,10 +168,10 @@ Both formats support the same wrapper structure:
 
 | Area | What you get |
 |---|---|
-| Workbook authoring | Generate `.twb` / `.twbx` files from templates or from scratch with rich dynamic titles and parameter placeholders |
-| Chart building | Build bar, line, pie, map, KPI, and dual-axis workbooks |
-| Table calculations | Author calculation addressing metadata and propagate nested table-calculation dependencies |
-| Parameter actions | Update workbook parameters from selected dashboard marks with native Tableau actions |
+| Workbook authoring | Generate `.twb` / `.twbx` files from templates or from scratch; add hierarchies, sets, rich dynamic titles, and parameter placeholders |
+| Chart building | Build bar, line, pie, map, KPI, dual-axis, layered, and ordered multi-column table workbooks |
+| Table calculations | Author calculation addressing metadata, domain completion, subtotals, and nested table-calculation dependencies |
+| Dashboard actions | Add filter, highlight, URL, navigation, parameter, and set actions through Python or MCP |
 | Safety | Validate structure, Tableau XSD (2026.1/2026.2), and REST API semantic validation before publishing |
 | Cloud validation | REST API syntactic/semantic validation + upload to Tableau Cloud/Server with optional screenshot |
 | Migration | Repoint existing workbooks to new data sources with explicit steps |

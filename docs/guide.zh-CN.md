@@ -40,6 +40,19 @@ editor.add_dashboard(
 editor.save("output/my_workbook.twb")
 ```
 
+### 高级 Authoring API
+
+同一套 editor API 也支持通常需要在 Tableau Desktop 中经过多步手工操作的语义能力。数据源和
+table calculation 语义可使用 `add_hierarchy`、`add_set`、`enable_domain_completion`、
+`configure_subtotals`；高级 worksheet 可使用 `add_reference_line`、
+`configure_layered_chart`、`configure_multi_column_table` 构建。Dashboard 交互使用
+`add_dashboard_action` 创建 filter、highlight、URL、navigation、parameter action，使用
+`add_dashboard_set_action` 创建 set action。
+
+这些操作也都通过 MCP 暴露。Agent 在采用某个组合前，可以调用 `list_capabilities` 或
+`describe_capability` 确认支持等级，并阅读 `cwtwb://skills/chart_builder` 或
+`cwtwb://skills/dashboard_designer` 了解推荐的 authoring 顺序。
+
 ### 克隆并重构现有 Worksheet
 
 当你想复制一个现有可视化模块，并只把克隆出来的 worksheet 重新绑定到另一个核心指标时，使用 worksheet clone/refactor。典型场景是把 Sales KPI worksheet 变成独立的 Profit KPI worksheet，同时保留原始 sheet。

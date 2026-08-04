@@ -7,13 +7,34 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Unreleased
 
-### Fixed
-
-- **Worksheet rich title text formatting**: `set_worksheet_rich_title` now assigns `r.text` for title text runs, ensuring rich text title runs and parameter placeholders (such as `<[Parameters].[Selected Region]>`) render correctly in output `.twb`/`.twbx` workbooks instead of emitting empty `<run>` elements.
+## [0.26.0] - 2026-08-04
 
 ### Added
 
-- **Parameter placeholder resolution in rich titles**: `set_worksheet_rich_title` converts parameter references like `<[Parameters].[Selected Region]>` to canonical Tableau internal names (`<[Parameters].[Parameter N]>`) while preserving custom font, size, and color attributes across multiple text runs.
+- **Advanced worksheet semantics**: create Tableau hierarchies, top-N or
+  action-target sets, domain-completion `INDEX()` calculations, and average
+  subtotals through the Python API, declarative specs, and MCP tools.
+- **Interactive dashboards**: author native parameter and set actions in
+  addition to filter, highlight, URL, and navigation actions. Dashboard
+  analysis now detects those actions and navigation zones.
+- **Layered and table chart builders**: build explicit multi-pane worksheets,
+  including three-or-more-layer compositions and ordered multi-column formatted
+  tables, without relying on fragile Measure Values ordering.
+- **Richer chart primitives**: add field-backed reference lines, partitioned
+  spatial map layers, dual-axis folding and Measure Names coloring. Workbook
+  analysis recognizes step-area and formatted-table recipes.
+- **Rich worksheet titles**: author visible plain-text titles or styled title
+  runs with parameter placeholders that resolve to Tableau internal names.
+
+### Fixed
+
+- **Workbook editing and packaging**: preserve worksheet shelves during
+  in-place edits, normalize Tableau `Attribute` derivations, and remove stale
+  actions or duplicate assets when workbooks are rebuilt or packaged.
+- **Connections and validation**: retry Tableau sign-in, bypass stale HTTP
+  cache entries during validation, and report clearer upload HTTP failures.
+- **Rich title serialization**: retain text in title runs and correctly replace
+  parameter placeholders instead of producing empty Tableau `<run>` elements.
 
 ## [0.25.0] - 2026-07-30
 
