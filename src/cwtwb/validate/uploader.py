@@ -265,11 +265,20 @@ class TableauUploader:
         return None
 
     def sign_in(self):
-        """Authenticate with Tableau Cloud."""
+        """Authenticate with Tableau Cloud (with retry on transient SSL EOF)."""
         self._ensure_client()
         if not self._is_signed_in:
-            self._server.auth.sign_in(self._auth)
-            self._is_signed_in = True
+            import time as _t
+            last = None
+            for attempt in range(5):
+                try:
+                    self._server.auth.sign_in(self._auth)
+                    self._is_signed_in = True
+                    return
+                except Exception as e:
+                    last = e
+                    _t.sleep(3 + attempt * 4)
+            raise last
 
     def sign_out(self):
         """Sign out from Tableau Cloud."""
@@ -379,7 +388,7 @@ class TableauUploader:
                     )
                 target = wb.views[view_index]
 
-            image_req = TSC.ImageRequestOptions(imageresolution=resolution)
+            image_req = TSC.ImageRequestOptions(imageresolution=resolution, maxage=0)
             self._server.views.populate_image(target, image_req)
 
             out_dir = Path(output_dir)
