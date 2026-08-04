@@ -2849,7 +2849,8 @@ class TWBEditor(ParametersMixin, ConnectionsMixin, ChartsMixin, DashboardsMixin)
                     p_name = token.replace("[Parameters].", "").strip("[]")
                     p_info = self._parameters.get(p_name)
                     if p_info:
-                        return f"<[Parameters].[{p_info['internal_name']}]>"
+                        internal = p_info["internal_name"]
+                        return f"<[Parameters].{internal}>"
                     return f"<{token}>"
                 else:
                     try:
@@ -2858,6 +2859,11 @@ class TWBEditor(ParametersMixin, ConnectionsMixin, ChartsMixin, DashboardsMixin)
                         return f"<{full_ref}>"
                     except Exception:
                         return f"<{token}>"
+
+            processed_text = re.sub(r"<([^>]+)>", _replace_placeholder, raw_text)
+            r.text = processed_text
+
+        return f"Set rich title for '{worksheet_name}'"
 
     def clean_obsolete_table_suffixes(self, suffix: str = " (Orders)") -> None:
         """Removes obsolete template table suffixes like ' (Orders)' from calculated formulas and XML attributes."""

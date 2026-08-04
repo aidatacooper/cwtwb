@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Unreleased
 
+### Fixed
+
+- **Worksheet rich title text formatting**: `set_worksheet_rich_title` now assigns `r.text` for title text runs, ensuring rich text title runs and parameter placeholders (such as `<[Parameters].[Selected Region]>`) render correctly in output `.twb`/`.twbx` workbooks instead of emitting empty `<run>` elements.
+
 ## [0.25.0] - 2026-07-30
 
 ### Added
