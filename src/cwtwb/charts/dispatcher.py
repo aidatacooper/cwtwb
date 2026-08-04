@@ -346,6 +346,8 @@ def configure_dual_axis(
     reverse_axis_1: bool = False,
     extra_axes: Optional[list[dict]] = None,
     color_map_1: Optional[dict[str, str]] = None,
+    fold_axis: bool = False,
+    color_by_measure_names: bool = False,
 ) -> str:
     """Route dual-axis configuration to the dedicated builder."""
 
@@ -382,6 +384,8 @@ def configure_dual_axis(
         reverse_axis_1=reverse_axis_1,
         extra_axes=extra_axes,
         color_map_1=color_map_1,
+        fold_axis=fold_axis,
+        color_by_measure_names=color_by_measure_names,
     )
     return builder.build()
 

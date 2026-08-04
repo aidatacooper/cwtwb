@@ -320,7 +320,7 @@ def apply_worksheet_style(
                 if attr == "_field_ref":
                     continue
                 fmt = etree.SubElement(label_rule, "format")
-                fmt.set("attr", attr)
+                fmt.set("attr", attr.replace("_", "-"))
                 if field_ref:
                     fmt.set("field", field_ref)
                 fmt.set("value", str(val))
@@ -341,7 +341,7 @@ def apply_worksheet_style(
                 if attr == "_field_ref":
                     continue
                 fmt = etree.SubElement(cell_rule, "format")
-                fmt.set("attr", attr)
+                fmt.set("attr", attr.replace("_", "-"))
                 if field_ref:
                     fmt.set("field", field_ref)
                 fmt.set("value", str(val))
@@ -362,7 +362,7 @@ def apply_worksheet_style(
                 if attr == "_field_ref":
                     continue
                 fmt = etree.SubElement(header_rule, "format")
-                fmt.set("attr", attr)
+                fmt.set("attr", attr.replace("_", "-"))
                 if field_ref:
                     fmt.set("field", field_ref)
                 fmt.set("value", str(val))

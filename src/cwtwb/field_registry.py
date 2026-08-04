@@ -416,21 +416,27 @@ class FieldRegistry:
         # Look up the field
         fi = self._find_field(field_name)
 
-        # Calculated measures derivation logic:
-        # - If formula already contains aggregation functions (SUM, AVG, etc.),
-        #   use derivation="User" to avoid double-aggregation.
-        # - If formula has no aggregation (e.g. [Profit] / [Sales]),
-        #   use derivation="Sum" so Tableau applies default SUM aggregation.
-        # Calculated dimensions (boolean, nominal) keep derivation="None" so they
-        # are treated as plain dimension values rather than user-aggregated expressions.
+        def _is_aggregated_formula(formula_text: str, depth: int = 0) -> bool:
+            if depth > 10 or not formula_text:
+                return False
+            if _AGGREGATE_FUNCTION_RE.search(formula_text):
+                return True
+            refs = re.findall(r"\[([^\]]+)\]", formula_text)
+            for ref in refs:
+                if ref in self._fields:
+                    ref_fi = self._fields[ref]
+                    if ref_fi.is_calculated and _is_aggregated_formula(ref_fi.formula, depth + 1):
+                        return True
+            return False
+
         if fi.datatype == "spatial" and derivation == "None":
             derivation = "Collect"
-        elif fi.is_calculated and fi.role == "measure" and derivation == "None":
+        elif fi.is_calculated and derivation == "None":
             if fi.is_table_calculation:
                 derivation = "User"
-            elif fi.formula and _AGGREGATE_FUNCTION_RE.search(fi.formula):
+            elif fi.formula and _is_aggregated_formula(fi.formula):
                 derivation = "User"
-            else:
+            elif fi.role == "measure":
                 derivation = "Sum"
 
         # Determine type suffix

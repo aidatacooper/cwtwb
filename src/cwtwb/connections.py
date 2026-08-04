@@ -1040,6 +1040,26 @@ class ConnectionsMixin:
                 etree.SubElement(metadata_record, "object-id").text = f"[{object_id}]"
 
         self._reinit_fields()
+
+        # Clean lingering obsolete template table prefixes like (Orders) from calculation formulas and XML nodes across entire workbook
+        clean_map = {f"{f['name']} (Orders)": f['name'] for f in normalized_fields}
+        if clean_map:
+            for col in self._datasource.findall(".//column"):
+                calc = col.find("calculation")
+                if calc is not None and calc.get("formula"):
+                    formula = calc.get("formula")
+                    for old_name, new_name in clean_map.items():
+                        formula = formula.replace(f"[{old_name}]", f"[{new_name}]")
+                    calc.set("formula", formula)
+
+            for node in self.root.xpath(".//*[contains(@column, ' (Orders)') or contains(@field, ' (Orders)') or contains(@level, ' (Orders)') or contains(@name, ' (Orders)') or contains(@param, ' (Orders)')]"):
+                for attr_key in ("column", "field", "level", "name", "param"):
+                    val = node.get(attr_key)
+                    if val and " (Orders)" in val:
+                        node.set(attr_key, val.replace(" (Orders)", ""))
+
+            self._reinit_fields()
+
         self.field_registry.set_unknown_field_policy(allow_unknown_fields=True)
 
     def _rebuild_excel_multi_table_metadata(
@@ -1878,6 +1898,8 @@ class ConnectionsMixin:
                 prefer_existing_metadata=False,
                 local_name_source_object="",
             )
+            self._reinit_fields()
+            self.field_registry.set_unknown_field_policy(allow_unknown_fields=True)
         else:
             registered_fields: list[dict[str, Any]] = []
             if tables:
@@ -1899,6 +1921,9 @@ class ConnectionsMixin:
                         )
 
             self._register_external_fields(registered_fields)
+
+        self.clean_obsolete_table_suffixes(" (Orders)")
+
         if tables and len(tables) > 1:
             names = ", ".join(t["name"] for t in tables)
             return f"Configured Hyper connection to {filepath} (tables: {names})"

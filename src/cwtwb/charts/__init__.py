@@ -136,6 +136,8 @@ class ChartsMixin:
         reverse_axis_1: bool = False,
         extra_axes: Optional[list[dict]] = None,
         color_map_1: Optional[dict[str, str]] = None,
+        fold_axis: bool = False,
+        color_by_measure_names: bool = False,
     ) -> str:
         """Route dual axis configuration to the specific builder."""
 
@@ -171,6 +173,8 @@ class ChartsMixin:
             reverse_axis_1=reverse_axis_1,
             extra_axes=extra_axes,
             color_map_1=color_map_1,
+            fold_axis=fold_axis,
+            color_by_measure_names=color_by_measure_names,
         )
 
     def configure_layered_chart(
@@ -378,3 +382,30 @@ class ChartsMixin:
     ) -> None:
         """Attach measure-values specific XML after base pane setup."""
         apply_measure_values(self, view, table, pane, ds_name, instances, measure_values)
+
+    def configure_multi_column_table(
+        self,
+        worksheet_name: str,
+        row_field: str,
+        columns: list,
+        color_field: Optional[str] = None,
+        row_height: int = 38,
+        header_height: int = 44,
+        mark_size: str = "1.626187801361084",
+        spacer_size: str = "0.0099999997764825821",
+    ) -> str:
+        """构建 MIN(1)/MIN(0) spacer 多列文本表格工作表。"""
+        from .builder_table import TableChartBuilder
+
+        builder = TableChartBuilder(
+            self,
+            worksheet_name=worksheet_name,
+            row_field=row_field,
+            columns=columns,
+            color_field=color_field,
+            row_height=row_height,
+            header_height=header_height,
+            mark_size=mark_size,
+            spacer_size=spacer_size,
+        )
+        return builder.build()

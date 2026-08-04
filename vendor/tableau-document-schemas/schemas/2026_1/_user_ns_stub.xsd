@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
+           targetNamespace="http://www.tableausoftware.com/xml/user">
+  <xs:attributeGroup name="UserAttributes-AG">
+    <xs:anyAttribute namespace="##any" processContents="lax"/>
+  </xs:attributeGroup>
+</xs:schema>

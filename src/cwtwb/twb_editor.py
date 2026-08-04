@@ -432,6 +432,7 @@ class TWBEditor(ParametersMixin, ConnectionsMixin, ChartsMixin, DashboardsMixin)
 
     def _init_fields(self) -> None:
         """Parse field info from metadata-records and column definitions."""
+        self.field_registry._fields.clear()
         # 1. Parse metadata-records
         for mr in self._datasource.findall(".//metadata-records/metadata-record"):
             cls = mr.get("class", "")
@@ -2618,7 +2619,13 @@ class TWBEditor(ParametersMixin, ConnectionsMixin, ChartsMixin, DashboardsMixin)
         if not uploader.pat_secret:
             return  # .env not configured — skip REST API validation
 
-        result = uploader.validate(twb_path, validation_level="semantic")
+        try:
+            result = uploader.validate(twb_path, validation_level="semantic")
+        except Exception as exc:
+            logger.warning(
+                "REST API validation skipped due to auth/connection error: %s", exc
+            )
+            return
 
         if not result.success:
             # API call itself failed (404, network error, etc.) — warn but
@@ -2634,4 +2641,243 @@ class TWBEditor(ParametersMixin, ConnectionsMixin, ChartsMixin, DashboardsMixin)
                 "Workbook failed Tableau Cloud semantic validation:\n"
                 + details
             )
+
+    def add_shared_filter(
+        self,
+        field: str,
+        values: Optional[list[str]] = None,
+        all_members: bool = False,
+        year: Optional[int] = None,
+        view_name: Optional[str] = None,
+    ) -> str:
+        """添加工作簿级别共享筛选器（应用到所有工作表）。"""
+        ds_name = view_name or self._datasource.get("name", "")
+        ds_caption = self._datasource.get("caption", ds_name)
+
+        shared = self.root.find("shared-views")
+        if shared is None:
+            shared = etree.Element("shared-views")
+            worksheets = self.root.find("worksheets")
+            if worksheets is not None:
+                worksheets.addprevious(shared)
+            else:
+                self.root.append(shared)
+
+        view = shared.find(f"./shared-view[@name='{ds_name}']")
+        if view is None:
+            view = etree.SubElement(shared, "shared-view", name=ds_name)
+            dss = etree.SubElement(view, "datasources")
+            etree.SubElement(dss, "datasource", caption=ds_caption, name=ds_name)
+
+        dep = view.find("datasource-dependencies")
+        if dep is None:
+            dep = etree.SubElement(view, "datasource-dependencies", datasource=ds_name)
+
+        if year is not None:
+            ci = self.field_registry.parse_expression(f"YEAR({field})")
+        else:
+            ci = self.field_registry.parse_expression(field)
+
+        col_base_name = f"[{field}]" if not field.startswith("[") else field
+        base_col = dep.find(f"./column[@name='{col_base_name}']")
+        if base_col is None:
+            base_col = etree.SubElement(dep, "column")
+            base_col.set("caption", field.strip("[]"))
+            base_col.set("datatype", "date" if year is not None else "string")
+            base_col.set("name", col_base_name)
+            base_col.set("role", "dimension")
+            base_col.set("type", "ordinal" if year is not None else "nominal")
+
+        ci_name = ci.instance_name
+        ci_el = dep.find(f"./column-instance[@name='{ci_name}']")
+        if ci_el is None:
+            ci_el = etree.SubElement(dep, "column-instance")
+            ci_el.set("column", col_base_name)
+            ci_el.set("derivation", "Year" if year is not None else "None")
+            ci_el.set("name", ci_name)
+            ci_el.set("pivot", "key")
+            ci_el.set("type", "ordinal" if year is not None else "nominal")
+
+        USER_NS = "{http://www.tableausoftware.com/xml/user}"
+        f_el = etree.SubElement(view, "filter")
+        f_el.set("class", "categorical")
+        f_el.set("column", f"[{ds_name}].{ci_name}")
+
+        gf = etree.SubElement(f_el, "groupfilter")
+        if all_members:
+            gf.set("function", "level-members")
+            gf.set("level", ci_name)
+            gf.set(f"{USER_NS}ui-enumeration", "all")
+            gf.set(f"{USER_NS}ui-marker", "enumerate")
+        elif year is not None:
+            gf.set("function", "member")
+            gf.set("level", ci_name)
+            gf.set("member", str(year))
+            gf.set(f"{USER_NS}ui-domain", "relevant")
+            gf.set(f"{USER_NS}ui-enumeration", "inclusive")
+            gf.set(f"{USER_NS}ui-marker", "enumerate")
+        elif values:
+            if len(values) == 1:
+                gf.set("function", "member")
+                gf.set("level", ci_name)
+                gf.set("member", f'"{values[0]}"')
+                gf.set(f"{USER_NS}ui-domain", "relevant")
+                gf.set(f"{USER_NS}ui-enumeration", "inclusive")
+                gf.set(f"{USER_NS}ui-marker", "enumerate")
+            else:
+                gf.set("function", "union")
+                gf.set(f"{USER_NS}ui-domain", "relevant")
+                gf.set(f"{USER_NS}ui-enumeration", "inclusive")
+                gf.set(f"{USER_NS}ui-marker", "enumerate")
+                for val in values:
+                    sub_gf = etree.SubElement(gf, "groupfilter")
+                    sub_gf.set("function", "member")
+                    sub_gf.set("level", ci_name)
+                    sub_gf.set("member", f'"{val}"')
+
+        return f"Added shared filter for '{field}'"
+
+    def set_datasource_color_palette(
+        self,
+        field: str,
+        color_map: dict[str, str],
+        is_measure_names: bool = False,
+    ) -> str:
+        """在 <datasource><style> 上注册字段的调色板映射。"""
+        ds = self._datasource
+        ds_name = ds.get("name", "")
+
+        if is_measure_names:
+            field_ref = "[:Measure Names]"
+        else:
+            ci = self.field_registry.parse_expression(field)
+            field_ref = ci.instance_name
+            existing_ci = ds.find(f"./column-instance[@name='{ci.instance_name}']")
+            if existing_ci is None:
+                ci_el = etree.Element("column-instance")
+                ci_el.set("column", f"[{field}]")
+                ci_el.set("derivation", "None")
+                ci_el.set("name", ci.instance_name)
+                ci_el.set("pivot", "key")
+                ci_el.set("type", ci.ci_type)
+                anchor = None
+                for tag in ("column-instance", "column", "aliases"):
+                    found = ds.findall(tag)
+                    if found:
+                        anchor = found[-1]
+                        break
+                if anchor is not None:
+                    anchor.addnext(ci_el)
+                else:
+                    ds.insert(0, ci_el)
+
+        style = ds.find("style")
+        if style is None:
+            style = etree.Element("style")
+            anchor = None
+            for tag in ("layout", "extract", "column-instance", "column", "aliases"):
+                found = ds.findall(tag)
+                if found:
+                    anchor = found[-1]
+                    break
+            if anchor is not None:
+                anchor.addnext(style)
+            else:
+                ds.append(style)
+
+        mark_rule = None
+        for sr in style.findall("style-rule"):
+            if sr.get("element") == "mark":
+                mark_rule = sr
+                break
+        if mark_rule is None:
+            mark_rule = etree.SubElement(style, "style-rule", element="mark")
+
+        for enc in list(mark_rule.findall("encoding")):
+            if enc.get("attr") == "color" and enc.get("field") == field_ref:
+                mark_rule.remove(enc)
+
+        enc = etree.SubElement(mark_rule, "encoding", attr="color", field=field_ref, type="palette")
+        for bucket_val, hex_color in color_map.items():
+            m = etree.SubElement(enc, "map", to=hex_color)
+            b = etree.SubElement(m, "bucket")
+            b.text = str(bucket_val)
+
+        return f"Set color palette for '{field}'"
+
+    def set_worksheet_rich_title(
+        self,
+        worksheet_name: str,
+        runs: list[dict],
+    ) -> str:
+        """设置工作表的富文本动态标题。"""
+        import re
+        ws = self._find_worksheet(worksheet_name)
+        layout_opts = ws.find("layout-options")
+        if layout_opts is None:
+            layout_opts = etree.Element("layout-options")
+            table = ws.find("table")
+            if table is not None:
+                table.addprevious(layout_opts)
+            else:
+                ws.append(layout_opts)
+        title_el = layout_opts.find("title")
+        if title_el is None:
+            title_el = etree.SubElement(layout_opts, "title")
+
+        formatted_text = title_el.find("formatted-text")
+        if formatted_text is not None:
+            title_el.remove(formatted_text)
+        formatted_text = etree.SubElement(title_el, "formatted-text")
+
+        ds_name = self._datasource.get("name", "")
+
+        for run_dict in runs:
+            r = etree.SubElement(formatted_text, "run")
+            if run_dict.get("bold"):
+                r.set("bold", "true")
+            if run_dict.get("fontsize"):
+                r.set("fontsize", str(run_dict["fontsize"]))
+            if run_dict.get("fontcolor"):
+                r.set("fontcolor", str(run_dict["fontcolor"]))
+
+            raw_text = str(run_dict.get("text", ""))
+
+            def _replace_placeholder(match):
+                token = match.group(1).strip()
+                if token.startswith("[Parameters]."):
+                    p_name = token.replace("[Parameters].", "").strip("[]")
+                    p_info = self._parameters.get(p_name)
+                    if p_info:
+                        return f"<[Parameters].[{p_info['internal_name']}]>"
+                    return f"<{token}>"
+                else:
+                    try:
+                        ci = self.field_registry.parse_expression(token)
+                        full_ref = self.field_registry.resolve_full_reference(ci.instance_name)
+                        return f"<{full_ref}>"
+                    except Exception:
+                        return f"<{token}>"
+
+    def clean_obsolete_table_suffixes(self, suffix: str = " (Orders)") -> None:
+        """Removes obsolete template table suffixes like ' (Orders)' from calculated formulas and XML attributes."""
+        if not suffix:
+            return
+
+        for col in self._datasource.findall(".//column"):
+            calc = col.find("calculation")
+            if calc is not None and calc.get("formula"):
+                formula = calc.get("formula")
+                if suffix in formula:
+                    calc.set("formula", formula.replace(suffix, ""))
+
+        xpath_query = f".//*[contains(@column, '{suffix}') or contains(@field, '{suffix}') or contains(@level, '{suffix}') or contains(@name, '{suffix}') or contains(@param, '{suffix}')]"
+        for node in self.root.xpath(xpath_query):
+            for attr_key in ("column", "field", "level", "name", "param"):
+                val = node.get(attr_key)
+                if val and suffix in val:
+                    node.set(attr_key, val.replace(suffix, ""))
+
+        self._init_fields()
+
 

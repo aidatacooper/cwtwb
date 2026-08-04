@@ -63,6 +63,8 @@ class DualAxisChartBuilder(BaseChartBuilder):
                  reverse_axis_1: bool = False,
                  extra_axes: Optional[list[dict]] = None,
                  color_map_1: Optional[dict[str, str]] = None,
+                 fold_axis: bool = False,
+                 color_by_measure_names: bool = False,
                  ) -> None:
         """Capture dual-axis chart settings for later XML composition."""
         super().__init__(editor)
@@ -96,6 +98,8 @@ class DualAxisChartBuilder(BaseChartBuilder):
         self.reverse_axis_1 = reverse_axis_1
         self.extra_axes = extra_axes or []
         self.color_map_1 = color_map_1 or {}
+        self.fold_axis = fold_axis
+        self.color_by_measure_names = color_by_measure_names
 
     def build(self) -> str:
         """Build overlapping panes and shelves required for dual-axis charts."""
@@ -134,7 +138,7 @@ class DualAxisChartBuilder(BaseChartBuilder):
 
         # Gather extra_axes expressions
         for ea in self.extra_axes:
-            ea_measure = ea.get("measure")
+            ea_measure = ea.get("measure") or ea.get("field")
             if ea_measure and ea_measure not in all_exprs:
                 all_exprs.append(ea_measure)
             ea_label = ea.get("label")
@@ -183,6 +187,13 @@ class DualAxisChartBuilder(BaseChartBuilder):
         ref_m1 = self.field_registry.resolve_full_reference(ci_m1.instance_name)
         ref_m2 = self.field_registry.resolve_full_reference(ci_m2.instance_name)
         
+        # Base anchor pane (without id attribute)
+        anchor_pane = etree.SubElement(panes_el, "pane")
+        anchor_pane.set("selection-relaxation-option", "selection-relaxation-allow")
+        anchor_view = etree.SubElement(anchor_pane, "view")
+        etree.SubElement(anchor_view, "breakdown", value="auto")
+        etree.SubElement(anchor_pane, "mark", **{"class": "Automatic"})
+
         # Pane 1: Primary Axis Mark
         pane_1 = etree.SubElement(panes_el, "pane")
         pane_1.set("id", "1")
@@ -235,6 +246,16 @@ class DualAxisChartBuilder(BaseChartBuilder):
         if not self.show_labels or self.size_value_2 or self.mark_color_2:
             self._override_pane_style(pane_2, show_labels=self.show_labels, 
                                       size_value=self.size_value_2, mark_color=self.mark_color_2)
+
+        if self.color_by_measure_names:
+            for p in (pane_1, pane_2):
+                enc_el = p.find("encodings")
+                if enc_el is None:
+                    enc_el = etree.SubElement(p, "encodings")
+                c_el = enc_el.find("color")
+                if c_el is None:
+                    c_el = etree.SubElement(enc_el, "color")
+                c_el.set("column", f"[{ds_name}].[:Measure Names]")
 
         # Helper to build nested measures shelf expression
         def _build_measures_shelf(refs):
@@ -313,7 +334,7 @@ class DualAxisChartBuilder(BaseChartBuilder):
             seen_measures = [measure_1, measure_2]
             pane_id = 4
             for ea in self.extra_axes:
-                ea_measure = ea.get("measure", "")
+                ea_measure = ea.get("measure") or ea.get("field") or ""
                 ea_mark_type = ea.get("mark_type", "Automatic")
                 ea_color = ea.get("color")
                 ea_size = ea.get("size")
@@ -412,6 +433,8 @@ class DualAxisChartBuilder(BaseChartBuilder):
         scope = "cols" if self.dual_axis_shelf in ("columns", "cols") else "rows"
 
         rule_el = etree.SubElement(style_el, "style-rule", {"element": "axis"})
+        if self.fold_axis:
+            etree.SubElement(rule_el, "format", {"attr": "render-fold-reversed", "value": "true"})
 
         if self.extra_axes and measure_1 != measure_2:
             # Extra axes case: class "0" = ref_m2 (synchronized), class "1" = first extra axis measure

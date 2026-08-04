@@ -38,6 +38,7 @@ from .migration import (  # noqa: E402
     propose_field_mapping,
     preview_twb_migration,
 )
+from .contracts import TableColumn  # noqa: E402
 from .twb_analyzer import AnalysisReport, TWBAnalyzer, analyze_workbook  # noqa: E402
 from .twb_editor import TWBEditor  # noqa: E402
 from .validator import SchemaValidationResult, TWBValidationError, validate_against_schema  # noqa: E402
@@ -47,6 +48,7 @@ __all__ = [
     "CAPABILITY_SPECS",
     "CapabilitySpec",
     "FieldRegistry",
+    "TableColumn",
     "TWBAnalyzer",
     "TWBEditor",
     "TWBValidationError",

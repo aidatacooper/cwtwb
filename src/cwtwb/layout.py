@@ -50,8 +50,10 @@ class FlexNode:
         self.field = d.get("field")
         self.mode = d.get("mode", "")
         self.show_title = d.get("show_title", True)
+        self.show_apply = d.get("show_apply")
+        self.absolute = d.get("absolute")
 
-        self.parameter = d.get("parameter")
+        self.parameter = d.get("parameter") or d.get("param")
         self.target_dashboard = d.get("target_dashboard")
         self.caption = d.get("caption", "GO BACK")
         self.background_color = d.get("background_color", "#1ba3c6")
@@ -167,10 +169,17 @@ def render_flex_node(
     context = context or {}
     zone = etree.SubElement(parent_el, "zone")
     zone.set("id", str(get_id_fn()))
-    zone.set("x", str(node.x))
-    zone.set("y", str(node.y))
-    zone.set("w", str(node.w))
-    zone.set("h", str(node.h))
+    if getattr(node, "absolute", None) and isinstance(node.absolute, dict):
+        abs_pos = node.absolute
+        zone.set("x", str(abs_pos.get("x", node.x)))
+        zone.set("y", str(abs_pos.get("y", node.y)))
+        zone.set("w", str(abs_pos.get("w", node.w)))
+        zone.set("h", str(abs_pos.get("h", node.h)))
+    else:
+        zone.set("x", str(node.x))
+        zone.set("y", str(node.y))
+        zone.set("w", str(node.w))
+        zone.set("h", str(node.h))
 
     if node.fixed_size is not None:
         zone.set("fixed-size", str(node.fixed_size))
@@ -182,7 +191,8 @@ def render_flex_node(
         zone.set("type-v2", "NONE")
         if node.name:
             zone.set("name", node.name)
-        zone.set("show-title", "false")
+        if not node.show_title:
+            zone.set("show-title", "false")
         
         fit = getattr(node, "fit", None)
         if fit:
@@ -378,6 +388,8 @@ def _render_filter(
         zone.set("mode", node.mode)
     if not node.show_title:
         zone.set("show-title", "false")
+    if getattr(node, "show_apply", None):
+        zone.set("show-apply", "true")
 
     found_param = _find_filter_param(node, context)
     if found_param:
