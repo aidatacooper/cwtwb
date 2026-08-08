@@ -35,6 +35,7 @@ output/
 
 # Large/binary project files
 backup/
+wow-tableau-problem-solving/
 prototype/
 dashboard/
 *.twbx
