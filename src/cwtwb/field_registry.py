@@ -419,9 +419,18 @@ class FieldRegistry:
         def _is_aggregated_formula(formula_text: str, depth: int = 0) -> bool:
             if depth > 10 or not formula_text:
                 return False
-            if _AGGREGATE_FUNCTION_RE.search(formula_text):
+            # FIXED/INCLUDE/EXCLUDE expressions return row-level values. Their
+            # inner SUM/AVG/etc. must not promote the outer field to AGG.
+            outer_formula = re.sub(r"//[^\r\n]*", "", formula_text)
+            outer_formula = re.sub(
+                r"\{\s*(?:FIXED|INCLUDE|EXCLUDE)\b.*?\}",
+                "",
+                outer_formula,
+                flags=re.IGNORECASE | re.DOTALL,
+            )
+            if _AGGREGATE_FUNCTION_RE.search(outer_formula):
                 return True
-            refs = re.findall(r"\[([^\]]+)\]", formula_text)
+            refs = re.findall(r"\[([^\]]+)\]", outer_formula)
             for ref in refs:
                 if ref in self._fields:
                     ref_fi = self._fields[ref]
@@ -436,7 +445,7 @@ class FieldRegistry:
                 derivation = "User"
             elif fi.formula and _is_aggregated_formula(fi.formula):
                 derivation = "User"
-            elif fi.role == "measure":
+            elif fi.role == "measure" and fi.field_type == "quantitative":
                 derivation = "Sum"
 
         # Determine type suffix

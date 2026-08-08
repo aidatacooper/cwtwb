@@ -84,6 +84,88 @@ class TestAggregateCalculatedFieldTooltip:
             "column-instance[@derivation='Sum']"
         ) is None
 
+    def test_nested_aggregate_tooltip_keeps_user_derivation(self, editor):
+        editor.add_calculated_field(
+            "Distinct Orders",
+            "COUNTD([Order ID])",
+            datatype="integer",
+        )
+        editor.add_calculated_field(
+            "Empty Message",
+            "IIF([Distinct Orders] = 0, 'No orders', NULL)",
+            datatype="string",
+            internal_name="[Calculation_EmptyMessage]",
+        )
+        editor.add_worksheet("Order Count")
+        editor.configure_chart(
+            "Order Count",
+            mark_type="Text",
+            label="Distinct Orders",
+            tooltip=["Empty Message"],
+        )
+
+        worksheet = editor._find_worksheet("Order Count")
+        message = worksheet.find(
+            ".//column-instance[@column='[Calculation_EmptyMessage]']"
+        )
+        assert message is not None
+        assert message.get("derivation") == "User"
+
+    def test_boolean_color_palette_buckets_are_unquoted(self, editor):
+        editor.add_calculated_field(
+            "Has Orders",
+            "COUNTD([Order ID]) > 0",
+            datatype="boolean",
+        )
+        editor.add_worksheet("Order Count")
+        editor.configure_chart(
+            "Order Count",
+            mark_type="Square",
+            color="Has Orders",
+            color_map={"true": "#00FF00", "false": "#FF0000"},
+        )
+
+        buckets = editor._datasource.findall(
+            ".//encoding[@attr='color']/map/bucket"
+        )
+        assert [bucket.text for bucket in buckets] == ["true", "false"]
+
+    def test_lod_fields_use_outer_aggregation_semantics(self, editor):
+        editor.add_calculated_field(
+            "Today",
+            "// MIN([Sales]) is an old approach\n{FIXED: SUM([Sales])}",
+            datatype="real",
+            internal_name="[Calculation_Today]",
+        )
+        editor.add_calculated_field(
+            "Difference",
+            "[Today] - 1",
+            datatype="real",
+            internal_name="[Calculation_Difference]",
+        )
+        editor.add_calculated_field(
+            "Direction",
+            "IIF([Difference] > 0, 'Up', 'Down')",
+            datatype="string",
+            internal_name="[Calculation_Direction]",
+        )
+        editor.add_worksheet("KPI")
+        editor.configure_chart(
+            "KPI",
+            mark_type="Text",
+            label="Today",
+            label_extra=["Difference", "Direction"],
+        )
+
+        worksheet = editor._find_worksheet("KPI")
+        instances = {
+            instance.get("column"): instance.get("derivation")
+            for instance in worksheet.findall(".//column-instance")
+        }
+        assert instances["[Calculation_Today]"] == "Sum"
+        assert instances["[Calculation_Difference]"] == "Sum"
+        assert instances["[Calculation_Direction]"] == "None"
+
 
 class TestBarChart:
     """Bar chart structure validation."""

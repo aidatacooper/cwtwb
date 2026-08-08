@@ -284,7 +284,7 @@ class LayeredChartBuilder(BaseChartBuilder):
         for value, hex_color in color_map.items():
             mapping = etree.SubElement(encoding, "map", {"to": str(hex_color)})
             bucket = etree.SubElement(mapping, "bucket")
-            bucket.text = f'"{value}"'
+            bucket.text = self._format_palette_value(value, instance)
 
     def build(self) -> str:
         """Build all declared panes, shelves, dependencies, and axis folding."""

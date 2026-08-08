@@ -649,7 +649,7 @@ class DualAxisChartBuilder(BaseChartBuilder):
                     map_el = etree.SubElement(color_enc, "map")
                     map_el.set("to", hex_color)
                     bucket_el = etree.SubElement(map_el, "bucket")
-                    bucket_el.text = f'"{bucket_val}"'
+                    bucket_el.text = self._format_palette_value(bucket_val, ci)
 
         return f"Configured worksheet '{self.worksheet_name}' as Dual Axis chart"
 

@@ -98,6 +98,13 @@ class BaseChartBuilder:
             return s
         return f'"{value}"'
 
+    def _format_palette_value(self, value, column_instance: ColumnInstance) -> str:
+        """Serialize palette buckets using the color field's Tableau datatype."""
+        field = self.field_registry._find_field(column_instance.column_local_name)
+        if field.datatype == "boolean":
+            return str(value).strip().lower()
+        return f'"{value}"'
+
     def _gather_expressions(self, columns, rows, color, size, label, detail, wedge_size, sort_descending, tooltip, filters, geographic_field, measure_values) -> list[str]:
         """Collect all field expressions needed for dependencies and encodings."""
         all_exprs: list[str] = []
@@ -197,6 +204,9 @@ class BaseChartBuilder:
             return None
         if fi.calculation_class == "categorical-bin":
             return self.field_registry.parse_expression(text)
+        parsed = self.field_registry.parse_expression(text)
+        if parsed.derivation == "User":
+            return parsed
         if (
             fi.is_calculated
             and fi.formula
@@ -789,13 +799,13 @@ class BaseChartBuilder:
                     gf.set("function", "member")
                     gf.set("level", ci.instance_name)
                     gf.set("member", self._format_filter_value(values[0]))
-                    gf.set(f"{USER_NS}ui-domain", "database")
+                    gf.set(f"{USER_NS}ui-domain", f.get("ui_domain", "database"))
                     gf.set(f"{USER_NS}ui-enumeration", "inclusive")
                     gf.set(f"{USER_NS}ui-marker", "enumerate")
                 elif len(values) > 1:
                     gf = etree.SubElement(filter_el, "groupfilter")
                     gf.set("function", "union")
-                    gf.set(f"{USER_NS}ui-domain", "database")
+                    gf.set(f"{USER_NS}ui-domain", f.get("ui_domain", "database"))
                     gf.set(f"{USER_NS}ui-enumeration", "inclusive")
                     gf.set(f"{USER_NS}ui-marker", "enumerate")
                     for v in values:
@@ -807,7 +817,7 @@ class BaseChartBuilder:
                     gf = etree.SubElement(filter_el, "groupfilter")
                     gf.set("function", "level-members")
                     gf.set("level", ci.instance_name)
-                    gf.set(f"{USER_NS}ui-domain", "database")
+                    gf.set(f"{USER_NS}ui-domain", f.get("ui_domain", "database"))
                     gf.set(f"{USER_NS}ui-enumeration", "inclusive")
                     gf.set(f"{USER_NS}ui-marker", "enumerate")
             
@@ -1129,7 +1139,7 @@ class BasicChartBuilder(BaseChartBuilder):
                     map_el = etree.SubElement(color_enc, "map")
                     map_el.set("to", hex_color)
                     bucket_el = etree.SubElement(map_el, "bucket")
-                    bucket_el.text = f'"{bucket_val}"'
+                    bucket_el.text = self._format_palette_value(bucket_val, ci)
 
         return f"Configured worksheet '{self.worksheet_name}' as {self.mark_type} chart"
 
