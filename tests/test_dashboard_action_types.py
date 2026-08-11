@@ -142,6 +142,20 @@ class TestGoToSheetAction:
 
 
 class TestParameterAction:
+    def test_parameter_action_keep_current_can_omit_clear_payload(self, action_editor):
+        action_editor.add_parameter(
+            name="Selected Category", datatype="string", default_value="All",
+            domain_type="any",
+        )
+        action_editor.add_dashboard_action(
+            dashboard_name="TestDash", action_type="parameter",
+            source_sheet="Source", source_field="Category",
+            target_parameter="Selected Category", clear_behavior="keep-current",
+        )
+        action = action_editor.root.find(".//actions/edit-parameter-action")
+        assert action is not None
+        assert action.find("clear-option") is None
+
     def test_parameter_action_matches_tableau_native_structure(self, action_editor):
         action_editor.add_parameter(
             name="Selected Category",
@@ -215,7 +229,7 @@ class TestParameterAction:
             ({"target_parameter": "Missing"}, "not found"),
             ({"aggregation": "median"}, "aggregation"),
             ({"clear_behavior": "reset"}, "clear_behavior"),
-            ({"clear_value": ""}, "clear_value"),
+            ({"clear_behavior": "set-value", "clear_value": ""}, "clear_value"),
         ],
     )
     def test_parameter_action_validates_required_semantics(

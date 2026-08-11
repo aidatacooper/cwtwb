@@ -228,6 +228,7 @@ def configure_chart(
     wedge_size: Optional[str] = None,
     sort_descending: Optional[str] = None,
     tooltip: Optional[Union[str, list[str]]] = None,
+    table_calc_overrides: Optional[dict[str, list[dict]]] = None,
     filters: Optional[list[dict]] = None,
     geographic_field: Optional[str] = None,
     measure_values: Optional[list[str]] = None,
@@ -310,6 +311,7 @@ def configure_chart(
         text_format=text_format,
         label_extra=label_extra,
         label_runs=label_runs,
+        table_calc_overrides=table_calc_overrides,
     )
     return builder.build()
 

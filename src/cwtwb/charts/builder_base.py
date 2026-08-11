@@ -101,7 +101,7 @@ class BaseChartBuilder:
     def _format_palette_value(self, value, column_instance: ColumnInstance) -> str:
         """Serialize palette buckets using the color field's Tableau datatype."""
         field = self.field_registry._find_field(column_instance.column_local_name)
-        if field.datatype == "boolean":
+        if field.datatype == "boolean" or field.calculation_class == "set":
             return str(value).strip().lower()
         return f'"{value}"'
 
@@ -285,7 +285,9 @@ class BaseChartBuilder:
                     fi = self.field_registry._find_field(ci.column_local_name)
                 except (KeyError, ValueError):
                     fi = self.field_registry._find_field(expr.split("(")[-1].rstrip(")").strip() if "(" in expr else expr.strip())
-                if fi.is_calculated:
+                if fi.calculation_class == "set":
+                    col_el = None
+                elif fi.is_calculated:
                     src_col = self._datasource.find(f"column[@name='{fi.local_name}']")
                     if src_col is not None:
                         col_el = copy.deepcopy(src_col)
@@ -304,7 +306,8 @@ class BaseChartBuilder:
                     src_col = self._datasource.find(f"column[@name='{fi.local_name}']")
                     if src_col is not None and src_col.get("semantic-role"):
                         col_el.set("semantic-role", src_col.get("semantic-role"))
-                column_elements.append(col_el)
+                if col_el is not None:
+                    column_elements.append(col_el)
             if not ci.is_direct and ci.instance_name not in seen_instances:
                 seen_instances.add(ci.instance_name)
                 ci_el = etree.Element("column-instance")
@@ -327,7 +330,11 @@ class BaseChartBuilder:
             deps.append(el)
 
         _re = re
-        for col_el in list(column_elements):
+        dependency_queue = list(column_elements)
+        dependency_index = 0
+        while dependency_index < len(dependency_queue):
+            col_el = dependency_queue[dependency_index]
+            dependency_index += 1
             calc_el = col_el.find("calculation")
             if calc_el is None:
                 continue
@@ -365,33 +372,24 @@ class BaseChartBuilder:
                     and local_ref not in seen_columns
                 ):
                     seen_columns.add(local_ref)
-                    dep_col = etree.Element("column")
-                    dep_col.set(
-                        "datatype",
-                        raw_col.get("datatype", "string")
-                        if raw_col is not None
-                        else dependency_info.datatype,
-                    )
-                    dep_col.set("name", local_ref)
-                    dep_col.set(
-                        "role",
-                        raw_col.get("role", "dimension")
-                        if raw_col is not None
-                        else dependency_info.role,
-                    )
-                    dep_col.set(
-                        "type",
-                        raw_col.get("type", "nominal")
-                        if raw_col is not None
-                        else dependency_info.field_type,
-                    )
+                    if raw_col is not None:
+                        dep_col = copy.deepcopy(raw_col)
+                    else:
+                        dep_col = etree.Element("column")
+                        dep_col.set("datatype", dependency_info.datatype)
+                        dep_col.set("name", local_ref)
+                        dep_col.set("role", dependency_info.role)
+                        dep_col.set("type", dependency_info.field_type)
                     first_ci = deps.find("column-instance")
                     if first_ci is not None:
                         first_ci.addprevious(dep_col)
                     else:
                         deps.append(dep_col)
+                    dependency_queue.append(dep_col)
                         
         self._add_calculated_field_deps(view, ds_name, all_exprs)
+        if self._parameters:
+            self.editor._add_parameter_deps(view)
 
     def _add_table_calculation_metadata(
         self,
@@ -435,6 +433,55 @@ class BaseChartBuilder:
                 add_dependencies(nested_calculation)
 
         add_dependencies(source_calculation)
+
+    def _apply_table_calc_overrides(
+        self,
+        view: etree._Element,
+        instances: dict[str, ColumnInstance],
+        ds_name: str,
+        overrides: Optional[dict[str, list[dict]]],
+    ) -> None:
+        """Apply explicit table-calculation addressing to ordinary charts."""
+        if not overrides:
+            return
+        dependencies = view.find(
+            f"datasource-dependencies[@datasource='{ds_name}']"
+        )
+        if dependencies is None:
+            return
+        for expression, specifications in overrides.items():
+            instance = self._instance_for_expression(instances, expression)
+            if instance is None:
+                raise ValueError(
+                    f"Could not resolve table-calc override field: {expression}"
+                )
+            column_instance = dependencies.find(
+                f"column-instance[@name='{instance.instance_name}']"
+            )
+            if column_instance is None:
+                raise ValueError(
+                    f"Missing column instance for table-calc override: {expression}"
+                )
+            for old in list(column_instance.findall("table-calc")):
+                column_instance.remove(old)
+            for specification in specifications:
+                attributes: dict[str, str] = {}
+                for key, value in specification.items():
+                    xml_key = key.replace("_", "-")
+                    if xml_key == "ordering-field":
+                        ordering_instance = self._instance_for_expression(
+                            instances, str(value)
+                        )
+                        if ordering_instance is None:
+                            raise ValueError(
+                                f"Could not resolve table-calc ordering field: {value}"
+                            )
+                        attributes[xml_key] = self.field_registry.resolve_full_reference(
+                            ordering_instance.instance_name
+                        )
+                    else:
+                        attributes[xml_key] = str(value)
+                etree.SubElement(column_instance, "table-calc", attributes)
 
     def _add_calculated_field_deps(self, view: etree._Element, ds_name: str, all_exprs: list[str]) -> None:
         """Ensure calculated fields are present in dependency blocks when needed."""
@@ -582,7 +629,7 @@ class BaseChartBuilder:
                 r.text = etree.CDATA(combined)
             else:
                 r.text = combined
-    def _ensure_mark_style(self, pane_style: etree._Element, mark_type: str, original_mark_type: str = None) -> None:
+    def _ensure_mark_style(self, pane_style: etree._Element, mark_type: str, original_mark_type: str = None, show_labels: bool = False) -> None:
         """Ensure pane style has a mark rule with required default formats."""
         for sr in pane_style.findall("style-rule"):
             if sr.get("element") == "mark":
@@ -603,7 +650,7 @@ class BaseChartBuilder:
 
         fmt = etree.SubElement(sr, "format")
         fmt.set("attr", "mark-labels-show")
-        fmt.set("value", "true")
+        fmt.set("value", "true" if show_labels else "false")
         fmt = etree.SubElement(sr, "format")
         fmt.set("attr", "mark-labels-cull")
         fmt.set("value", "true")
@@ -637,36 +684,38 @@ class BaseChartBuilder:
         has_encodings = any(x is not None for x in (color, size, label, detail, wedge_size, tooltip, geographic_field if is_map else None))
         if has_encodings:
             encodings_el = etree.SubElement(pane, "encodings")
+            encoded_columns: set[str] = set()
+
+            def add_encoding(kind: str, ci: ColumnInstance) -> None:
+                column = self.field_registry.resolve_full_reference(ci.instance_name)
+                element = etree.SubElement(encodings_el, kind)
+                element.set("column", column)
+                encoded_columns.add(column)
 
             if color:
                 color_ci = self._instance_for_expression(instances, color)
                 if color_ci is not None:
-                    color_el = etree.SubElement(encodings_el, "color")
-                    color_el.set("column", self.field_registry.resolve_full_reference(color_ci.instance_name))
+                    add_encoding("color", color_ci)
 
             if wedge_size:
                 ws_ci = self._instance_for_expression(instances, wedge_size)
                 if ws_ci is not None:
-                    ws_el = etree.SubElement(encodings_el, "wedge-size")
-                    ws_el.set("column", self.field_registry.resolve_full_reference(ws_ci.instance_name))
+                    add_encoding("wedge-size", ws_ci)
 
             if size:
                 size_ci = self._instance_for_expression(instances, size)
                 if size_ci is not None:
-                    size_el = etree.SubElement(encodings_el, "size")
-                    size_el.set("column", self.field_registry.resolve_full_reference(size_ci.instance_name))
+                    add_encoding("size", size_ci)
 
             if label:
                 label_ci = self._instance_for_expression(instances, label)
                 if label_ci is not None:
-                    label_el = etree.SubElement(encodings_el, "text")
-                    label_el.set("column", self.field_registry.resolve_full_reference(label_ci.instance_name))
+                    add_encoding("text", label_ci)
 
             if detail:
                 detail_ci = self._instance_for_expression(instances, detail)
                 if detail_ci is not None:
-                    detail_el = etree.SubElement(encodings_el, "lod")
-                    detail_el.set("column", self.field_registry.resolve_full_reference(detail_ci.instance_name))
+                    add_encoding("lod", detail_ci)
 
             if is_map and geographic_field and geographic_field != detail:
                 geo_ci = self._instance_for_expression(instances, geographic_field)
@@ -691,18 +740,26 @@ class BaseChartBuilder:
 
             if tooltip:
                 tooltip_list = [tooltip] if isinstance(tooltip, str) else tooltip
+                mark_expressions = {
+                    expression
+                    for expression in (color, size, label, detail, wedge_size)
+                    if expression
+                }
                 for tt in tooltip_list:
+                    if tt in mark_expressions:
+                        continue
                     tt_ci = self._tooltip_instance_for_expression(tt)
                     if tt_ci is None:
                         tt_ci = self._instance_for_expression(instances, tt)
                     if tt_ci is not None:
-                        tt_el = etree.SubElement(encodings_el, "tooltip")
-                        tt_el.set("column", self.field_registry.resolve_full_reference(tt_ci.instance_name))
+                        column = self.field_registry.resolve_full_reference(tt_ci.instance_name)
+                        if column not in encoded_columns:
+                            add_encoding("tooltip", tt_ci)
 
         pane_style = pane.find("style")
         if pane_style is None:
             pane_style = etree.SubElement(pane, "style")
-        self._ensure_mark_style(pane_style, mark_type, original_mark_type)
+        self._ensure_mark_style(pane_style, mark_type, original_mark_type, label is not None)
 
     def _add_filters(
         self,
@@ -723,6 +780,8 @@ class BaseChartBuilder:
             filter_el = etree.Element("filter")
             if f.get("context"):
                 filter_el.set("context", "true")
+            if f.get("filter_group") is not None:
+                filter_el.set("filter-group", str(f["filter_group"]))
             filter_type = f.get("type")
             if not filter_type:
                 if ci.ci_type == "quantitative" or ci.instance_name.endswith(":qk]"):
@@ -799,13 +858,13 @@ class BaseChartBuilder:
                     gf.set("function", "member")
                     gf.set("level", ci.instance_name)
                     gf.set("member", self._format_filter_value(values[0]))
-                    gf.set(f"{USER_NS}ui-domain", f.get("ui_domain", "database"))
+                    gf.set(f"{USER_NS}ui-domain", f.get("ui_domain", "relevant"))
                     gf.set(f"{USER_NS}ui-enumeration", "inclusive")
                     gf.set(f"{USER_NS}ui-marker", "enumerate")
                 elif len(values) > 1:
                     gf = etree.SubElement(filter_el, "groupfilter")
                     gf.set("function", "union")
-                    gf.set(f"{USER_NS}ui-domain", f.get("ui_domain", "database"))
+                    gf.set(f"{USER_NS}ui-domain", f.get("ui_domain", "relevant"))
                     gf.set(f"{USER_NS}ui-enumeration", "inclusive")
                     gf.set(f"{USER_NS}ui-marker", "enumerate")
                     for v in values:
@@ -817,7 +876,7 @@ class BaseChartBuilder:
                     gf = etree.SubElement(filter_el, "groupfilter")
                     gf.set("function", "level-members")
                     gf.set("level", ci.instance_name)
-                    gf.set(f"{USER_NS}ui-domain", f.get("ui_domain", "database"))
+                    gf.set(f"{USER_NS}ui-domain", f.get("ui_domain", "relevant"))
                     gf.set(f"{USER_NS}ui-enumeration", "inclusive")
                     gf.set(f"{USER_NS}ui-marker", "enumerate")
             
@@ -830,6 +889,21 @@ class BaseChartBuilder:
                 insert_before.addprevious(filter_el)
             else:
                 view.append(filter_el)
+
+            filter_ref = self.field_registry.resolve_full_reference(ci.instance_name)
+            slices_el = view.find("slices")
+            if slices_el is None:
+                slices_el = etree.Element("slices")
+                aggregation = view.find("aggregation")
+                if aggregation is not None:
+                    aggregation.addprevious(slices_el)
+                else:
+                    view.append(slices_el)
+            if not any(
+                (column.text or "").strip() == filter_ref
+                for column in slices_el.findall("column")
+            ):
+                etree.SubElement(slices_el, "column").text = filter_ref
 
     def _ensure_manifest_entry(self, entry_name: str) -> None:
         """Add a document-format manifest flag if not already present."""
@@ -907,7 +981,8 @@ class BasicChartBuilder(BaseChartBuilder):
                  color_map: Optional[dict[str, str]] = None,
                  text_format: Optional[dict[str, str]] = None,
                  label_extra: Optional[list[str]] = None,
-                 label_runs: Optional[list[dict]] = None) -> None:
+                 label_runs: Optional[list[dict]] = None,
+                 table_calc_overrides: Optional[dict[str, list[dict]]] = None) -> None:
         """Capture chart configuration for one single-pane worksheet mutation."""
         super().__init__(editor)
         self.worksheet_name = worksheet_name
@@ -928,6 +1003,7 @@ class BasicChartBuilder(BaseChartBuilder):
         self.text_format = text_format
         self.label_extra = label_extra or []
         self.label_runs = label_runs or []
+        self.table_calc_overrides = table_calc_overrides or {}
 
     def build(self) -> str:
         """Create/update worksheet XML for a standard single-pane chart."""
@@ -956,6 +1032,9 @@ class BasicChartBuilder(BaseChartBuilder):
         instances = self._parse_and_prepare_instances(all_exprs, self.filters)
         self._add_tooltip_instances(instances, all_exprs, self.tooltip)
         self._setup_datasource_dependencies(view, ds_name, instances, all_exprs)
+        self._apply_table_calc_overrides(
+            view, instances, ds_name, self.table_calc_overrides
+        )
 
         pane = self._get_or_create_pane(table)
         pane.set("selection-relaxation-option", "selection-relaxation-disallow")
@@ -1106,9 +1185,26 @@ class BasicChartBuilder(BaseChartBuilder):
 
         # Color map (datasource-level palette mapping)
         if self.color_map and self.color:
-            ci = instances.get(self.color)
+            ci = self._instance_for_expression(instances, self.color)
             if ci:
-                full_ref = self.field_registry.resolve_full_reference(ci.instance_name)
+                if self._datasource.find(
+                    f"column-instance[@name='{ci.instance_name}']"
+                ) is None:
+                    palette_instance = etree.Element("column-instance")
+                    palette_instance.set("column", ci.column_local_name)
+                    palette_instance.set("derivation", ci.derivation)
+                    palette_instance.set("name", ci.instance_name)
+                    palette_instance.set("pivot", "key")
+                    palette_instance.set("type", ci.ci_type)
+                    insert_before = None
+                    for tag in ("group", "layout", "style", "semantic-values", "date-options", "object-graph"):
+                        insert_before = self._datasource.find(tag)
+                        if insert_before is not None:
+                            break
+                    if insert_before is not None:
+                        insert_before.addprevious(palette_instance)
+                    else:
+                        self._datasource.append(palette_instance)
                 ds_style = self._datasource.find("style")
                 if ds_style is None:
                     ds_style = etree.Element("style")
@@ -1133,7 +1229,10 @@ class BasicChartBuilder(BaseChartBuilder):
                     mark_rule.set("element", "mark")
                 color_enc = etree.SubElement(mark_rule, "encoding")
                 color_enc.set("attr", "color")
-                color_enc.set("field", full_ref)
+                # Datasource palette rules address the local column instance.
+                # Fully-qualified worksheet references are silently ignored by
+                # Tableau Cloud and fall back to the default categorical palette.
+                color_enc.set("field", ci.instance_name)
                 color_enc.set("type", "palette")
                 for bucket_val, hex_color in self.color_map.items():
                     map_el = etree.SubElement(color_enc, "map")
@@ -1415,10 +1514,10 @@ class TextChartBuilder(BaseChartBuilder):
                 if cols_el is not None:
                     cols_el.text = self.editor._build_dimension_shelf(instances, self.columns) if self.columns else None
 
-            if self.sort_descending:
-                self._add_shelf_sort(view, ds_name, instances, self.rows, self.sort_descending)
+        if self.sort_descending:
+            self._add_shelf_sort(view, ds_name, instances, self.rows, self.sort_descending)
 
-            self.editor._setup_table_style(table, "Text")
+        self.editor._setup_table_style(table, "Text")
 
         if self.filters:
             self._add_filters(view, instances, self.filters)
@@ -1570,10 +1669,14 @@ class MapChartBuilder(BaseChartBuilder):
     def _collect_all_expressions(self) -> list[str]:
         """Gather every field expression used across all parameters."""
         if not self.map_layers:
-            return self._gather_expressions(
+            expressions = self._gather_expressions(
                 None, None, self.color, self.size, self.label, self.detail, None,
                 None, self.tooltip, self.filters, self.geographic_field, None
             )
+            for field in self.map_fields or []:
+                if field not in expressions:
+                    expressions.append(field)
+            return expressions
 
         exprs: list[str] = []
         if self.geographic_field:

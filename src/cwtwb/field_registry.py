@@ -49,6 +49,9 @@ _DERIVATION_MAP: dict[str, str] = {
     "WEEKDAY": "Weekday",
     "MY": "MY",
     "DAYTRUNC": "Day-Trunc",
+    # Continuous exact-date axis. Tableau stores this as derivation=None with
+    # a quantitative key, unlike the discrete date-part derivations above.
+    "EXACTDATE": "None",
 }
 
 # Derivation abbreviations (used for column-instance name generation)
@@ -449,7 +452,9 @@ class FieldRegistry:
                 derivation = "Sum"
 
         # Determine type suffix
-        if derivation in ("None", "User", "Collect"):
+        if m and m.group(1).upper() == "EXACTDATE":
+            ci_type = "quantitative"
+        elif derivation in ("None", "User", "Collect"):
             ci_type = fi.field_type   # nominal / quantitative — preserve field's own type
         elif derivation in _TEMPORAL_DERIVATIONS:
             ci_type = "ordinal"
@@ -470,6 +475,14 @@ class FieldRegistry:
                 instance_name=fi.local_name,
                 ci_type=ci_type,
                 is_direct=True,
+            )
+
+        if fi.calculation_class == "set" and derivation == "None":
+            return ColumnInstance(
+                column_local_name=fi.local_name,
+                derivation="InOut",
+                instance_name=f"[io:{fi.local_name.strip('[]')}:nk]",
+                ci_type="nominal",
             )
 
         # Derivation abbreviation

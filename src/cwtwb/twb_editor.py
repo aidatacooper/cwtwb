@@ -166,8 +166,8 @@ class ParametersMixin:
         col.set("name", internal_name)
         col.set("param-domain-type", domain_type)
         col.set("role", "measure")
-        col.set("type", "quantitative" if datatype != "boolean" else "nominal")
-        if datatype in ("string", "boolean"):
+        col.set("type", "nominal" if datatype in ("string", "boolean") else "quantitative")
+        if datatype == "boolean":
             col.set("datatype-customized", "true")
         # For string parameters, value must be quoted: '"Shipping"'
         if datatype == "string" and not default_value.startswith('"'):
@@ -232,6 +232,13 @@ class ParametersMixin:
         """
         if not self._parameters:
             return
+
+        datasources = view.find("datasources")
+        if datasources is not None and not any(
+            datasource.get("name") == "Parameters"
+            for datasource in datasources.findall("datasource")
+        ):
+            etree.SubElement(datasources, "datasource", {"name": "Parameters"})
 
         # Check if already exists
         for existing in view.findall("datasource-dependencies"):
@@ -856,10 +863,10 @@ class TWBEditor(ParametersMixin, ConnectionsMixin, ChartsMixin, DashboardsMixin)
             raise ValueError("dimension_field must not be empty")
 
         aggregation = str(aggregation).strip()
-        if aggregation not in ("Sum", "Avg", "Min", "Max", "Count", "Countd"):
+        if aggregation not in ("None", "Sum", "Avg", "Min", "Max", "Count", "Countd"):
             raise ValueError(
                 f"Unsupported aggregation '{aggregation}'. "
-                "Use one of Sum/Avg/Min/Max/Count/Countd."
+                "Use one of None/Sum/Avg/Min/Max/Count/Countd."
             )
 
         direction = str(direction).strip().upper()
@@ -919,7 +926,10 @@ class TWBEditor(ParametersMixin, ConnectionsMixin, ChartsMixin, DashboardsMixin)
 
             order = etree.SubElement(end, "groupfilter")
             order.set("direction", direction)
-            order.set("expression", f"{aggregation}({basis_local})")
+            order.set(
+                "expression",
+                basis_local if aggregation == "None" else f"{aggregation}({basis_local})",
+            )
             order.set("function", "order")
             order.set("{http://www.tableausoftware.com/xml/user}ui-marker", "order")
 
@@ -929,7 +939,17 @@ class TWBEditor(ParametersMixin, ConnectionsMixin, ChartsMixin, DashboardsMixin)
             members.set("{http://www.tableausoftware.com/xml/user}ui-enumeration", "all")
             members.set("{http://www.tableausoftware.com/xml/user}ui-marker", "enumerate")
 
+        # Tableau registers a datasource-level In/Out instance for sets.  The
+        # worksheet dependency alone renders membership, but datasource palette
+        # rules are ignored without this instance and fall back to default blue.
+        set_instance = etree.Element("column-instance")
+        set_instance.set("column", internal_name)
+        set_instance.set("derivation", "InOut")
+        set_instance.set("name", f"[io:{internal_name.strip('[]')}:nk]")
+        set_instance.set("pivot", "key")
+        set_instance.set("type", "nominal")
         self._insert_datasource_group(group)
+        group.addprevious(set_instance)
 
         # Register the set so formulas such as [Top Central] resolve.
         self.field_registry.register(
@@ -947,7 +967,8 @@ class TWBEditor(ParametersMixin, ConnectionsMixin, ChartsMixin, DashboardsMixin)
         count_desc = count_value if isinstance(top_n, int) else f"parameter '{top_n}'"
         return (
             f"Added top-{direction.lower()}-{count_desc} set '{set_name}' "
-            f"over '{dimension_field}' ranked by {aggregation}({basis_field})"
+            f"over '{dimension_field}' ranked by "
+            f"{basis_field if aggregation == 'None' else f'{aggregation}({basis_field})'}"
         )
 
     @staticmethod
@@ -1746,12 +1767,14 @@ class TWBEditor(ParametersMixin, ConnectionsMixin, ChartsMixin, DashboardsMixin)
             "avg": "Avg",
             "minimum": "Min",
             "min": "Min",
+            "sum": "Sum",
+            "total": "Sum",
             "none": "None",
         }
         visual_total = aggregation_map.get(aggregation.strip().casefold())
         if visual_total is None:
             raise ValueError(
-                "Unsupported subtotal aggregation. Use Average, Minimum, or None."
+                "Unsupported subtotal aggregation. Use Average, Minimum, Sum, or None."
             )
         if not measure_fields:
             raise ValueError("measure_fields must contain at least one field.")
@@ -1842,12 +1865,14 @@ class TWBEditor(ParametersMixin, ConnectionsMixin, ChartsMixin, DashboardsMixin)
         scope: str = "per-pane",
         formula: str = "average",
         label_type: str = "value",
+        label: str = "",
+        probability: str | int | None = "95",
         tooltip: str = "Average = <Value>",
         pane_index: int = 0,
     ) -> str:
         """Add a field-backed Tableau reference line to a worksheet pane."""
 
-        supported_scopes = {"per-pane", "per-cell", "entire-table"}
+        supported_scopes = {"per-pane", "per-cell", "per-table"}
         if scope not in supported_scopes:
             raise ValueError(
                 f"Unsupported reference-line scope '{scope}'. "
@@ -1870,6 +1895,15 @@ class TWBEditor(ParametersMixin, ConnectionsMixin, ChartsMixin, DashboardsMixin)
         def ensure_instance(expression: str) -> ColumnInstance:
             normalized = self.field_registry.default_view_expression(expression)
             ci = self.field_registry.parse_expression(normalized)
+            if "(" not in expression:
+                field = self.field_registry._find_field(expression)
+                if field.datatype in {"date", "datetime"}:
+                    ci = ColumnInstance(
+                        column_local_name=field.local_name,
+                        derivation="None",
+                        instance_name=f"[none:{field.local_name.strip('[]')}:qk]",
+                        ci_type="quantitative",
+                    )
             source_column = self._datasource.find(
                 f"column[@name='{ci.column_local_name}']"
             )
@@ -1903,25 +1937,70 @@ class TWBEditor(ParametersMixin, ConnectionsMixin, ChartsMixin, DashboardsMixin)
                 f"pane_index={pane_index} is out of range."
             )
         pane = panes[pane_index]
-        reference_id = f"refline{len(pane.findall('reference-line'))}"
+        value_reference = self.field_registry.resolve_full_reference(
+            value_ci.instance_name
+        )
+        encodings = pane.find("encodings")
+        if encodings is None:
+            encodings = etree.Element("encodings")
+            first_later_element = next(
+                (
+                    child
+                    for child in pane
+                    if child.tag in {"reference-line", "customized-tooltip", "style"}
+                ),
+                None,
+            )
+            if first_later_element is not None:
+                first_later_element.addprevious(encodings)
+            else:
+                pane.append(encodings)
+        else:
+            # Tableau's pane content model requires encodings before reference
+            # lines and style.  Some layered-chart builders append pane style
+            # first, so normalize the order before introducing analytics.
+            first_later_element = next(
+                (
+                    child
+                    for child in pane
+                    if child.tag in {"reference-line", "customized-tooltip", "style"}
+                ),
+                None,
+            )
+            if first_later_element is not None and pane.index(encodings) > pane.index(first_later_element):
+                pane.remove(encodings)
+                first_later_element.addprevious(encodings)
+        if not any(
+            lod.get("column") == value_reference
+            for lod in encodings.findall("lod")
+        ):
+            lod = etree.SubElement(encodings, "lod")
+            lod.set("column", value_reference)
+
+        reference_line_count = len(pane.findall("reference-line"))
+        reference_id = f"refline{reference_line_count}"
         reference_line = etree.Element("reference-line")
         reference_line.set(
             "axis-column",
             self.field_registry.resolve_full_reference(axis_ci.instance_name),
         )
         reference_line.set("enable-instant-analytics", "true")
-        reference_line.set("formula", formula)
+        formula_aliases = {"maximum": "max", "minimum": "min"}
+        reference_line.set("formula", formula_aliases.get(formula, formula))
         reference_line.set("id", reference_id)
         reference_line.set("label-type", label_type)
-        reference_line.set("probability", "95")
+        if label:
+            reference_line.set("label", label)
+        if probability is not None:
+            reference_line.set("probability", str(probability))
         reference_line.set("scope", scope)
-        reference_line.set("tooltip", tooltip)
-        reference_line.set("tooltip-type", "custom")
-        reference_line.set(
-            "value-column",
-            self.field_registry.resolve_full_reference(value_ci.instance_name),
-        )
-        reference_line.set("z-order", "1")
+        # Recent Tableau Desktop schemas reject both free-text tooltip fields
+        # and ``tooltip-type`` on reference lines.  Keep the element minimal;
+        # labels remain the portable way to expose the reference value.
+        reference_line.set("value-column", value_reference)
+        # Tableau uses z-order to retain all lines attached to one pane.  Each
+        # subsequent reference line must sit above the preceding one.
+        reference_line.set("z-order", str(reference_line_count + 1))
 
         insert_before = next(
             (
@@ -1940,6 +2019,165 @@ class TWBEditor(ParametersMixin, ConnectionsMixin, ChartsMixin, DashboardsMixin)
             f"Added reference line '{reference_id}' to '{worksheet_name}' "
             f"using '{value_field}'"
         )
+
+    def configure_reference_line_style(
+        self,
+        worksheet_name: str,
+        reference_id: str,
+        formats: dict[str, str | int | float],
+    ) -> str:
+        """Apply Tableau style formats to one authored reference line."""
+
+        worksheet = self._find_worksheet(worksheet_name)
+        if worksheet.find(f".//reference-line[@id='{reference_id}']") is None:
+            raise ValueError(
+                f"Reference line '{reference_id}' was not found on '{worksheet_name}'."
+            )
+        if not formats:
+            raise ValueError("formats must contain at least one style attribute")
+        table = worksheet.find("table")
+        if table is None:
+            raise ValueError(f"Worksheet '{worksheet_name}' has no table.")
+        style = table.find("style")
+        if style is None:
+            style = etree.Element("style")
+            panes = table.find("panes")
+            if panes is not None:
+                panes.addprevious(style)
+            else:
+                table.append(style)
+        rule = next(
+            (item for item in style.findall("style-rule") if item.get("element") == "refline"),
+            None,
+        )
+        if rule is None:
+            rule = etree.SubElement(style, "style-rule")
+            rule.set("element", "refline")
+        for attr, value in formats.items():
+            for old in list(rule.findall("format")):
+                if old.get("id") == reference_id and old.get("attr") == attr:
+                    rule.remove(old)
+            item = etree.SubElement(rule, "format")
+            item.set("attr", str(attr))
+            item.set("id", reference_id)
+            item.set("value", str(value))
+        return f"Styled reference line '{reference_id}' on '{worksheet_name}'"
+
+    def configure_custom_tooltip(
+        self,
+        worksheet_name: str,
+        runs: list[dict],
+        *,
+        pane_index: int = 0,
+    ) -> str:
+        """Author a formatted Tableau tooltip from literal and field runs.
+
+        Each run accepts either ``text`` or ``field`` plus Tableau rich-text
+        attributes such as ``bold``, ``fontcolor``, ``fontname`` and
+        ``fontsize``.  A literal newline is serialized using Tableau's
+        paragraph separator.
+        """
+
+        if not runs:
+            raise ValueError("runs must contain at least one tooltip run")
+        if pane_index < 0:
+            raise ValueError("pane_index must be zero or greater")
+
+        worksheet = self._find_worksheet(worksheet_name)
+        view = worksheet.find("table/view")
+        if view is None:
+            raise ValueError(f"Worksheet '{worksheet_name}' has no configured view.")
+        ds_name = self._datasource.get("name", "")
+        dependencies = view.find(f"datasource-dependencies[@datasource='{ds_name}']")
+        if dependencies is None:
+            raise ValueError(
+                f"Worksheet '{worksheet_name}' has no datasource dependencies."
+            )
+        panes = worksheet.findall("table/panes/pane")
+        if pane_index >= len(panes):
+            raise ValueError(
+                f"Worksheet '{worksheet_name}' has {len(panes)} pane(s); "
+                f"pane_index={pane_index} is out of range."
+            )
+
+        def resolve_field(expression: str) -> str:
+            normalized = self.field_registry.default_view_expression(expression)
+            ci = self.field_registry.parse_expression(normalized)
+            source_column = self._datasource.find(
+                f"column[@name='{ci.column_local_name}']"
+            )
+            if source_column is not None and dependencies.find(
+                f"column[@name='{ci.column_local_name}']"
+            ) is None:
+                dependencies.append(copy.deepcopy(source_column))
+            if dependencies.find(
+                f"column-instance[@name='{ci.instance_name}']"
+            ) is None:
+                instance = etree.SubElement(dependencies, "column-instance")
+                instance.set("column", ci.column_local_name)
+                instance.set("derivation", ci.derivation)
+                instance.set("name", ci.instance_name)
+                instance.set("pivot", "key")
+                instance.set("type", ci.ci_type)
+            return self.field_registry.resolve_full_reference(ci.instance_name)
+
+        pane = panes[pane_index]
+        old_tooltip = pane.find("customized-tooltip")
+        if old_tooltip is not None:
+            pane.remove(old_tooltip)
+        tooltip = etree.Element("customized-tooltip")
+        formatted = etree.SubElement(tooltip, "formatted-text")
+        allowed_attrs = (
+            "bold", "fontcolor", "fontname", "fontsize", "fontalignment",
+            "italic", "underline",
+        )
+        for spec in runs:
+            has_text = "text" in spec
+            has_field = bool(spec.get("field"))
+            if has_text == has_field:
+                raise ValueError(
+                    "Each tooltip run must define exactly one of 'text' or 'field'."
+                )
+            run = etree.SubElement(formatted, "run")
+            for attr in allowed_attrs:
+                if attr not in spec or spec[attr] is None:
+                    continue
+                value = spec[attr]
+                if isinstance(value, bool):
+                    value = "true" if value else "false"
+                run.set(attr, str(value))
+            if has_field:
+                run.text = f"<{resolve_field(str(spec['field']))}>"
+            else:
+                text = str(spec.get("text", ""))
+                run.text = "\u00c6\n" if text == "\n" else text
+
+        style = pane.find("style")
+        if style is not None:
+            style.addprevious(tooltip)
+        else:
+            pane.append(tooltip)
+        return f"Configured custom tooltip on '{worksheet_name}'"
+
+    def set_worksheet_selection_relaxation(
+        self, worksheet_name: str, *, enabled: bool = True
+    ) -> str:
+        """Allow or disallow relaxed mark selection for a worksheet.
+
+        Set Actions sourced from a sparse axis often require relaxed selection
+        so a hovered mark can update the target set.  Tableau serializes this
+        as ``selection-relaxation-allow`` on every pane in the worksheet.
+        """
+
+        worksheet = self._find_worksheet(worksheet_name)
+        panes = worksheet.findall("table/panes/pane")
+        if not panes:
+            raise ValueError(f"Worksheet '{worksheet_name}' has no panes.")
+
+        value = "selection-relaxation-allow" if enabled else "selection-relaxation-disallow"
+        for pane in panes:
+            pane.set("selection-relaxation-option", value)
+        return f"Set selection relaxation to '{value}' on '{worksheet_name}'"
 
     def _formula_field_token_map(self, replacements: dict[str, str]) -> dict[str, str]:
         """Build formula token replacements for base datasource fields."""

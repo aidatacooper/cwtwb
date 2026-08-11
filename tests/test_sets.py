@@ -36,6 +36,77 @@ def set_editor():
 
 
 class TestAddSet:
+    def test_set_used_on_marks_emits_inout_instance_without_fake_column(self, set_editor):
+        set_editor.add_set(
+            set_name="Top Central",
+            dimension_field="Manufacturer",
+            basis_field="Central - Qty",
+            top_n=3,
+        )
+        set_editor.configure_chart(
+            "Viz",
+            mark_type="Bar",
+            rows=["Manufacturer"],
+            columns=["SUM(Central - Qty)"],
+            color="Top Central",
+        )
+
+        dependencies = next(
+            dep
+            for dep in set_editor._find_worksheet("Viz").findall(
+                "table/view/datasource-dependencies"
+            )
+            if dep.get("datasource") != "Parameters"
+        )
+        assert dependencies.find("column[@name='[Top Central]']") is None
+        instance = dependencies.find(
+            "column-instance[@column='[Top Central]']"
+        )
+        assert instance is not None
+        assert instance.get("derivation") == "InOut"
+        assert instance.get("name") == "[io:Top Central:nk]"
+
+    def test_set_color_palette_uses_unquoted_boolean_buckets(self, set_editor):
+        set_editor.add_set(
+            set_name="Top Central",
+            dimension_field="Manufacturer",
+            basis_field="Central - Qty",
+            top_n=3,
+        )
+        set_editor.configure_chart(
+            "Viz",
+            mark_type="Bar",
+            rows=["Manufacturer"],
+            columns=["SUM(Central - Qty)"],
+            color="Top Central",
+            color_map={"true": "#e76f51", "false": "#d9dee2"},
+        )
+        encoding = set_editor._datasource.find(
+            ".//style-rule[@element='mark']/encoding[@attr='color']"
+        )
+        assert encoding.get("field") == "[io:Top Central:nk]"
+        buckets = [
+            node.text
+            for node in encoding.findall("map/bucket")
+        ]
+        assert buckets == ["true", "false"]
+
+    def test_top_n_set_can_rank_by_an_already_aggregated_calculation(self, set_editor):
+        set_editor.add_set(
+            set_name="Top Central",
+            dimension_field="Manufacturer",
+            basis_field="Central - Qty",
+            aggregation="None",
+            top_n=3,
+        )
+        order = set_editor.root.find(
+            ".//group[@name='[Top Central]']/groupfilter/groupfilter[@function='order']"
+        )
+        assert order is not None
+        assert order.get("expression") == set_editor.field_registry.get(
+            "Central - Qty"
+        ).local_name
+
     def test_top_n_set_serializes_filter_group(self, set_editor):
         set_editor.add_set(
             set_name="Top Central",
@@ -102,6 +173,12 @@ class TestAddSet:
         )
         fi = set_editor.field_registry._find_field("Top Central")
         assert fi.calculation_class == "set"
+        instance = set_editor._datasource.find(
+            "column-instance[@column='[Top Central]']"
+        )
+        assert instance is not None
+        assert instance.get("derivation") == "InOut"
+        assert instance.get("name") == "[io:Top Central:nk]"
 
     def test_duplicate_set_raises(self, set_editor):
         set_editor.add_set(set_name="Dup", dimension_field="Manufacturer")
@@ -136,6 +213,7 @@ class TestAddSetAction:
 
         action = set_editor.root.find(".//edit-group-action")
         assert action is not None
+        assert set_editor.root.find(".//document-format-change-manifest/GroupAction") is not None
         assert action.get("caption") == "Highlight Rank"
         assert action.get("name") == "[Action1]"
 
@@ -206,3 +284,10 @@ class TestAddSetAction:
         actions = set_editor.root.findall(".//actions/edit-group-action")
         assert len(actions) == 1
         assert actions[0].get("name") == "[Action2]"
+
+    def test_selection_relaxation_can_enable_hover_set_actions(self, set_editor):
+        result = set_editor.set_worksheet_selection_relaxation("Viz", enabled=True)
+
+        assert "selection-relaxation-allow" in result
+        pane = set_editor._find_worksheet("Viz").find("table/panes/pane")
+        assert pane.get("selection-relaxation-option") == "selection-relaxation-allow"

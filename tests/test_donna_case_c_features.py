@@ -114,6 +114,21 @@ def test_configure_average_subtotals_matches_donna_metadata(editor):
     assert "Sub-Category" in label.get("field")
 
 
+def test_configure_sum_subtotals_sets_tableau_sum_metadata(editor):
+    _configure_null_average_view(editor)
+
+    result = editor.configure_subtotals(
+        "Null Average",
+        measure_fields=["#Orders in Date Range"],
+        aggregation="Sum",
+    )
+
+    instance = editor._find_worksheet("Null Average").find(
+        ".//column-instance[@visual-totals='Sum']"
+    )
+    assert "Sum subtotals" in result
+    assert instance is not None
+
 def test_case_c_features_survive_twbx_save(editor, tmp_path):
     editor.add_hierarchy(
         "Category Hierarchy",

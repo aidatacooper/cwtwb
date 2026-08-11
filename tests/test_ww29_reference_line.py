@@ -40,9 +40,19 @@ def test_add_reference_line_authors_gantt_reference_line(editor):
     reference_line = worksheet.find(".//reference-line")
     assert reference_line is not None
     assert "usr:" in reference_line.get("axis-column")
-    assert "usr:" in reference_line.get("value-column")
+    assert "Calculation_" in reference_line.get("value-column")
+    assert reference_line.get("value-column").endswith(":qk]")
     assert reference_line.get("scope") == "per-pane"
-    assert reference_line.get("tooltip") == "Overall average = <Value>"
+    # Tableau Desktop's current workbook schema rejects both ``tooltip`` and
+    # ``tooltip-type`` on a reference-line.  The public API retains the
+    # argument for compatibility, but authors a portable minimal element.
+    assert reference_line.get("tooltip") is None
+    assert reference_line.get("tooltip-type") is None
+    assert reference_line.get("z-order") == "1"
+    lod_columns = {
+        item.get("column") for item in worksheet.findall(".//pane/encodings/lod")
+    }
+    assert reference_line.get("value-column") in lod_columns
     value_instance = reference_line.get("value-column").rsplit(".", 1)[-1]
     assert worksheet.find(
         f".//column-instance[@name='{value_instance}']"
@@ -94,3 +104,77 @@ def test_reference_line_mcp_and_capability_analysis(editor, tmp_path, monkeypatc
     assert report.summary["unsupported"] == 0
     assert get_capability("chart", "GanttBar").level == "advanced"
     assert get_capability("feature", "reference-line").level == "advanced"
+
+
+def test_reference_lines_increment_z_order(editor):
+    editor.add_worksheet("Multiple reference lines")
+    editor.configure_chart(
+        "Multiple reference lines", mark_type="Line", rows=["SUM(Sales)"]
+    )
+    for _ in range(3):
+        editor.add_reference_line(
+            "Multiple reference lines",
+            axis_field="SUM(Sales)",
+            value_field="SUM(Sales)",
+        )
+
+    lines = editor._find_worksheet("Multiple reference lines").findall(
+        ".//reference-line"
+    )
+    assert [line.get("id") for line in lines] == ["refline0", "refline1", "refline2"]
+    assert [line.get("z-order") for line in lines] == ["1", "2", "3"]
+    lod_columns = editor._find_worksheet("Multiple reference lines").findall(
+        ".//pane/encodings/lod"
+    )
+    assert len(lod_columns) == 1
+
+
+def test_configure_custom_tooltip_authors_rich_field_runs(editor):
+    editor.add_worksheet("Tooltip")
+    editor.configure_chart(
+        "Tooltip", mark_type="Circle", columns=["MONTH(Order Date)"],
+        tooltip=["SUM(Sales)"],
+    )
+    editor.configure_custom_tooltip(
+        "Tooltip",
+        [
+            {"field": "MONTH(Order Date)", "bold": True, "fontsize": 9},
+            {"text": "\n"},
+            {"text": "Sales:\t", "fontcolor": "#666666", "fontsize": 9},
+            {"field": "SUM(Sales)", "bold": True, "fontcolor": "#666666", "fontsize": 9},
+        ],
+    )
+
+    tooltip = editor._find_worksheet("Tooltip").find(
+        ".//pane/customized-tooltip/formatted-text"
+    )
+    runs = tooltip.findall("run")
+    assert len(runs) == 4
+    assert runs[0].get("bold") == "true"
+    assert runs[1].text == "\u00c6\n"
+    assert "sum:Sales" in runs[3].text
+
+
+def test_configure_reference_line_style_authors_dotted_teal_line(editor):
+    editor.add_worksheet("Styled reference line")
+    editor.configure_chart(
+        "Styled reference line", mark_type="Line", rows=["SUM(Sales)"]
+    )
+    editor.add_reference_line(
+        "Styled reference line", axis_field="SUM(Sales)",
+        value_field="SUM(Sales)", probability=None,
+    )
+    editor.configure_reference_line_style(
+        "Styled reference line", "refline0",
+        {"line-pattern-only": "dotted", "stroke-color": "#499894"},
+    )
+
+    formats = {
+        item.get("attr"): item.get("value")
+        for item in editor._find_worksheet("Styled reference line").findall(
+            ".//style-rule[@element='refline']/format[@id='refline0']"
+        )
+    }
+    assert formats == {
+        "line-pattern-only": "dotted", "stroke-color": "#499894"
+    }

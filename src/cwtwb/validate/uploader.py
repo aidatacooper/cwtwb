@@ -350,6 +350,7 @@ class TableauUploader:
         view_index: int = 0,
         view_name: str | None = None,
         resolution: str = "high",
+        view_filters: dict[str, str] | None = None,
     ) -> ScreenshotResult:
         """Screenshot a published workbook view. Requires prior upload."""
         err = self._check_config()
@@ -389,6 +390,8 @@ class TableauUploader:
                 target = wb.views[view_index]
 
             image_req = TSC.ImageRequestOptions(imageresolution=resolution, maxage=0)
+            for field, value in (view_filters or {}).items():
+                image_req.vf(field, value)
             self._server.views.populate_image(target, image_req)
 
             out_dir = Path(output_dir)

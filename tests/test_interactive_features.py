@@ -27,6 +27,25 @@ class TestInteractiveFeatures(unittest.TestCase):
         self.assertTrue(any("Profit" in tt.get("column", "") for tt in tooltips))
         self.assertTrue(any("Discount" in tt.get("column", "") for tt in tooltips))
 
+    def test_tooltip_does_not_duplicate_an_existing_mark_encoding(self):
+        self.editor.add_worksheet("TooltipDedup")
+        self.editor.configure_chart(
+            "TooltipDedup",
+            mark_type="Circle",
+            columns=["Category"],
+            rows=["SUM(Sales)"],
+            size="SUM(Profit)",
+            label="Category",
+            tooltip=["Category", "SUM(Profit)", "Discount"],
+        )
+
+        encodings = self.editor._find_worksheet("TooltipDedup").find(".//encodings")
+        self.assertEqual(len(encodings.findall("text")), 1)
+        self.assertEqual(len(encodings.findall("size")), 1)
+        tooltips = encodings.findall("tooltip")
+        self.assertEqual(len(tooltips), 1)
+        self.assertIn("Discount", tooltips[0].get("column", ""))
+
     def test_filters(self):
         self.editor.add_worksheet("TestFilter")
         filters = [

@@ -633,6 +633,7 @@ def add_dashboard_set_action(
         "edit-group-action",
         nsmap={"user": "http://www.tableausoftware.com/xml/user"},
     )
+    _ensure_group_action_manifest(editor)
     _append_action(actions_el, action_el)
     action_el.set("caption", action_caption)
     action_el.set("name", f"[Action{action_index}]")
@@ -666,6 +667,23 @@ def _ensure_parameter_action_manifest(editor) -> None:
                 schema_viewer.addprevious(feature)
             else:
                 manifest.append(feature)
+
+
+def _ensure_group_action_manifest(editor) -> None:
+    """Enable the schema-gated ``edit-group-action`` workbook element."""
+
+    manifest = editor.root.find("document-format-change-manifest")
+    if manifest is None:
+        manifest = etree.Element("document-format-change-manifest")
+        editor.root.insert(0, manifest)
+
+    if manifest.find("GroupAction") is None:
+        feature = etree.Element("GroupAction")
+        schema_viewer = manifest.find("SchemaViewerObjectModel")
+        if schema_viewer is not None:
+            schema_viewer.addprevious(feature)
+        else:
+            manifest.append(feature)
 
 
 def _validate_action_targets(
@@ -718,9 +736,9 @@ def _validate_action_targets(
                 f"Unsupported clear_behavior '{clear_behavior}'. "
                 f"Use one of {tuple(_PARAMETER_ACTION_CLEAR_BEHAVIORS)}."
             )
-        if not clear_value.strip():
+        if clear_behavior == "set-value" and not clear_value.strip():
             raise ValueError(
-                "action_type 'parameter' requires clear_value in Tableau's "
+                "parameter actions with clear_behavior='set-value' require clear_value in Tableau's "
                 "serialized format (for example 'd:2026-02-12' or 'i:0')."
             )
 
@@ -740,9 +758,10 @@ def _configure_parameter_action(
     agg_el = etree.SubElement(action_el, "agg-type")
     agg_el.set("type", aggregation)
 
-    clear_el = etree.SubElement(action_el, "clear-option")
-    clear_el.set("type", _PARAMETER_ACTION_CLEAR_BEHAVIORS[clear_behavior])
-    clear_el.set("value", clear_value)
+    if clear_behavior == "set-value" or clear_value.strip():
+        clear_el = etree.SubElement(action_el, "clear-option")
+        clear_el.set("type", _PARAMETER_ACTION_CLEAR_BEHAVIORS[clear_behavior])
+        clear_el.set("value", clear_value)
 
     source_instance = editor.field_registry.parse_expression(source_field).instance_name
     source_reference = editor.field_registry.resolve_full_reference(source_instance)

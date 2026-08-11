@@ -17,6 +17,7 @@ from .helpers import build_dimension_shelf
 
 
 _SPECIAL_MULTIPLE_VALUES = "Multiple Values"
+_SPECIAL_MEASURE_NAMES = "Measure Names"
 
 
 class LayeredChartBuilder(BaseChartBuilder):
@@ -49,11 +50,16 @@ class LayeredChartBuilder(BaseChartBuilder):
 
     @staticmethod
     def _is_special(expression: Optional[str]) -> bool:
-        return str(expression or "").strip() == _SPECIAL_MULTIPLE_VALUES
+        return str(expression or "").strip() in {
+            _SPECIAL_MULTIPLE_VALUES,
+            _SPECIAL_MEASURE_NAMES,
+        }
 
     def _field_ref(self, instances, expression: str, ds_name: str) -> str:
-        if self._is_special(expression):
+        if str(expression or "").strip() == _SPECIAL_MULTIPLE_VALUES:
             return f"[{ds_name}].[Multiple Values]"
+        if str(expression or "").strip() == _SPECIAL_MEASURE_NAMES:
+            return f"[{ds_name}].[:Measure Names]"
         ci = self._instance_for_expression(instances, expression)
         if ci is None:
             raise ValueError(f"Could not resolve layered-chart field: {expression}")
@@ -240,9 +246,27 @@ class LayeredChartBuilder(BaseChartBuilder):
         instance = self._instance_for_expression(instances, color)
         if instance is None:
             raise ValueError(f"Could not resolve layered color field: {color}")
-        full_ref = self.field_registry.resolve_full_reference(
-            instance.instance_name
-        )
+        if self._datasource.find(
+            f"column-instance[@name='{instance.instance_name}']"
+        ) is None:
+            palette_instance = etree.Element("column-instance")
+            palette_instance.set("column", instance.column_local_name)
+            palette_instance.set("derivation", instance.derivation)
+            palette_instance.set("name", instance.instance_name)
+            palette_instance.set("pivot", "key")
+            palette_instance.set("type", instance.ci_type)
+            anchor = next(
+                (
+                    self._datasource.find(tag)
+                    for tag in ("group", "layout", "style", "semantic-values", "date-options", "object-graph")
+                    if self._datasource.find(tag) is not None
+                ),
+                None,
+            )
+            if anchor is not None:
+                anchor.addprevious(palette_instance)
+            else:
+                self._datasource.append(palette_instance)
         style = self._datasource.find("style")
         if style is None:
             style = etree.Element("style")
@@ -274,12 +298,12 @@ class LayeredChartBuilder(BaseChartBuilder):
         if mark_rule is None:
             mark_rule = etree.SubElement(style, "style-rule", {"element": "mark"})
         for old in list(mark_rule.findall("encoding")):
-            if old.get("attr") == "color" and old.get("field") == full_ref:
+            if old.get("attr") == "color" and old.get("field") == instance.instance_name:
                 mark_rule.remove(old)
         encoding = etree.SubElement(
             mark_rule,
             "encoding",
-            {"attr": "color", "field": full_ref, "type": "palette"},
+            {"attr": "color", "field": instance.instance_name, "type": "palette"},
         )
         for value, hex_color in color_map.items():
             mapping = etree.SubElement(encoding, "map", {"to": str(hex_color)})
@@ -389,6 +413,15 @@ class LayeredChartBuilder(BaseChartBuilder):
                 None,
                 ds_name,
             )
+            if pane_spec.get("color") == _SPECIAL_MEASURE_NAMES:
+                encodings = pane.find("encodings")
+                if encodings is None:
+                    encodings = etree.SubElement(pane, "encodings")
+                etree.SubElement(
+                    encodings,
+                    "color",
+                    {"column": f"[{ds_name}].[:Measure Names]"},
+                )
             self._append_extra_labels(
                 pane,
                 instances,

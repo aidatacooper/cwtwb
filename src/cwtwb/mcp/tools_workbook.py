@@ -304,6 +304,8 @@ def add_reference_line(
     scope: str = "per-pane",
     formula: str = "average",
     label_type: str = "value",
+    label: str = "",
+    probability: str | None = "95",
     tooltip: str = "Average = <Value>",
     pane_index: int = 0,
 ) -> str:
@@ -316,6 +318,8 @@ def add_reference_line(
         scope=scope,
         formula=formula,
         label_type=label_type,
+        label=label,
+        probability=probability,
         tooltip=tooltip,
         pane_index=pane_index,
     )

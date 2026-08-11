@@ -72,6 +72,7 @@ class ChartsMixin:
         label_extra: Optional[list[str]] = None,
         label_runs: Optional[list[dict]] = None,
         label_param: Optional[str] = None,
+        table_calc_overrides: Optional[dict[str, list[dict]]] = None,
     ) -> str:
         """Route chart configuration to the correct builder."""
 
@@ -102,6 +103,7 @@ class ChartsMixin:
             label_extra=label_extra,
             label_runs=label_runs,
             label_param=label_param,
+            table_calc_overrides=table_calc_overrides,
         )
 
     def configure_dual_axis(

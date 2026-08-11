@@ -287,7 +287,7 @@ class DualAxisChartBuilder(BaseChartBuilder):
                     extra_refs = []
                     for ea in self.extra_axes:
                         ea_measure = ea.get("measure")
-                        if ea_measure:
+                        if ea_measure and not ea.get("overlay", False):
                             ea_ci = instances.get(ea_measure)
                             if ea_ci:
                                 extra_refs.append(self.field_registry.resolve_full_reference(ea_ci.instance_name))
@@ -350,7 +350,7 @@ class DualAxisChartBuilder(BaseChartBuilder):
                 # Count occurrences of this measure in seen_measures
                 x_index_val = None
                 count_prev = seen_measures.count(ea_measure)
-                if count_prev >= 1:
+                if count_prev >= 1 and not ea.get("overlay", False):
                     x_index_val = str(count_prev)  # "1" for second occurrence, "2" for third, etc.
 
                 seen_measures.append(ea_measure)

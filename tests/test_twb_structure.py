@@ -341,6 +341,13 @@ class TestMapChart:
             .worksheet_exists("MapFields")
             .has_encoding("MapFields", "lod")
             .has_encoding("MapFields", "geometry"))
+        worksheet = editor._find_worksheet("MapFields")
+        dependencies = worksheet.find("table/view/datasource-dependencies")
+        assert dependencies is not None
+        assert any(
+            instance.get("column") == "[Country/Region]"
+            for instance in dependencies.findall("column-instance")
+        )
 
     def test_map_without_map_fields(self, editor):
         """Map without map_fields should not have Country/Region LOD."""
@@ -473,6 +480,35 @@ class TestCalculatedFields:
         (TWBAssert(editor)
             .worksheet_exists("Ratios")
             .has_encoding("Ratios", "color"))
+
+    def test_nested_calculated_field_dependencies_keep_calculations(self, editor):
+        editor.add_calculated_field("Inner", "[Sales] * 2", "real")
+        editor.add_calculated_field("Outer", "[Inner] + 1", "real")
+        editor.add_worksheet("Nested")
+        editor.configure_chart("Nested", mark_type="Bar", columns=["SUM(Outer)"])
+
+        dependencies = editor._find_worksheet("Nested").find(
+            ".//datasource-dependencies"
+        )
+        inner = dependencies.find("column[@caption='Inner']")
+        assert inner is not None
+        assert inner.find("calculation") is not None
+        assert "Sales" in inner.find("calculation").get("formula")
+
+    def test_parameter_dependencies_are_added_to_calculated_views(self, editor):
+        editor.add_parameter("Target", datatype="real", default_value="100")
+        editor.add_calculated_field(
+            "Above Target", "[Sales] > [Parameters].[Target]", "boolean"
+        )
+        editor.add_worksheet("Parameterized")
+        editor.configure_chart(
+            "Parameterized", mark_type="Bar", columns=["SUM(Sales)"],
+            filters=[{"column": "Above Target", "values": ["true"]}],
+        )
+
+        view = editor._find_worksheet("Parameterized").find(".//view")
+        assert view.find("datasources/datasource[@name='Parameters']") is not None
+        assert view.find("datasource-dependencies[@datasource='Parameters']") is not None
 
 
 class TestDashboard:
@@ -674,6 +710,36 @@ class TestLayeredCharts:
         assert palette_map is not None
         assert palette_map.get("to") == "#112233"
         assert palette_map.findtext("bucket") == '"East"'
+        palette_instance = editor._datasource.find(
+            "column-instance[@column='[Region (Orders)]']"
+        )
+        assert palette_instance is not None
+
+
+class TestBasicChartTableCalculationAddressing:
+    def test_basic_chart_can_order_table_calculation_by_field(self, editor):
+        editor.add_calculated_field(
+            "Row Index", "INDEX()", datatype="integer", table_calc="Rows"
+        )
+        editor.add_worksheet("Indexed Line")
+        editor.configure_chart(
+            "Indexed Line",
+            mark_type="Line",
+            columns=["Row Index"],
+            rows=["SUM(Sales)"],
+            detail="MONTH(Order Date)",
+            table_calc_overrides={
+                "Row Index": [
+                    {"ordering_field": "MONTH(Order Date)", "ordering_type": "Field"}
+                ]
+            },
+        )
+        instance = editor._find_worksheet("Indexed Line").find(
+            ".//column-instance[@column][@derivation='User']"
+        )
+        table_calc = instance.find("table-calc")
+        assert table_calc.get("ordering-type") == "Field"
+        assert "mn:Order Date" in table_calc.get("ordering-field")
 
     def test_worksheet_title_is_authored_from_public_api(self, editor):
         editor.add_worksheet("Titled")

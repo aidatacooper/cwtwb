@@ -71,6 +71,25 @@ def test_date_like_measures_preserve_date_binding_not_sum() -> None:
     assert default_view_expression("YEAR(Order Date)", role="measure") == "YEAR(Order Date)"
 
 
+def test_exactdate_builds_continuous_untruncated_date_instance() -> None:
+    registry = _build_registry()
+    registry.register(
+        display_name="Display Date",
+        local_name="[Calculation_DisplayDate]",
+        datatype="date",
+        role="dimension",
+        field_type="ordinal",
+        is_calculated=True,
+        formula="[Order Date]",
+    )
+
+    ci = registry.parse_expression("EXACTDATE(Display Date)")
+
+    assert ci.derivation == "None"
+    assert ci.ci_type == "quantitative"
+    assert ci.instance_name == "[none:Calculation_DisplayDate:qk]"
+
+
 def test_column_instance_names_are_rejected_as_user_expressions() -> None:
     registry = _build_registry(allow_unknown_fields=True)
 
