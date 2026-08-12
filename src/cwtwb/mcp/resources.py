@@ -12,11 +12,15 @@ from .app import (
     read_skill,
     read_skills_index,
     read_tableau_functions,
+    read_gallery_index,
+    read_gallery_template,
     read_tool_surface,
 )
 
 __all__ = [
     "read_tableau_functions",
+    "read_gallery_index",
+    "read_gallery_template",
     "read_skills_index",
     "read_skill",
     "read_profiles_index",

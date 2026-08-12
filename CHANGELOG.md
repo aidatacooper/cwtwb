@@ -7,6 +7,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Unreleased
 
+## [0.27.0] - 2026-08-12
+
+### Added
+
+- **Calculation function safety**: validate called function names against the
+  packaged Tableau catalog before calculated fields mutate the workbook, with
+  structured diagnostics, close-match suggestions, and an explicit bypass for
+  newer functions not yet present in the catalog.
+- **Calculated-field semantic audit**: detect string-like calculated fields
+  incorrectly declared as measures, preview exact metadata changes by default,
+  and apply narrowly scoped repairs only when explicitly requested.
+- **Explainable dashboard Gallery**: rank seven packaged layout templates from
+  explicit dashboard requirements, report matching and penalty reasons, and
+  bind exact worksheet names into the existing canonical dashboard layout DSL.
+
+### Changed
+
+- **MCP authoring workflow**: expose formula validation, calculated-field
+  audit/repair, Gallery recommendation, Gallery layout generation, and Gallery
+  resources through the stable MCP server surface.
+
 ## [0.26.0] - 2026-08-04
 
 ### Added

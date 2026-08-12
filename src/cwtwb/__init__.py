@@ -39,6 +39,24 @@ from .migration import (  # noqa: E402
     preview_twb_migration,
 )
 from .contracts import TableColumn  # noqa: E402
+from .calculated_field_audit import (  # noqa: E402
+    CalculatedFieldChange,
+    CalculatedFieldIssue,
+    CalculatedFieldRepairResult,
+)
+from .formula_validator import (  # noqa: E402
+    FormulaValidationIssue,
+    FormulaValidationResult,
+    validate_formula_functions,
+)
+from .gallery import (  # noqa: E402
+    DashboardRequirements,
+    GalleryRecommendation,
+    GalleryTemplateSummary,
+    list_gallery_templates,
+    materialize_gallery_layout,
+    recommend_gallery_templates,
+)
 from .twb_analyzer import AnalysisReport, TWBAnalyzer, analyze_workbook  # noqa: E402
 from .twb_editor import TWBEditor  # noqa: E402
 from .validator import SchemaValidationResult, TWBValidationError, validate_against_schema  # noqa: E402
@@ -47,7 +65,15 @@ __all__ = [
     "AnalysisReport",
     "CAPABILITY_SPECS",
     "CapabilitySpec",
+    "CalculatedFieldChange",
+    "CalculatedFieldIssue",
+    "CalculatedFieldRepairResult",
+    "DashboardRequirements",
     "FieldRegistry",
+    "FormulaValidationIssue",
+    "FormulaValidationResult",
+    "GalleryRecommendation",
+    "GalleryTemplateSummary",
     "TableColumn",
     "TWBAnalyzer",
     "TWBEditor",
@@ -61,11 +87,15 @@ __all__ = [
     "format_capability_detail",
     "get_capability",
     "inspect_target_schema",
+    "list_gallery_templates",
     "list_capabilities",
+    "materialize_gallery_layout",
     "migrate_twb_guided",
     "profile_twb_for_migration",
     "propose_field_mapping",
     "preview_twb_migration",
+    "recommend_gallery_templates",
+    "validate_formula_functions",
 ]
 
 

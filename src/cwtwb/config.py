@@ -28,6 +28,9 @@ TABLEAU_FUNCTIONS_JSON = REFERENCES_DIR / "tableau_all_functions.json"
 # Directory containing skill files for AI agents
 SKILLS_DIR = Path(__file__).parent / "skills"
 
+# Directory containing explainable dashboard Gallery templates
+GALLERY_DIR = Path(__file__).parent / "gallery"
+
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 EXAMPLES_DIR = PROJECT_ROOT / "examples"
 TMP_DIR = PROJECT_ROOT / "tmp"

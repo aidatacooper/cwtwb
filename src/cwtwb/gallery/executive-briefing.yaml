@@ -1,0 +1,22 @@
+schema_version: 1
+name: executive-briefing
+title: Executive Briefing
+description: KPI-heavy briefing with one or two supporting analytical views.
+priority: 20
+base_score: 5
+intents: [overview, detail]
+preferences:
+  kpi_count: [3, 6]
+  chart_count: [1, 2]
+  filter_count: [0, 2]
+  chart_types: {Bar: 4, Line: 4, Map: 2}
+slots:
+  kpis: {mode: horizontal, min: 3, max: 6}
+  charts: {mode: horizontal, min: 1, max: 2}
+layout:
+  type: container
+  direction: vertical
+  children:
+    - {type: text, text: Executive Briefing, fixed_size: 70, font_size: '20', bold: true}
+    - {type: slot, slot: kpis, fixed_size: 200}
+    - {type: slot, slot: charts, weight: 1}

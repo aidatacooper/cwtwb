@@ -25,6 +25,12 @@ from lxml import etree
 
 from .field_registry import ColumnInstance, FieldRegistry
 from .config import _generate_uuid
+from .calculated_field_audit import (
+    CalculatedFieldIssue,
+    CalculatedFieldRepairResult,
+    audit_calculated_fields as audit_calculated_fields_impl,
+    repair_calculated_field_issues as repair_calculated_field_issues_impl,
+)
 from .charts import ChartsMixin
 from .connections import ConnectionsMixin
 from .dashboards import DashboardsMixin
@@ -604,6 +610,7 @@ class TWBEditor(ParametersMixin, ConnectionsMixin, ChartsMixin, DashboardsMixin)
         table_calc: Optional[str | dict[str, str]] = None,
         default_format: str = "",
         internal_name: Optional[str] = None,
+        validate_formula: bool = True,
     ) -> str:
         """Add a calculated field to the datasource.
 
@@ -618,10 +625,17 @@ class TWBEditor(ParametersMixin, ConnectionsMixin, ChartsMixin, DashboardsMixin)
                 attributes using Python-style or XML-style keys.
             default_format: Optional Tableau number format string, e.g. 'c"$"#,##0,K'
             internal_name: Optional explicit internal name, e.g. "[Calculation_12345]".
+            validate_formula: Check called function names against the packaged
+                Tableau function catalog before mutating the workbook.
 
         Returns:
             Confirmation message.
         """
+        if validate_formula:
+            from .formula_validator import assert_valid_formula_functions
+
+            assert_valid_formula_functions(formula, field_name=field_name)
+
         inferred_role, inferred_field_type = self._infer_calculated_field_semantics(
             formula,
             datatype,
@@ -693,6 +707,32 @@ class TWBEditor(ParametersMixin, ConnectionsMixin, ChartsMixin, DashboardsMixin)
         )
 
         return f"Added calculated field '{field_name}' = {formula}"
+
+    def audit_calculated_fields(self) -> list[CalculatedFieldIssue]:
+        """Report known calculated-field metadata contradictions."""
+
+        return audit_calculated_fields_impl(self.root)
+
+    def repair_calculated_field_issues(
+        self,
+        *,
+        issue_codes: list[str] | tuple[str, ...] | None = None,
+        field_names: list[str] | tuple[str, ...] | None = None,
+        datasource_names: list[str] | tuple[str, ...] | None = None,
+        dry_run: bool = True,
+    ) -> CalculatedFieldRepairResult:
+        """Preview or apply selected evidence-backed metadata repairs."""
+
+        result = repair_calculated_field_issues_impl(
+            self.root,
+            issue_codes=issue_codes,
+            field_names=field_names,
+            datasource_names=datasource_names,
+            dry_run=dry_run,
+        )
+        if result.mutated:
+            self._reinit_fields()
+        return result
 
     def add_group(
         self,

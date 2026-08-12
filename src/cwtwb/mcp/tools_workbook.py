@@ -79,6 +79,13 @@ from ..connections import (
     infer_tableau_semantic_role,
 )
 from ..dashboards import write_dashboard_layout_file
+from ..formula_validator import validate_formula_functions
+from ..gallery import (
+    DashboardRequirements,
+    list_gallery_templates as list_gallery_templates_impl,
+    materialize_gallery_layout,
+    recommend_gallery_templates as recommend_gallery_templates_impl,
+)
 from ..migration import (
     apply_twb_migration_json,
     inspect_target_schema as inspect_target_schema_impl,
@@ -180,6 +187,7 @@ def add_calculated_field(
     table_calc: str | dict[str, str] | None = None,
     default_format: str = "",
     internal_name: str = "",
+    validate_formula: bool = True,
 ) -> str:
     """Add a calculated field to the datasource.
 
@@ -196,8 +204,56 @@ def add_calculated_field(
         table_calc=table_calc,
         default_format=default_format,
         internal_name=internal_name or None,
+        validate_formula=validate_formula,
     )
     return result + _skill_hint("add_calculated_field")
+
+
+@server.tool()
+def validate_formula(formula: str, field_name: str = "") -> str:
+    """Check Tableau function names without mutating the active workbook."""
+
+    payload = validate_formula_functions(formula).to_dict()
+    if field_name:
+        payload["field_name"] = field_name
+    return json.dumps(payload, ensure_ascii=False, indent=2)
+
+
+@server.tool()
+def audit_calculated_fields() -> str:
+    """Report calculated-field datatype/role contradictions without mutation."""
+
+    issues = get_editor().audit_calculated_fields()
+    return json.dumps(
+        {
+            "issue_count": len(issues),
+            "mutated": False,
+            "issues": [issue.to_dict() for issue in issues],
+        },
+        ensure_ascii=False,
+        indent=2,
+    )
+
+
+@server.tool()
+def repair_calculated_field_issues(
+    issue_codes: list[str] | None = None,
+    field_names: list[str] | None = None,
+    datasource_names: list[str] | None = None,
+    dry_run: bool = True,
+) -> str:
+    """Preview or explicitly apply selected calculated-field metadata repairs."""
+
+    result = get_editor().repair_calculated_field_issues(
+        issue_codes=issue_codes,
+        field_names=field_names,
+        datasource_names=datasource_names,
+        dry_run=dry_run,
+    )
+    payload = result.to_dict()
+    if dry_run and result.changes:
+        payload["next_step"] = "Re-run with dry_run=false to apply these exact changes."
+    return json.dumps(payload, ensure_ascii=False, indent=2)
 
 
 @server.tool()
@@ -891,6 +947,63 @@ def save_workbook(output_path: str) -> str:
 
 
 # --- Layout tools ---
+
+
+@server.tool()
+def list_gallery_templates() -> str:
+    """List packaged Gallery layouts and their explicit worksheet slots."""
+
+    return json.dumps(
+        [template.to_dict() for template in list_gallery_templates_impl()],
+        ensure_ascii=False,
+        indent=2,
+    )
+
+
+@server.tool()
+def recommend_gallery_templates(
+    kpi_count: int = 0,
+    chart_count: int = 0,
+    filter_count: int = 0,
+    chart_types: list[str] | None = None,
+    has_temporal_data: bool = False,
+    has_geographic_data: bool = False,
+    primary_intent: str = "",
+    limit: int = 3,
+) -> str:
+    """Recommend compatible Gallery templates with scores and reasons."""
+
+    requirements = DashboardRequirements(
+        kpi_count=kpi_count,
+        chart_count=chart_count,
+        filter_count=filter_count,
+        chart_types=tuple(chart_types or ()),
+        has_temporal_data=has_temporal_data,
+        has_geographic_data=has_geographic_data,
+        primary_intent=primary_intent or None,
+    )
+    recommendations = recommend_gallery_templates_impl(requirements, limit=limit)
+    return json.dumps(
+        [recommendation.to_dict() for recommendation in recommendations],
+        ensure_ascii=False,
+        indent=2,
+    )
+
+
+@server.tool()
+def generate_gallery_layout(
+    template_name: str,
+    worksheet_slots: dict[str, str | list[str]],
+    output_path: str = "",
+) -> str:
+    """Bind exact worksheet names to a Gallery template and validate the layout DSL."""
+
+    result = materialize_gallery_layout(
+        template_name,
+        worksheet_slots=worksheet_slots,
+        output_path=output_path or None,
+    )
+    return json.dumps(result, ensure_ascii=False, indent=2)
 
 
 @server.tool()

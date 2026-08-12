@@ -17,11 +17,25 @@ into a cohesive, interactive dashboard with a clear information hierarchy.
 ```text
 1. Call list_worksheets and lock the exact worksheet name list
 2. Plan the dashboard hierarchy from those names
-3. Design the layout using generate_layout_json
-4. Create the dashboard with add_dashboard(layout=<json_path>)
-5. Add interaction actions with add_dashboard_action
-6. Add concise worksheet captions where narrative context helps
+3. Optionally use recommend_gallery_templates to choose an explainable starting structure
+4. Design the layout using generate_layout_json or generate_gallery_layout
+5. Create the dashboard with add_dashboard(layout=<json_path>)
+6. Add interaction actions with add_dashboard_action
+7. Add concise worksheet captions where narrative context helps
 ```
+
+## Gallery Template Selection
+
+Use `recommend_gallery_templates` when the dashboard fits a common structure:
+overview, executive briefing, comparison, trend, geographic, KPI detail, or a
+filter-heavy layout. Pass explicit KPI/chart/filter counts, chart types, and
+temporal/geographic flags. Review both `matched` and `penalties`; a score is a
+design aid, not proof that the dashboard answers the business question.
+
+After choosing a template, call `generate_gallery_layout` with exact worksheet
+bindings for every declared slot. The tool validates capacities and emits the
+same canonical layout DSL used everywhere else. It does not create charts,
+guess fields, add actions, or apply inferred business formatting.
 
 ## Information Hierarchy
 

@@ -1,0 +1,22 @@
+schema_version: 1
+name: executive-summary
+title: Executive Summary
+description: Balanced KPI row and analytical chart grid for a general overview.
+priority: 10
+base_score: 15
+intents: [overview]
+preferences:
+  kpi_count: [2, 4]
+  chart_count: [2, 4]
+  filter_count: [0, 3]
+  chart_types: {Bar: 4, Line: 4, Area: 3, Pie: 2, Map: 2}
+slots:
+  kpis: {mode: horizontal, min: 2, max: 4}
+  charts: {mode: grid-2x2, min: 2, max: 4}
+layout:
+  type: container
+  direction: vertical
+  children:
+    - {type: text, text: Executive Summary, fixed_size: 70, font_size: '20', bold: true}
+    - {type: slot, slot: kpis, fixed_size: 120}
+    - {type: slot, slot: charts, weight: 1}

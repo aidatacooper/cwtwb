@@ -37,6 +37,7 @@ from mcp.server.fastmcp import FastMCP
 from ..config import (
     SKILLS_DIR,
     TABLEAU_FUNCTIONS_JSON,
+    GALLERY_DIR,
     find_profile_path,
     get_profile_dirs,
     iter_profile_files,
@@ -73,6 +74,10 @@ server = FastMCP(
     "do not use zones or absolute-position dashboard schemas. "
     "Generate layout files with generate_layout_json first for DSL validation, then pass the resulting JSON or YAML file path to add_dashboard(layout=...). "
     "Prefer a small fixed layout template and fill worksheet names and sizes instead of free-form layout generation. "
+    "Optionally call recommend_gallery_templates for an explainable starting structure, then "
+    "generate_gallery_layout with exact worksheet slot bindings. Gallery recommendations do not create charts. "
+    "Use validate_formula before authoring uncertain calculations. add_calculated_field validates called function "
+    "names by default; calculated-field repair is separate and defaults to a dry run. "
     "Use validate_workbook after saving when the human asks for an explicit validation report. "
     "For deeper semantic validation (formulas, field references, data connectivity), use "
     "validate_workbook_api which calls the Tableau Cloud REST API. Pass env_path for "
@@ -193,6 +198,34 @@ def read_tableau_functions() -> str:
         return f.read()
 
 
+@server.resource("cwtwb://gallery/index")
+def read_gallery_index() -> str:
+    """List packaged Gallery templates and their resource URIs."""
+
+    from ..gallery import list_gallery_templates
+
+    lines = ["# cwtwb Dashboard Gallery", ""]
+    for template in list_gallery_templates():
+        lines.append(
+            f"- `{template.name}`: {template.description} "
+            f"(`cwtwb://gallery/{template.name}`)"
+        )
+    return "\n".join(lines)
+
+
+@server.resource("cwtwb://gallery/{template_name}")
+def read_gallery_template(template_name: str) -> str:
+    """Read one packaged Gallery YAML template."""
+
+    path = GALLERY_DIR / f"{template_name}.yaml"
+    if not path.is_file():
+        available = ", ".join(sorted(item.stem for item in GALLERY_DIR.glob("*.yaml")))
+        raise FileNotFoundError(
+            f"Gallery template '{template_name}' not found. Available: {available}"
+        )
+    return path.read_text(encoding="utf-8")
+
+
 _SKILL_NAMES = [
     "data_quality",
     "governance",
@@ -225,11 +258,13 @@ def _tool_surface_text() -> str:
             "2. `set_excel_connection`, `set_csv_connection`, `set_hyper_connection`, `set_mysql_connection`, or `set_tableauserver_connection` when changing the datasource",
             "3. `list_fields` and `list_worksheets`",
             "4. `add_worksheet` plus `configure_chart`, `configure_dual_axis`, or `configure_chart_recipe`",
-            "5. `list_worksheets` before dashboard authoring; reuse exact worksheet names",
-            "6. `generate_layout_json` or `generate_layout_yaml` for custom dashboard layout files, then `add_dashboard`",
-            "7. `save_workbook` to write the `.twb` or `.twbx` file",
-            "8. Optional validation: `validate_workbook`, then prefer `validate_workbook_api(env_path=...)` for cloud semantic validation",
-            "9. Optional publish/visual evidence only: `upload_workbook(env_path=...)`, then `screenshot_workbook(env_path=...)` if a screenshot is required",
+            "5. Optional safety: `validate_formula`, then `audit_calculated_fields`; repairs default to a dry run",
+            "6. `list_worksheets` before dashboard authoring; reuse exact worksheet names",
+            "7. Optionally `recommend_gallery_templates`, then `generate_gallery_layout` with exact slot bindings",
+            "8. `generate_layout_json` or `generate_layout_yaml` for custom dashboard layout files, then `add_dashboard`",
+            "9. `save_workbook` to write the `.twb` or `.twbx` file",
+            "10. Optional validation: `validate_workbook`, then prefer `validate_workbook_api(env_path=...)` for cloud semantic validation",
+            "11. Optional publish/visual evidence only: `upload_workbook(env_path=...)`, then `screenshot_workbook(env_path=...)` if a screenshot is required",
             "",
             "## Important boundaries",
             "",
@@ -245,6 +280,8 @@ def _tool_surface_text() -> str:
             "- Do not edit MCP server configuration just to switch Tableau credentials for one workbook.",
             "- For phase guidance, read `cwtwb://skills/index` and then the relevant `cwtwb://skills/<skill_name>` resource.",
             "- For Tableau calculation functions, read `file://docs/tableau_all_functions.json`.",
+            "- Gallery recommendations are explainable layout suggestions; they do not inspect data, create charts, or prove visual quality.",
+            "- Gallery resources are available at `cwtwb://gallery/index` and `cwtwb://gallery/<template_name>`.",
             "",
             "If a client cannot see tools such as `create_workbook`, the MCP client connection is misconfigured or stale. Reconnect/restart the client rather than trying `mcp call` in a terminal.",
         ]

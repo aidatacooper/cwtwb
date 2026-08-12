@@ -164,6 +164,42 @@ Both formats support the same wrapper structure:
 - `layout_schema`: canonical dashboard layout tree
 - `_ascii_layout_preview`: optional human/agent review aid
 
+### Explainable Dashboard Gallery
+
+cwtwb includes seven packaged Gallery templates for common analytical
+structures. Recommendations use explicit requirements and return their scores,
+matching reasons, and penalties; they do not inspect data or silently generate
+charts.
+
+```python
+from cwtwb import DashboardRequirements, recommend_gallery_templates
+
+recommendations = recommend_gallery_templates(
+    DashboardRequirements(
+        primary_intent="trend",
+        has_temporal_data=True,
+        kpi_count=2,
+        chart_count=3,
+        chart_types=("Line", "Bar"),
+    )
+)
+```
+
+After calling `list_worksheets`, bind exact worksheet names with
+`materialize_gallery_layout(...)` or the MCP `generate_gallery_layout` tool.
+The generated result uses the same canonical DSL accepted by `add_dashboard`.
+
+### Calculation Safety
+
+`add_calculated_field` checks identifiers used as function calls against the
+packaged Tableau catalog before editing XML. For example, `CHR(10)` is rejected
+with a `CHAR()` suggestion. This is a lightweight function-name check, not a
+complete Tableau parser or substitute for Tableau Cloud semantic validation.
+
+Use `validate_formula=False` only when targeting a newer Tableau function that
+is not yet in the packaged catalog. Existing workbooks can be reviewed with
+`audit_calculated_fields()`. Repairs are separate and default to `dry_run=True`.
+
 ## Highlights
 
 | Area | What you get |
@@ -172,7 +208,8 @@ Both formats support the same wrapper structure:
 | Chart building | Build bar, line, pie, map, KPI, dual-axis, layered, and ordered multi-column table workbooks |
 | Table calculations | Author calculation addressing metadata, domain completion, subtotals, and nested table-calculation dependencies |
 | Dashboard actions | Add filter, highlight, URL, navigation, parameter, and set actions through Python or MCP |
-| Safety | Validate structure, Tableau XSD (2026.1/2026.2), and REST API semantic validation before publishing |
+| Safety | Validate function names and calculated-field roles, then validate structure, Tableau XSD (2026.1/2026.2), and REST API semantics before publishing |
+| Dashboard Gallery | Rank seven explainable layouts and bind exact worksheet names into the canonical DSL |
 | Cloud validation | REST API syntactic/semantic validation + upload to Tableau Cloud/Server with optional screenshot |
 | Migration | Repoint existing workbooks to new data sources with explicit steps |
 | MCP support | Drive workbook workflows from Claude, Cursor, VSCode, or other MCP clients |

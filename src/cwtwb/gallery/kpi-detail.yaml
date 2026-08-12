@@ -1,0 +1,24 @@
+schema_version: 1
+name: kpi-detail
+title: KPI Detail
+description: KPI row, one featured chart, and compact supporting details.
+priority: 60
+base_score: 5
+intents: [detail]
+preferences:
+  kpi_count: [2, 5]
+  chart_count: [2, 3]
+  filter_count: [0, 3]
+  chart_types: {Line: 4, Bar: 4, Area: 3, Map: 2}
+slots:
+  kpis: {mode: horizontal, min: 2, max: 5}
+  featured: {mode: single, min: 1, max: 1}
+  details: {mode: horizontal, min: 1, max: 2}
+layout:
+  type: container
+  direction: vertical
+  children:
+    - {type: text, text: KPI Detail, fixed_size: 70, font_size: '20', bold: true}
+    - {type: slot, slot: kpis, fixed_size: 120}
+    - {type: slot, slot: featured, weight: 2}
+    - {type: slot, slot: details, weight: 1}

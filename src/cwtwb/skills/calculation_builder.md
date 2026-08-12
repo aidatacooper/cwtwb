@@ -20,6 +20,16 @@ You are a **Tableau calculation expert**. Your job is to define parameters and c
 4. Verify: call list_fields to confirm all fields are registered
 ```
 
+Before mutation, `add_calculated_field` validates identifiers used as function
+calls against the packaged Tableau catalog. Use the read-only `validate_formula`
+tool when you want a separate structured check. This catches misspellings such
+as `CHR()` and suggests `CHAR()` but does not validate field existence,
+aggregation compatibility, or Tableau runtime behavior.
+
+Only pass `validate_formula=false` for a known newer Tableau function missing
+from the packaged catalog, and record that compatibility assumption for final
+Tableau validation.
+
 ## Parameter Best Practices
 
 ### Naming
@@ -54,6 +64,14 @@ add_parameter(
 ```
 
 ## Calculated Field Best Practices
+
+### Metadata Audit and Repair
+
+Use `audit_calculated_fields` after opening or building a workbook. It currently
+reports the evidence-backed case where a string-like calculated field is marked
+as a measure. `repair_calculated_field_issues` defaults to `dry_run=true` and
+returns the exact proposed before/after metadata. Apply it only after reviewing
+the datasource and field identity; it is not a general type inference engine.
 
 ### Formula Syntax Rules
 1. **Field references** use brackets: `[Sales]`, `[Profit]`
