@@ -2,8 +2,14 @@
 
 ## Quick start
 
+External contributors should fork the repository, then check out their fork in
+any environment that can run Python and Git. A local clone is the usual path,
+but GitHub Codespaces or another cloud development environment works too.
+Maintainers may create a branch directly in the upstream repository. Small
+documentation-only changes can use GitHub's web editor.
+
 ```bash
-git clone https://github.com/your-org/cwtwb
+git clone https://github.com/<your-account>/cwtwb
 cd cwtwb
 pip install -e ".[dev]"
 pytest
@@ -13,7 +19,9 @@ pytest
 If you only need runtime usage, `pip install -e .` is enough.
 
 All tests should pass before you start. If any fail, check the known-issues
-section in `tests/README.md` first.
+section in `tests/README.md` first. Pull requests run the same test suite on
+GitHub, so a contributor needs a checked-out working copy, not necessarily a
+locally installed development environment.
 
 ---
 

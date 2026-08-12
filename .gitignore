@@ -59,3 +59,5 @@ prototype/frontend/dist/
 prototype/frontend/_tmp_*
 prototype/data/interactions.jsonl
 .tmp_test_outputs/
+vendor/tableau-document-schemas/schemas/*/_user_ns_stub.xsd
+vendor/tableau-document-schemas/schemas/*/_xml_ns_stub.xsd

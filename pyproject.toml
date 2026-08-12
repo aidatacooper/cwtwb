@@ -19,7 +19,7 @@ classifiers = [
 ]
 dependencies = [
     "lxml>=5.0",
-    "mcp[cli]>=1.0",
+    "mcp[cli]>=1.0,<2.0",
     "openpyxl>=3.1",
     "PyYAML>=6.0",
     "xlrd>=2.0",
@@ -30,6 +30,7 @@ dev = [
     "pytest>=8.0",
     "ruff>=0.6",
     "mypy>=1.10",
+    "tableauhyperapi>=0.0.21408",
 ]
 examples = [
     "tableauhyperapi>=0.0.21408",
