@@ -220,11 +220,15 @@ class ChartsMixin:
         hide_droplines: bool = False,
         hide_reflines: bool = False,
         hide_table_dividers: bool = False,
+        table_dividers: Optional[list] = None,
         disable_tooltip: bool = False,
+        show_column_totals: bool = False,
+        show_row_totals: bool = False,
         pane_cell_style: Optional[dict] = None,
         pane_datalabel_style: Optional[dict] = None,
         pane_mark_style: Optional[dict] = None,
         pane_trendline_hidden: bool = False,
+        panes_style: Optional[dict | list] = None,
         label_formats: Optional[list] = None,
         cell_formats: Optional[list] = None,
         header_formats: Optional[list] = None,
@@ -310,11 +314,15 @@ class ChartsMixin:
             hide_droplines=hide_droplines,
             hide_reflines=hide_reflines,
             hide_table_dividers=hide_table_dividers,
+            table_dividers=table_dividers,
             disable_tooltip=disable_tooltip,
+            show_column_totals=show_column_totals,
+            show_row_totals=show_row_totals,
             pane_cell_style=pane_cell_style,
             pane_datalabel_style=pane_datalabel_style,
             pane_mark_style=pane_mark_style,
             pane_trendline_hidden=pane_trendline_hidden,
+            panes_style=panes_style,
             resolved_label_formats=resolved_label_formats,
             resolved_cell_formats=resolved_cell_formats,
             resolved_header_formats=resolved_header_formats,
@@ -330,15 +338,21 @@ class ChartsMixin:
             ("hide_row_field_labels", hide_row_field_labels),
             ("hide_droplines", hide_droplines), ("hide_table_dividers", hide_table_dividers),
             ("disable_tooltip", disable_tooltip),
+            ("show_column_totals", show_column_totals),
+            ("show_row_totals", show_row_totals),
         ]:
             if flag_val:
                 parts.append(flag_name)
+        if table_dividers:
+            parts.append(f"table_dividers({len(table_dividers)})")
         if pane_cell_style:
             parts.append("pane_cell_style")
         if pane_datalabel_style:
             parts.append("pane_datalabel_style")
         if pane_mark_style:
             parts.append("pane_mark_style")
+        if panes_style:
+            parts.append("panes_style")
         if label_formats:
             parts.append(f"label_formats({len(label_formats)})")
         if cell_formats:

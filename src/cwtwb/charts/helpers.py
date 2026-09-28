@@ -177,17 +177,31 @@ def apply_worksheet_style(
     hide_droplines: bool = False,
     hide_reflines: bool = False,
     hide_table_dividers: bool = False,
+    table_dividers: list[dict] | None = None,
     disable_tooltip: bool = False,
+    show_column_totals: bool = False,
+    show_row_totals: bool = False,
     pane_cell_style: dict | None = None,
     pane_datalabel_style: dict | None = None,
     pane_mark_style: dict | None = None,
     pane_trendline_hidden: bool = False,
+    panes_style: dict[str | int, dict] | list[dict] | None = None,
     resolved_label_formats: list[dict] | None = None,
     resolved_cell_formats: list[dict] | None = None,
     resolved_header_formats: list[dict] | None = None,
     resolved_axis_style: dict | None = None,
 ) -> None:
     """Apply worksheet-level styling: background, axis/grid/border visibility."""
+
+    # Column / Row totals visibility
+    if show_column_totals:
+        cols_el = table.find("cols")
+        if cols_el is not None:
+            cols_el.set("total", "true")
+    if show_row_totals:
+        rows_el = table.find("rows")
+        if rows_el is not None:
+            rows_el.set("total", "true")
 
     # Tooltip disable (goes directly into table)
     if disable_tooltip:
@@ -303,6 +317,19 @@ def apply_worksheet_style(
                 fmt.set("attr", attr)
                 fmt.set("scope", scope)
                 fmt.set("value", val)
+    elif table_dividers:
+        rule = etree.SubElement(table_style, "style-rule")
+        rule.set("element", "table-div")
+        for div_spec in table_dividers:
+            scope = div_spec.get("scope")
+            for attr, val in div_spec.items():
+                if attr in ("scope", "_field_ref"):
+                    continue
+                fmt = etree.SubElement(rule, "format")
+                fmt.set("attr", attr.replace("_", "-"))
+                if scope:
+                    fmt.set("scope", scope)
+                fmt.set("value", str(val))
 
     # Per-field label formats: each entry has _field_ref + attr→value pairs
     if resolved_label_formats:
@@ -346,7 +373,7 @@ def apply_worksheet_style(
                     fmt.set("field", field_ref)
                 fmt.set("value", str(val))
 
-    # Per-field table-level header formats (height, width per field)
+    # Table-level header formats (height, width, total-label, etc.)
     if resolved_header_formats:
         header_rule = None
         for sr in table_style.findall("style-rule"):
@@ -358,14 +385,34 @@ def apply_worksheet_style(
             header_rule.set("element", "header")
         for hf in resolved_header_formats:
             field_ref = hf.get("_field_ref")
-            for attr, val in hf.items():
-                if attr == "_field_ref":
-                    continue
+            scope = hf.get("scope")
+            data_class = hf.get("data_class") or hf.get("data-class")
+            attr = hf.get("attr")
+            value = hf.get("value")
+
+            if attr is not None and value is not None:
                 fmt = etree.SubElement(header_rule, "format")
-                fmt.set("attr", attr.replace("_", "-"))
+                fmt.set("attr", str(attr).replace("_", "-"))
                 if field_ref:
                     fmt.set("field", field_ref)
-                fmt.set("value", str(val))
+                if scope:
+                    fmt.set("scope", scope)
+                if data_class:
+                    fmt.set("data-class", data_class)
+                fmt.set("value", str(value))
+            else:
+                for k, v in hf.items():
+                    if k in ("_field_ref", "scope", "data_class", "data-class"):
+                        continue
+                    fmt = etree.SubElement(header_rule, "format")
+                    fmt.set("attr", str(k).replace("_", "-"))
+                    if field_ref:
+                        fmt.set("field", field_ref)
+                    if scope:
+                        fmt.set("scope", scope)
+                    if data_class:
+                        fmt.set("data-class", data_class)
+                    fmt.set("value", str(v))
 
     # Axis style: any field-less formats + per-field formats
     # Find existing axis rule (e.g. from dual-axis builder) or create new one
@@ -398,58 +445,114 @@ def apply_worksheet_style(
                 fmt.set("scope", pf["scope"])
             fmt.set("value", val)
 
-    # Pane-level styles (cell, datalabel, mark, trendline)
+    def _apply_pane_element_style(pane_el: etree._Element, p_spec: dict) -> None:
+        mark_class = p_spec.get("mark_class")
+        if mark_class:
+            m_el = pane_el.find("mark")
+            if m_el is None:
+                m_el = etree.SubElement(pane_el, "mark")
+            m_el.set("class", mark_class)
+
+        p_style = pane_el.find("style")
+        if p_style is None:
+            p_style = etree.SubElement(pane_el, "style")
+
+        cell_style = p_spec.get("cell_style") or p_spec.get("pane_cell_style")
+        if cell_style:
+            c_rule = etree.SubElement(p_style, "style-rule")
+            c_rule.set("element", "cell")
+            for attr, val in cell_style.items():
+                fmt = etree.SubElement(c_rule, "format")
+                fmt.set("attr", str(attr).replace("_", "-"))
+                fmt.set("value", str(val))
+
+        datalabel_style = p_spec.get("datalabel_style") or p_spec.get("pane_datalabel_style")
+        if datalabel_style:
+            dl_rule = etree.SubElement(p_style, "style-rule")
+            dl_rule.set("element", "datalabel")
+            for attr, val in datalabel_style.items():
+                fmt = etree.SubElement(dl_rule, "format")
+                fmt.set("attr", str(attr).replace("_", "-"))
+                fmt.set("value", str(val))
+
+        mark_style = p_spec.get("mark_style") or p_spec.get("pane_mark_style")
+        if mark_style:
+            m_rule = None
+            for sr in p_style.findall("style-rule"):
+                if sr.get("element") == "mark":
+                    m_rule = sr
+                    break
+            if m_rule is None:
+                m_rule = etree.SubElement(p_style, "style-rule")
+                m_rule.set("element", "mark")
+            for attr, val in mark_style.items():
+                attr_name = str(attr).replace("_", "-")
+                for existing_fmt in list(m_rule.findall("format")):
+                    if existing_fmt.get("attr") == attr_name:
+                        m_rule.remove(existing_fmt)
+                fmt = etree.SubElement(m_rule, "format")
+                fmt.set("attr", attr_name)
+                fmt.set("value", str(val))
+
+    # Single-pane styles (cell, datalabel, mark, trendline)
     if pane_cell_style or pane_datalabel_style or pane_mark_style or pane_trendline_hidden:
         panes_el = table.find("panes")
         pane = panes_el.find("pane") if panes_el is not None else None
         if pane is None:
             pane = table.find("pane")
         if pane is not None:
-            pane_style_el = pane.find("style")
-            if pane_style_el is None:
-                pane_style_el = etree.SubElement(pane, "style")
-
-            if pane_cell_style:
-                rule = etree.SubElement(pane_style_el, "style-rule")
-                rule.set("element", "cell")
-                for attr, val in pane_cell_style.items():
-                    fmt = etree.SubElement(rule, "format")
-                    fmt.set("attr", attr)
-                    fmt.set("value", str(val))
-
-            if pane_datalabel_style:
-                rule = etree.SubElement(pane_style_el, "style-rule")
-                rule.set("element", "datalabel")
-                for attr, val in pane_datalabel_style.items():
-                    fmt = etree.SubElement(rule, "format")
-                    fmt.set("attr", attr)
-                    fmt.set("value", str(val))
-
-            if pane_mark_style:
-                mark_rule = None
-                for sr in pane_style_el.findall("style-rule"):
-                    if sr.get("element") == "mark":
-                        mark_rule = sr
-                        break
-                if mark_rule is None:
-                    mark_rule = etree.SubElement(pane_style_el, "style-rule")
-                    mark_rule.set("element", "mark")
-                for attr, val in pane_mark_style.items():
-                    # Replace existing format with same attr to avoid duplicates
-                    for existing_fmt in list(mark_rule.findall("format")):
-                        if existing_fmt.get("attr") == attr:
-                            mark_rule.remove(existing_fmt)
-                    fmt = etree.SubElement(mark_rule, "format")
-                    fmt.set("attr", attr)
-                    fmt.set("value", str(val))
-
+            _apply_pane_element_style(
+                pane,
+                {
+                    "pane_cell_style": pane_cell_style,
+                    "pane_datalabel_style": pane_datalabel_style,
+                    "pane_mark_style": pane_mark_style,
+                },
+            )
             if pane_trendline_hidden:
+                pane_style_el = pane.find("style")
+                if pane_style_el is None:
+                    pane_style_el = etree.SubElement(pane, "style")
                 tl_rule = etree.SubElement(pane_style_el, "style-rule")
                 tl_rule.set("element", "trendline")
                 for attr, val in [("stroke-size", "0"), ("line-visibility", "off")]:
                     fmt = etree.SubElement(tl_rule, "format")
                     fmt.set("attr", attr)
                     fmt.set("value", val)
+
+    # Multi-pane styling support: dict keyed by pane id ("0", "1", 0, etc.) or list of dicts with 'id' or matching order
+    if panes_style:
+        all_panes = table.findall(".//panes/pane")
+        if not all_panes:
+            all_panes = table.findall(".//pane")
+
+        if isinstance(panes_style, dict):
+            for pid_key, spec in panes_style.items():
+                target_pane = None
+                str_pid = str(pid_key)
+                for p in all_panes:
+                    if p.get("id") == str_pid:
+                        target_pane = p
+                        break
+                if target_pane is None and str_pid.isdigit():
+                    idx = int(str_pid)
+                    if 0 <= idx < len(all_panes):
+                        target_pane = all_panes[idx]
+                if target_pane is not None:
+                    _apply_pane_element_style(target_pane, spec)
+        elif isinstance(panes_style, list):
+            for i, spec in enumerate(panes_style):
+                target_pane = None
+                if "id" in spec:
+                    spec_id = str(spec["id"])
+                    for p in all_panes:
+                        if p.get("id") == spec_id:
+                            target_pane = p
+                            break
+                elif i < len(all_panes):
+                    target_pane = all_panes[i]
+                if target_pane is not None:
+                    _apply_pane_element_style(target_pane, spec)
 
 
 def apply_measure_values(

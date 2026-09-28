@@ -272,3 +272,93 @@ class TestCombinedOptions:
         assert fmts.get(("axis", "display", "", "")) == "false"
         assert fmts.get(("gridline", "line-visibility", "", "")) == "off"
         assert fmts.get(("worksheet", "display-field-labels", "cols", "")) == "false"
+
+
+# ── advanced styling options ──────────────────────────────────────────────────
+
+class TestAdvancedStylingOptions:
+    def test_custom_table_dividers(self, ws_editor):
+        ws_editor.configure_worksheet_style(
+            "Chart",
+            table_dividers=[
+                {"scope": "rows", "div-level": "1", "stroke-color": "#d4d4d4", "line-visibility": "on", "line-pattern-only": "dotted"},
+                {"scope": "cols", "stroke-size": "0", "line-visibility": "off"},
+            ],
+        )
+        ws = ws_editor._find_worksheet("Chart")
+        tdiv_rule = ws.find("./table/style/style-rule[@element='table-div']")
+        assert tdiv_rule is not None
+        fmts = {(f.get("attr"), f.get("scope")): f.get("value") for f in tdiv_rule.findall("format")}
+        assert fmts.get(("div-level", "rows")) == "1"
+        assert fmts.get(("stroke-color", "rows")) == "#d4d4d4"
+        assert fmts.get(("line-visibility", "rows")) == "on"
+        assert fmts.get(("line-pattern-only", "rows")) == "dotted"
+        assert fmts.get(("stroke-size", "cols")) == "0"
+        assert fmts.get(("line-visibility", "cols")) == "off"
+
+    def test_show_totals(self, ws_editor):
+        ws_editor.configure_worksheet_style(
+            "Chart",
+            show_column_totals=True,
+            show_row_totals=True,
+        )
+        ws = ws_editor._find_worksheet("Chart")
+        assert ws.find("./table/cols").get("total") == "true"
+        assert ws.find("./table/rows").get("total") == "true"
+
+    def test_panes_style_multi_pane(self, ws_editor):
+        # Configure dual axis to create multiple panes
+        ws_editor.configure_dual_axis(
+            "Chart",
+            mark_type_1="Pie",
+            mark_type_2="Circle",
+            columns=["SUM(Sales)", "AVG(Profit)"],
+            rows=["Category"],
+            dual_axis_shelf="columns",
+        )
+        ws_editor.configure_worksheet_style(
+            "Chart",
+            panes_style={
+                "1": {"mark_style": {"size": "1.15"}},
+                "2": {
+                    "mark_style": {"size": "0.82"},
+                    "cell_style": {"text-align": "center", "vertical-align": "center"},
+                    "datalabel_style": {"font-size": "6", "color-mode": "auto"},
+                },
+            },
+        )
+        ws = ws_editor._find_worksheet("Chart")
+        p1 = ws.find("./table/panes/pane[@id='1']")
+        p2 = ws.find("./table/panes/pane[@id='2']")
+        assert p1 is not None and p2 is not None
+        # Verify p1 mark size
+        p1_size = p1.find("./style/style-rule[@element='mark']/format[@attr='size']")
+        assert p1_size is not None and p1_size.get("value") == "1.15"
+        # Verify p2 mark size and cell style
+        p2_size = p2.find("./style/style-rule[@element='mark']/format[@attr='size']")
+        assert p2_size is not None and p2_size.get("value") == "0.82"
+        p2_align = p2.find("./style/style-rule[@element='cell']/format[@attr='text-align']")
+        assert p2_align is not None and p2_align.get("value") == "center"
+        p2_fontsize = p2.find("./style/style-rule[@element='datalabel']/format[@attr='font-size']")
+        assert p2_fontsize is not None and p2_fontsize.get("value") == "6"
+
+    def test_header_formats_with_total_attributes(self, ws_editor):
+        ws_editor.configure_worksheet_style(
+            "Chart",
+            header_formats=[
+                {"attr": "height-header", "value": "12"},
+                {"attr": "border-width", "data_class": "total", "scope": "cols", "value": "0"},
+                {"field": "Category", "attr": "total-label", "data_class": "total", "value": "Last 7 days"},
+            ],
+        )
+        ws = ws_editor._find_worksheet("Chart")
+        hdr_rule = ws.find("./table/style/style-rule[@element='header']")
+        assert hdr_rule is not None
+        fmts = hdr_rule.findall("format")
+        assert len(fmts) == 3
+        f_h = hdr_rule.find("format[@attr='height-header']")
+        assert f_h is not None and f_h.get("value") == "12"
+        f_bw = hdr_rule.find("format[@attr='border-width']")
+        assert f_bw is not None and f_bw.get("data-class") == "total" and f_bw.get("scope") == "cols" and f_bw.get("value") == "0"
+        f_tl = hdr_rule.find("format[@attr='total-label']")
+        assert f_tl is not None and f_tl.get("value") == "Last 7 days" and f_tl.get("data-class") == "total"
