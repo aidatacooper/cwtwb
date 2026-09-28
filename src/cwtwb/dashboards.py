@@ -78,10 +78,12 @@ CONTAINER_TYPE_ALIASES = {
     "horizontal": "horizontal",
     "vertical": "vertical",
     "tiled": "vertical",
+    "floating": "floating",
 }
 
 VALID_LAYOUT_NODE_TYPES = {
     "container",
+    "floating",
     "worksheet",
     "text",
     "filter",
@@ -1151,3 +1153,62 @@ class DashboardsMixin:
             caption=caption,
             clear_option=clear_option,
         )
+
+    def set_active_dashboard(self, dashboard_name: str, active_zone_id: str | int = "") -> str:
+        """Set a dashboard as the active window, and optionally its active zone.
+
+        Conforms strictly to Tableau DTD / XSD rules:
+        - window element does NOT allow 'active' attribute
+        - child <active id="..."/> element specifies active zone or -1
+        """
+        win = self._find_window(dashboard_name, window_class="dashboard")
+        if win is None:
+            raise ValueError(f"Dashboard window for '{dashboard_name}' not found.")
+        win.set("maximized", "true")
+        if "active" in win.attrib:
+            del win.attrib["active"]
+
+        act_id = str(active_zone_id) if str(active_zone_id).strip() else "-1"
+        act_el = win.find("active")
+        if act_el is not None:
+            act_el.set("id", act_id)
+        else:
+            etree.SubElement(win, "active", id=act_id)
+        return f"Activated dashboard '{dashboard_name}' (active zone={act_id})"
+
+    def set_window_state(
+        self,
+        name: str,
+        *,
+        hidden: bool | None = None,
+        maximized: bool | None = None,
+        zoom_entire_view: bool | None = None,
+    ) -> str:
+        """Configure window state (hidden, maximized, entire-view zoom) safely."""
+        win = self._find_window(name)
+        if win is None:
+            raise ValueError(f"Window '{name}' not found.")
+
+        if hidden is not None:
+            win.set("hidden", "true" if hidden else "false")
+        if maximized is not None:
+            win.set("maximized", "true" if maximized else "false")
+
+        if zoom_entire_view:
+            vp = win.find("viewpoint")
+            if vp is not None:
+                zoom = vp.find("zoom")
+                if zoom is None:
+                    etree.SubElement(vp, "zoom", type="entire-view")
+                else:
+                    zoom.set("type", "entire-view")
+            vps = win.find("viewpoints")
+            if vps is not None:
+                for vp_child in vps.findall("viewpoint"):
+                    zoom = vp_child.find("zoom")
+                    if zoom is None:
+                        etree.SubElement(vp_child, "zoom", type="entire-view")
+                    else:
+                        zoom.set("type", "entire-view")
+
+        return f"Updated window state for '{name}'"

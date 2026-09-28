@@ -12,13 +12,18 @@ logger = logging.getLogger(__name__)
 
 def _coerce_text_run(run: dict[str, Any]) -> dict[str, Any]:
     """Normalize one declarative text run while preserving Tableau-like keys."""
-    return {
+    res = {
         "text": str(run.get("text", "")),
         "bold": bool(run.get("bold", False)),
         "font_size": str(run.get("font_size", "12")),
         "font_color": str(run.get("font_color", "#111e29")),
         "font_alignment": str(run.get("font_alignment", "1")),
     }
+    if "font_name" in run or "fontname" in run:
+        res["font_name"] = str(run.get("font_name") or run.get("fontname"))
+    if "hyperlink" in run:
+        res["hyperlink"] = str(run.get("hyperlink"))
+    return res
 
 
 class FlexNode:
@@ -93,6 +98,19 @@ class FlexNode:
         self.h = int(round((px_h / dash_h) * 100000))
 
         if self.type != "container" or not self.children:
+            return
+
+        if self.direction == "floating":
+            for child in self.children:
+                if getattr(child, "absolute", None) and isinstance(child.absolute, dict):
+                    c_abs = child.absolute
+                    c_px_x = (float(c_abs.get("x", 0)) / 100000.0) * dash_w
+                    c_px_y = (float(c_abs.get("y", 0)) / 100000.0) * dash_h
+                    c_px_w = (float(c_abs.get("w", 100000)) / 100000.0) * dash_w
+                    c_px_h = (float(c_abs.get("h", 100000)) / 100000.0) * dash_h
+                    child.compute_layout(c_px_x, c_px_y, c_px_w, c_px_h, dash_w, dash_h)
+                else:
+                    child.compute_layout(px_x, px_y, px_w, px_h, dash_w, dash_h)
             return
 
         if self.direction == "horizontal":
@@ -295,8 +313,11 @@ def _render_container(
     context: dict[str, Any],
 ) -> None:
     """Render a layout container zone and recursively emit its children."""
-    zone.set("type-v2", "layout-flow")
-    zone.set("param", "horz" if node.direction == "horizontal" else "vert")
+    if node.direction == "floating" or node.type == "floating":
+        zone.set("type-v2", "layout-basic")
+    else:
+        zone.set("type-v2", "layout-flow")
+        zone.set("param", "horz" if node.direction == "horizontal" else "vert")
     if node.layout_strategy:
         zone.set("layout-strategy-id", node.layout_strategy)
     for child in node.children:
@@ -317,6 +338,10 @@ def _render_text(node: FlexNode, zone: etree._Element) -> None:
             run.set("fontalignment", str(text_run.get("font_alignment", "1")))
             run.set("fontcolor", str(text_run.get("font_color", "#111e29")))
             run.set("fontsize", str(text_run.get("font_size", "12")))
+            if text_run.get("font_name"):
+                run.set("fontname", str(text_run["font_name"]))
+            if text_run.get("hyperlink"):
+                run.set("hyperlink", str(text_run["hyperlink"]))
             run.text = str(text_run.get("text", ""))
         return
 

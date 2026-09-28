@@ -432,3 +432,65 @@ def test_text_runs_and_empty_zone_rendered(tmp_superstore):
     bg = empty_zone.find("./zone-style/format[@attr='background-color']")
     assert bg is not None
     assert bg.get("value") == "#192f3e"
+
+
+def test_floating_layout_and_window_state(tmp_superstore):
+    editor = TWBEditor(tmp_superstore)
+    editor.clear_worksheets()
+    editor.add_worksheet("Sheet A")
+    editor.configure_chart("Sheet A", mark_type="Bar", rows=["Ship Mode"], columns=["SUM(Sales)"])
+
+    layout = {
+        "type": "floating",
+        "children": [
+            {
+                "type": "worksheet",
+                "name": "Sheet A",
+                "show_title": False,
+                "absolute": {"x": 1000, "y": 2000, "w": 98000, "h": 80000},
+            },
+            {
+                "type": "text",
+                "runs": [
+                    {"text": "Floating Title", "bold": True, "font_size": "14", "font_name": "Tableau Medium"},
+                    {"text": "Link", "hyperlink": "https://example.com"},
+                ],
+                "absolute": {"x": 1000, "y": 1000, "w": 50000, "h": 5000},
+            },
+        ],
+    }
+
+    editor.add_dashboard("FloatingDash", layout=layout, worksheet_names=["Sheet A"])
+    editor.set_active_dashboard("FloatingDash")
+    editor.set_window_state("Sheet A", hidden=True, zoom_entire_view=True)
+
+    db = editor.root.find(".//dashboards/dashboard[@name='FloatingDash']")
+    assert db is not None
+    zone_basic = db.find(".//zone[@type-v2='layout-basic']")
+    assert zone_basic is not None
+
+    ws_zone = db.find(".//zone[@name='Sheet A']")
+    assert ws_zone is not None
+    assert ws_zone.get("x") == "1000"
+    assert ws_zone.get("y") == "2000"
+    assert ws_zone.get("w") == "98000"
+    assert ws_zone.get("h") == "80000"
+
+    text_zone = db.find(".//zone[@type-v2='text']")
+    assert text_zone is not None
+    runs = text_zone.findall("./formatted-text/run")
+    assert len(runs) == 2
+    assert runs[0].get("fontname") == "Tableau Medium"
+    assert runs[1].get("hyperlink") == "https://example.com"
+
+    # Verify window schema compliance
+    windows = editor.root.find("windows")
+    dash_win = windows.find("window[@name='FloatingDash']")
+    assert dash_win is not None
+    assert dash_win.get("maximized") == "true"
+    # DTD requirement: active must be a tag <active id="..."/>, not attribute on window
+    assert "active" not in dash_win.attrib
+    act = dash_win.find("active")
+    assert act is not None
+    assert act.get("id") is not None
+
