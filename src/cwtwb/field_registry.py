@@ -396,25 +396,31 @@ class FieldRegistry:
                 "such as 'Number of Tasks' or 'SUM(Number of Tasks)' instead."
             )
 
-        m = _EXPR_RE.match(raw_expr)
-        if m:
-            func_name = m.group(1).upper()
-            field_name = m.group(2).strip()
-            if looks_like_column_instance_name(field_name):
-                raise ValueError(
-                    f"Invalid field expression '{expr}': aggregation functions must "
-                    "wrap user-facing field names, not generated Tableau "
-                    "column-instance names."
-                )
-            derivation = _DERIVATION_MAP.get(func_name)
-            if derivation is None:
-                raise ValueError(
-                    f"Unsupported aggregation function: {func_name}. "
-                    f"Supported: {', '.join(_DERIVATION_MAP.keys())}"
-                )
-        else:
+        clean_expr = raw_expr.split(".")[-1].strip("[]")
+        if raw_expr in self._fields or clean_expr in self._fields:
+            m = None
             field_name = raw_expr
             derivation = "None"
+        else:
+            m = _EXPR_RE.match(raw_expr)
+            if m:
+                func_name = m.group(1).upper()
+                field_name = m.group(2).strip()
+                if looks_like_column_instance_name(field_name):
+                    raise ValueError(
+                        f"Invalid field expression '{expr}': aggregation functions must "
+                        "wrap user-facing field names, not generated Tableau "
+                        "column-instance names."
+                    )
+                derivation = _DERIVATION_MAP.get(func_name)
+                if derivation is None:
+                    raise ValueError(
+                        f"Unsupported aggregation function: {func_name}. "
+                        f"Supported: {', '.join(_DERIVATION_MAP.keys())}"
+                    )
+            else:
+                field_name = raw_expr
+                derivation = "None"
 
         # Look up the field
         fi = self._find_field(field_name)
