@@ -1,5 +1,13 @@
 # Case-driven SDK enhancements
 
+## 2020 WW02: parameter control title visibility
+
+The compact date-period dropdown declares `show_title=False`, but parameter
+zones previously ignored this shared layout option. Parameter controls now emit
+the native `show-title="false"` attribute. Explicit `True` and the default retain
+normal titles and the parameter identity is preserved. A synthetic MCP/layout
+test covers all three settings and workbook save/load.
+
 ## 2020 WW03: native statistical trend lines
 
 The scatter views compare actual sales per order with native linear fits. A

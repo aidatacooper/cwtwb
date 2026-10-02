@@ -524,6 +524,8 @@ def _render_paramctrl(
 ) -> None:
     """Render a parameter control zone using workbook parameter metadata."""
     zone.set("type-v2", "paramctrl")
+    if not node.show_title:
+        zone.set("show-title", "false")
     _render_control_caption(node, zone)
     if node.mode:
         zone.set("mode", node.mode)

@@ -111,6 +111,23 @@ def test_table_scoped_lod_uses_outer_aggregation_semantics():
     assert instance.get("derivation") == "None"
 
 
+def test_parameter_controls_preserve_explicit_title_visibility(monkeypatch, tmp_path):
+    editor = synthetic()
+    editor.add_parameter("Period", "string", "Current", domain_type="any")
+    monkeypatch.setattr(tools_workbook, "get_editor", lambda: editor)
+    tools_workbook.add_dashboard("Controls", ["Synthetic"], layout={"type": "container", "direction": "horizontal", "children": [
+        {"type": "paramctrl", "parameter": "Period", "show_title": False},
+        {"type": "paramctrl", "parameter": "Period", "show_title": True},
+        {"type": "paramctrl", "parameter": "Period"},
+    ]})
+    controls = editor.root.findall("dashboards/dashboard/zones//zone[@type-v2='paramctrl']")
+    assert [c.get("show-title") for c in controls] == ["false", None, None]
+    assert len({c.get("param") for c in controls}) == 1
+    output = tmp_path / "controls.twb"
+    editor.save(output)
+    assert TWBEditor.open_existing(output).root.find(".//zone[@type-v2='paramctrl']").get("show-title") == "false"
+
+
 def test_repeated_measure_axes_keep_path_compound_color_and_metric_order(monkeypatch, tmp_path):
     editor = synthetic()
     monkeypatch.setattr(tools_workbook, "get_editor", lambda: editor)

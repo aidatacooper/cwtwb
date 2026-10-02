@@ -28,6 +28,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Parameter control layout zones honor `show_title=False` (2020 WW02).
+
 - Table-scoped LOD expressions preserve row-level outer semantics, including
   boolean filters, while outer aggregates retain their derivation (2020 WW03).
 
