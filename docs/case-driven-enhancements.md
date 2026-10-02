@@ -1,5 +1,34 @@
 # Case-driven SDK enhancements
 
+## 2020 WW03: native statistical trend lines
+
+The scatter views compare actual sales per order with native linear fits. A
+straight line drawn as marks would not preserve Tableau's model semantics.
+Layered pane dictionaries now accept `trendline` and `trendline_style` for native
+linear, polynomial, log, exponential and power fits, confidence bands, intercept
+and color partitioning, excluded factor fields, analytics and tooltips. The
+builder resolves excluded fields through the registry and emits the trendline
+before pane tooltip/label/style nodes. Python and MCP forward the same pane
+dictionary. Synthetic regressions cover native XML, invalid options and save/load.
+
+WW04's selector and KPI panes also exposed a shared serialization error: panes
+whose text bindings were virtual or supplemental emitted encodings after styles.
+The builder now inserts those encodings immediately after the mark, retaining
+Tableau's required ordering and the customized label formatting in Cloud.
+
+WW03 also exposed table-scoped LOD formulas such as `{MAX([Value])}` being
+misclassified as aggregate expressions. All LOD braces now hide their inner
+aggregates from outer derivation inference, including unscoped forms. Row-level
+boolean comparisons retain `None`, while aggregates outside the LOD remain `User`.
+Synthetic tests include direct and referenced LOD values and a filtered view.
+
+```python
+editor.configure_layered_chart("Scatter", columns=["SUM(Value)"], rows=["Ratio"],
+    panes=[{"axis": "Ratio", "mark_type": "Circle", "detail": "Item",
+            "trendline": {"fit": "linear", "enable_instant_analytics": True},
+            "trendline_style": {"line-pattern-only": "dotted", "stroke-size": "1"}}])
+```
+
 ## 2020 WW01: independent measure panes and custom sort headers
 
 The single-click sorting challenge places sales bars, a text column, and profit

@@ -670,7 +670,7 @@ def configure_layered_chart(
     sort_field: Optional[str] = None,
     filters: Optional[list[dict]] = None,
 ) -> str:
-    """Build layered panes with path/color_extra, ordered Multiple Values and row sorting."""
+    """Build layered panes with encodings, ordered values, sorting and native trendline/style dictionaries."""
 
     result = get_editor().configure_layered_chart(
         worksheet_name=worksheet_name,

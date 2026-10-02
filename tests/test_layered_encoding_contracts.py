@@ -69,6 +69,48 @@ def test_parameter_action_accepts_virtual_measure_names_without_physical_field(s
     assert not editor.root.xpath("datasources/datasource/column[@caption='Measure Names']")
 
 
+def test_native_pane_trendline_through_mcp_and_round_trip(monkeypatch, tmp_path):
+    editor = synthetic()
+    monkeypatch.setattr(tools_workbook, "get_editor", lambda: editor)
+    tools_workbook.configure_layered_chart("Synthetic", columns=["SUM(Value)"], rows=["SUM(Value)"], panes=[
+        {"axis": "SUM(Value)", "mark_type": "Circle", "detail": "Item",
+         "trendline": {"fit": "linear", "enable_instant_analytics": True, "excluded_factors": ["Venue"]},
+         "trendline_style": {"line-pattern-only": "dotted", "stroke-size": "1"}},
+    ])
+    pane = editor.root.find(".//panes/pane")
+    trendline = pane.find("trendline")
+    assert trendline.get("fit") == "linear" and trendline.get("enabled") == "true"
+    assert trendline.get("enable-confidence-bands") == "false"
+    assert trendline.find("excluded-factors/column").text.endswith("." + editor.field_registry.parse_expression("Venue").instance_name)
+    assert list(pane).index(trendline) < list(pane).index(pane.find("style"))
+    assert pane.find("style/style-rule[@element='trendline']/format[@attr='line-pattern-only']").get("value") == "dotted"
+    output = tmp_path / "trendline.twb"
+    editor.save(output)
+    assert TWBEditor.open_existing(output).root.find(".//pane/trendline").attrib == trendline.attrib
+
+
+@pytest.mark.parametrize("trendline", ["linear", {"fit": "invalid"}, {"enabled": "true"}, {"degree": 0}, {"other": True}, {"excluded_factors": "Item"}])
+def test_native_pane_trendline_rejects_invalid_options(trendline):
+    editor = synthetic()
+    with pytest.raises(ValueError):
+        editor.configure_layered_chart("Synthetic", rows=["SUM(Value)"], panes=[{"axis": "SUM(Value)", "trendline": trendline}])
+
+
+def test_table_scoped_lod_uses_outer_aggregation_semantics():
+    editor = synthetic()
+    editor.add_calculated_field("Maximum Value", "{MAX([Value])}", datatype="real")
+    editor.add_calculated_field("Latest Value", "[Value]={MAX([Value])}", datatype="boolean", role="dimension")
+    editor.add_calculated_field("Maximum Match", "[Value]=[Maximum Value]", datatype="boolean", role="dimension")
+    editor.add_calculated_field("Outer Aggregate", "SUM([Value])/{MAX([Value])}", datatype="real")
+    assert editor.field_registry.parse_expression("Maximum Value").derivation == "Sum"
+    assert editor.field_registry.parse_expression("Latest Value").derivation == "None"
+    assert editor.field_registry.parse_expression("Maximum Match").derivation == "None"
+    assert editor.field_registry.parse_expression("Outer Aggregate").derivation == "User"
+    editor.configure_chart("Synthetic", rows=["Item"], columns=["SUM(Value)"], filters=[{"column": "Latest Value", "values": [True]}])
+    instance = editor.root.find(".//view/datasource-dependencies/column-instance[@column='%s']" % editor.field_registry.parse_expression("Latest Value").column_local_name)
+    assert instance.get("derivation") == "None"
+
+
 def test_repeated_measure_axes_keep_path_compound_color_and_metric_order(monkeypatch, tmp_path):
     editor = synthetic()
     monkeypatch.setattr(tools_workbook, "get_editor", lambda: editor)
@@ -83,6 +125,7 @@ def test_repeated_measure_axes_keep_path_compound_color_and_metric_order(monkeyp
     )
     table = editor.root.find("worksheets/worksheet/table")
     panes = table.findall("panes/pane")
+    assert list(panes[1]).index(panes[1].find("encodings")) < list(panes[1]).index(panes[1].find("style"))
     assert [p.get("y-index") for p in panes] == ["0", "1"]
     assert len(panes[0].findall("encodings/color")) == 2
     item = editor.field_registry.parse_expression("Item")

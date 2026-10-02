@@ -445,10 +445,11 @@ CAPABILITY_SPECS: tuple[CapabilitySpec, ...] = (
     CapabilitySpec(
         key="trend-line",
         kind="feature",
-        level="unsupported",
+        level="advanced",
         canonical="Trend Line",
         aliases=("trend line",),
-        rationale="Known Tableau feature outside cwtwb's current supported surface.",
+        rationale="Native per-pane statistical fits are supported by layered charts.",
+        notes="Pane trendline dictionaries configure fit, confidence bands, intercept, color partitioning, excluded factors and styling.",
     ),
     CapabilitySpec(
         key="table-calculation",

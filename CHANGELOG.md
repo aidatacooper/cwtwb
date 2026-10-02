@@ -9,6 +9,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Native per-pane trendline model and style dictionaries in layered charts,
+  including validated fit options and excluded factors (2020 WW03).
+
 - Independent layered measure panes with `fold_axes=False`, and optional native
   worksheet sort-control visibility via `hide_sort_controls` (2020 WW01).
 
@@ -24,6 +27,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Categorical groups can omit their fallback with `default_value=None` (2019 WW46).
 
 ### Fixed
+
+- Table-scoped LOD expressions preserve row-level outer semantics, including
+  boolean filters, while outer aggregates retain their derivation (2020 WW03).
+
+- Layered virtual/supplemental mark encodings precede customized labels and styles,
+  preserving selector and KPI formatting in Tableau Cloud (2020 WW04).
 
 - Parameter actions bind virtual Measure Names directly rather than inventing a
   physical field (2020 WW01 clickable sort headers).

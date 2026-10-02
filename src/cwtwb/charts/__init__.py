@@ -201,7 +201,7 @@ class ChartsMixin:
         sort_field: Optional[str] = None,
         filters: Optional[list[dict]] = None,
     ) -> str:
-        """Configure independently encoded panes, with path/color_extra and sorting."""
+        """Configure panes with encodings, sorting, and native trendline/style dictionaries."""
 
         return dispatch_configure_layered_chart(
             self,

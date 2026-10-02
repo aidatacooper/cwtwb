@@ -215,6 +215,51 @@ class LayeredChartBuilder(BaseChartBuilder):
                     rule.remove(old)
             etree.SubElement(rule, "format", {"attr": attr, "value": str(value)})
 
+    def _apply_trendline(self, pane, specification, formats, instances, ds_name):
+        """Configure Tableau's native statistical fit on an individual pane."""
+        if specification is None:
+            if formats:
+                raise ValueError("trendline_style requires a trendline specification")
+            return
+        if not isinstance(specification, dict):
+            raise ValueError("trendline requires a dictionary")
+        options = {"enabled": True, "fit": "linear", "exclude_intercept": False,
+                   "enable_confidence_bands": False, "exclude_color": False}
+        allowed = {*options, "enable_instant_analytics", "enable_tooltips", "degree", "excluded_factors"}
+        if set(specification) - allowed:
+            raise ValueError("Unknown trendline options")
+        options.update(specification)
+        if options["fit"] not in {"linear", "polynomial", "log", "exp", "power"}:
+            raise ValueError("Unsupported trendline fit")
+        for key, value in options.items():
+            if key not in {"fit", "degree", "excluded_factors"} and not isinstance(value, bool):
+                raise ValueError("Trendline boolean options require boolean values")
+        if "degree" in options and (type(options["degree"]) is not int or options["degree"] < 1):
+            raise ValueError("Trendline degree must be a positive integer")
+        factors = options.pop("excluded_factors", [])
+        if not isinstance(factors, list) or any(not isinstance(f, str) or not f.strip() for f in factors):
+            raise ValueError("Trendline excluded_factors requires field expressions")
+        attributes = {k.replace("_", "-"): str(v).lower() if isinstance(v, bool) else str(v) for k, v in options.items()}
+        trendline = etree.Element("trendline", attributes)
+        if factors:
+            excluded = etree.SubElement(trendline, "excluded-factors")
+            for field in factors:
+                etree.SubElement(excluded, "column").text = self._field_ref(instances, field, ds_name)
+        anchor = next((pane.find(tag) for tag in ("reference-line", "customized-tooltip", "customized-label", "style") if pane.find(tag) is not None), None)
+        if anchor is None:
+            pane.append(trendline)
+        else:
+            anchor.addprevious(trendline)
+        if formats:
+            if not isinstance(formats, dict):
+                raise ValueError("trendline_style requires a format dictionary")
+            style = pane.find("style")
+            if style is None:
+                style = etree.SubElement(pane, "style")
+            rule = etree.SubElement(style, "style-rule", element="trendline")
+            for key, value in formats.items():
+                etree.SubElement(rule, "format", attr=str(key), value=str(value))
+
     def _apply_table_calc_overrides(
         self,
         view: etree._Element,
@@ -349,6 +394,11 @@ class LayeredChartBuilder(BaseChartBuilder):
                 include(expression)
             for expression in pane_spec.get("detail_extra", []):
                 include(expression)
+            trendline = pane_spec.get("trendline")
+            if isinstance(trendline, dict) and isinstance(trendline.get("excluded_factors", []), list):
+                for expression in trendline.get("excluded_factors", []):
+                    if isinstance(expression, str):
+                        include(expression)
             include(pane_spec.get("geometry"))
             for expression in pane_spec.get("labels", []):
                 include(expression)
@@ -476,7 +526,8 @@ class LayeredChartBuilder(BaseChartBuilder):
             if pane_spec.get("color") == _SPECIAL_MEASURE_NAMES:
                 encodings = pane.find("encodings")
                 if encodings is None:
-                    encodings = etree.SubElement(pane, "encodings")
+                    encodings = etree.Element("encodings")
+                    pane.find("mark").addnext(encodings)
                 etree.SubElement(
                     encodings,
                     "color",
@@ -484,7 +535,8 @@ class LayeredChartBuilder(BaseChartBuilder):
                 )
             encodings = pane.find("encodings")
             if encodings is None:
-                encodings = etree.SubElement(pane, "encodings")
+                encodings = etree.Element("encodings")
+                pane.find("mark").addnext(encodings)
             for expression in pane_spec.get("color_extra", []):
                 etree.SubElement(encodings, "color", column=self._field_ref(instances, expression, ds_name))
             for expression in pane_spec.get("detail_extra", []):
@@ -516,6 +568,7 @@ class LayeredChartBuilder(BaseChartBuilder):
                 else:
                     pane.insert(1, mark_sizing)
             self._apply_pane_style(pane, pane_spec.get("mark_style", {}))
+            self._apply_trendline(pane, pane_spec.get("trendline"), pane_spec.get("trendline_style"), instances, ds_name)
             self._apply_color_map(instances, pane_spec, view)
 
         rows_element = table.find("rows")

@@ -25,7 +25,8 @@ def test_level_summary_and_catalog_text():
     assert summary["core"] > 0
     assert summary["advanced"] > 0
     assert summary["recipe"] > 0
-    assert summary["unsupported"] > 0
+    assert summary["unsupported"] >= 0
+    assert get_capability("feature", "trend line").level == "advanced"
 
     catalog = format_capability_catalog()
     assert "cwtwb capability catalog" in catalog

@@ -429,11 +429,11 @@ class FieldRegistry:
         def _is_aggregated_formula(formula_text: str, depth: int = 0) -> bool:
             if depth > 10 or not formula_text:
                 return False
-            # FIXED/INCLUDE/EXCLUDE expressions return row-level values. Their
+            # Scoped and table-scoped LOD expressions return row-level values. Their
             # inner SUM/AVG/etc. must not promote the outer field to AGG.
             outer_formula = re.sub(r"//[^\r\n]*", "", formula_text)
             outer_formula = re.sub(
-                r"\{\s*(?:FIXED|INCLUDE|EXCLUDE)\b.*?\}",
+                r"\{.*?\}",
                 "",
                 outer_formula,
                 flags=re.IGNORECASE | re.DOTALL,
