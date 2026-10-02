@@ -65,6 +65,7 @@ class DualAxisChartBuilder(BaseChartBuilder):
                  color_map_1: Optional[dict[str, str]] = None,
                  fold_axis: bool = False,
                  color_by_measure_names: bool = False,
+                 table_calc_overrides: Optional[dict[str, list[dict]]] = None,
                  ) -> None:
         """Capture dual-axis chart settings for later XML composition."""
         super().__init__(editor)
@@ -100,6 +101,7 @@ class DualAxisChartBuilder(BaseChartBuilder):
         self.color_map_1 = color_map_1 or {}
         self.fold_axis = fold_axis
         self.color_by_measure_names = color_by_measure_names
+        self.table_calc_overrides = table_calc_overrides
 
     def build(self) -> str:
         """Build overlapping panes and shelves required for dual-axis charts."""
@@ -154,8 +156,19 @@ class DualAxisChartBuilder(BaseChartBuilder):
                 if mv not in all_exprs:
                     all_exprs.append(mv)
 
+        for expression, specifications in (self.table_calc_overrides or {}).items():
+            required = [expression]
+            for spec in specifications:
+                required.extend(spec[key] for key in ("ordering_field", "ordering-field") if key in spec)
+                if "sort" in spec and isinstance(spec["sort"], dict) and "using" in spec["sort"]:
+                    required.append(spec["sort"]["using"])
+            for expression in required:
+                if expression not in all_exprs:
+                    all_exprs.append(expression)
+
         instances = self._parse_and_prepare_instances(all_exprs, self.filters)
         self._setup_datasource_dependencies(view, ds_name, instances, all_exprs)
+        self._apply_table_calc_overrides(view, instances, ds_name, self.table_calc_overrides)
 
         # Remove old pane/panes
         old_pane = table.find("pane")
@@ -271,7 +284,7 @@ class DualAxisChartBuilder(BaseChartBuilder):
                 if self.dual_axis_shelf == "rows":
                     rows_el.text = self.editor._build_dimension_shelf(instances, self.rows[:-2])
                     if rows_el.text:
-                        rows_el.text += f" ({ref_m1} + {ref_m2})"
+                        rows_el.text = f"({rows_el.text} * ({ref_m1} + {ref_m2}))"
                     else:
                         rows_el.text = f"({ref_m1} + {ref_m2})"
                 else:
@@ -318,7 +331,7 @@ class DualAxisChartBuilder(BaseChartBuilder):
                             all_refs = dim_refs + [ref_m1, ref_m2]
                             cols_el.text = _build_measures_shelf(all_refs)
                         elif dim_text:
-                            cols_el.text = f"({dim_text} + ({ref_m1} + {ref_m2}))"
+                            cols_el.text = f"({dim_text} * ({ref_m1} + {ref_m2}))"
                         else:
                             cols_el.text = f"({ref_m1} + {ref_m2})"
                     # Rows become dimension-only when dual_axis_shelf is cols
@@ -467,12 +480,14 @@ class DualAxisChartBuilder(BaseChartBuilder):
             # Encoding for primary axis (class="1")
             enc_1 = etree.SubElement(rule_el, "encoding")
             enc_1.set("attr", "space")
-            enc_1.set("class", "1")
+            distinct_column_axes = scope == "cols" and measure_1 != measure_2 and not self.reverse_axis_1
+            enc_1.set("class", "0" if distinct_column_axes else "1")
             enc_1.set("field", ref_m1)
             enc_1.set("field-type", "quantitative")
-            enc_1.set("fold", "true")
+            if not distinct_column_axes:
+                enc_1.set("fold", "true")
             enc_1.set("scope", scope)
-            if self.synchronized:
+            if self.synchronized and not distinct_column_axes:
                 enc_1.set("synchronized", "true")
             enc_1.set("type", "space")
 
@@ -612,44 +627,10 @@ class DualAxisChartBuilder(BaseChartBuilder):
                         bucket_el = etree.SubElement(map_el, "bucket")
                         bucket_el.text = f'"{mv_ref}"'
 
-        # Color map for primary axis color field (datasource-level palette)
+        # Datasource palette bindings use local column instances, not fully
+        # qualified worksheet references. Register the instance for the scope.
         if self.color_map_1 and self.color_1:
-            ci = instances.get(self.color_1)
-            if ci:
-                full_ref = self.field_registry.resolve_full_reference(ci.instance_name)
-                ds_style = self._datasource.find("style")
-                if ds_style is None:
-                    ds_style = etree.Element("style")
-                    insert_before = None
-                    for tag in ("semantic-values", "date-options", "default-date-format", "object-graph"):
-                        insert_before = self._datasource.find(tag)
-                        if insert_before is not None:
-                            break
-                    if insert_before is not None:
-                        insert_before.addprevious(ds_style)
-                    else:
-                        self._datasource.append(ds_style)
-                mark_rule = None
-                for sr in ds_style.findall("style-rule"):
-                    if sr.get("element") == "mark":
-                        mark_rule = sr
-                        break
-                if mark_rule is None:
-                    mark_rule = etree.SubElement(ds_style, "style-rule")
-                    mark_rule.set("element", "mark")
-                # Avoid duplicate encodings for the same field
-                for existing_enc in mark_rule.findall("encoding"):
-                    if existing_enc.get("field") == full_ref and existing_enc.get("attr") == "color":
-                        mark_rule.remove(existing_enc)
-                color_enc = etree.SubElement(mark_rule, "encoding")
-                color_enc.set("attr", "color")
-                color_enc.set("field", full_ref)
-                color_enc.set("type", "palette")
-                for bucket_val, hex_color in self.color_map_1.items():
-                    map_el = etree.SubElement(color_enc, "map")
-                    map_el.set("to", hex_color)
-                    bucket_el = etree.SubElement(map_el, "bucket")
-                    bucket_el.text = self._format_palette_value(bucket_val, ci)
+            self.editor.set_datasource_color_palette(self.color_1, self.color_map_1)
 
         return f"Configured worksheet '{self.worksheet_name}' as Dual Axis chart"
 

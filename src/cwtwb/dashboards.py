@@ -457,6 +457,7 @@ def add_dashboard_action(
     aggregation: str = "attr",
     clear_behavior: str = "keep-current",
     clear_value: str = "",
+    field_mappings: dict[str, str] | None = None,
 ) -> str:
     """Add an interaction action to a dashboard."""
 
@@ -468,6 +469,18 @@ def add_dashboard_action(
         )
 
     fields = fields or []
+    if field_mappings is not None:
+        if normalized_type != "filter":
+            raise ValueError("field_mappings is supported only for filter actions")
+        if fields:
+            raise ValueError("Use either fields or field_mappings")
+        if not isinstance(field_mappings, dict) or not field_mappings:
+            raise ValueError("field_mappings must be a nonempty source-to-target dictionary")
+        if any(not isinstance(k, str) or not k.strip() or not isinstance(v, str) or not v.strip() for k, v in field_mappings.items()):
+            raise ValueError("field_mappings requires nonempty source and target field expressions")
+        for source, target in field_mappings.items():
+            editor.field_registry.parse_expression(source)
+            editor.field_registry.parse_expression(target)
 
     db_el = editor.root.find(f".//dashboards/dashboard[@name='{dashboard_name}']")
     if db_el is None:
@@ -560,6 +573,8 @@ def add_dashboard_action(
             action_caption,
             fields,
             exclude_sheets,
+            field_mappings=field_mappings,
+            target_sheet=target_sheet,
         )
     elif normalized_type == "highlight":
         _configure_highlight_action(
@@ -840,10 +855,12 @@ def _configure_filter_action(
     action_caption: str,
     fields: list[str],
     exclude_sheets: list[str],
+    field_mappings: dict[str, str] | None = None,
+    target_sheet: str = "",
 ) -> None:
     """Populate XML for a filter action, including link payload and command params."""
 
-    if fields:
+    if fields or field_mappings:
         ds_name = editor._datasource.get("name", "")
         link_el = etree.SubElement(action_el, "link")
         link_el.set("caption", action_caption)
@@ -851,16 +868,16 @@ def _configure_filter_action(
         link_el.set("escape", "\\")
 
         field_expressions = []
-        for field in fields:
-            ci = editor.field_registry.parse_expression(field)
-            col_name = ci.column_local_name
+        for source, target in (field_mappings or {field: field for field in fields}).items():
+            source_ci = editor.field_registry.parse_expression(source)
+            target_ci = editor.field_registry.parse_expression(target)
             encoded_ds = quote(f"[{ds_name}]")
-            encoded_col = quote(col_name)
-            field_expressions.append(
-                f"{encoded_ds}.{encoded_col}~s0=<{col_name}~na>"
-            )
+            encoded_col = quote(target_ci.column_local_name)
+            source_ref = f"[{ds_name}].{source_ci.column_local_name}" if field_mappings else source_ci.column_local_name
+            field_expressions.append(f"{encoded_ds}.{encoded_col}~s0=<{source_ref}~na>")
 
-        expr_str = f"tsl:{dashboard_name}?" + "&".join(field_expressions)
+        destination = quote(target_sheet) if field_mappings else dashboard_name
+        expr_str = f"tsl:{destination}?" + "&".join(field_expressions)
         link_el.set("expression", expr_str)
         link_el.set("include-null", "true")
         link_el.set("multi-select", "true")
@@ -869,19 +886,19 @@ def _configure_filter_action(
     cmd_el = etree.SubElement(action_el, "command")
     cmd_el.set("command", "tsc:tsl-filter")
 
-    if exclude_sheets:
+    if exclude_sheets and not field_mappings:
         param_ex = etree.SubElement(cmd_el, "param")
         param_ex.set("name", "exclude")
         param_ex.set("value", ",".join(exclude_sheets))
 
-    if not fields:
+    if not fields and not field_mappings:
         param_sp = etree.SubElement(cmd_el, "param")
         param_sp.set("name", "special-fields")
         param_sp.set("value", "all")
 
     param_tgt = etree.SubElement(cmd_el, "param")
     param_tgt.set("name", "target")
-    param_tgt.set("value", dashboard_name)
+    param_tgt.set("value", target_sheet if field_mappings else dashboard_name)
 
 
 def _configure_highlight_action(
@@ -1114,6 +1131,7 @@ class DashboardsMixin:
         aggregation: str = "attr",
         clear_behavior: str = "keep-current",
         clear_value: str = "",
+        field_mappings: dict[str, str] | None = None,
     ) -> str:
         """Add an interaction action to a dashboard."""
         return add_dashboard_action(
@@ -1131,6 +1149,7 @@ class DashboardsMixin:
             aggregation,
             clear_behavior,
             clear_value,
+            field_mappings,
         )
 
     def add_dashboard_set_action(

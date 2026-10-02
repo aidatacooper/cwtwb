@@ -188,6 +188,7 @@ def apply_worksheet_style(
     panes_style: dict[str | int, dict] | list[dict] | None = None,
     resolved_label_formats: list[dict] | None = None,
     resolved_cell_formats: list[dict] | None = None,
+    pane_formats: list[dict] | None = None,
     resolved_header_formats: list[dict] | None = None,
     resolved_axis_style: dict | None = None,
 ) -> None:
@@ -364,14 +365,27 @@ def apply_worksheet_style(
             cell_rule.set("element", "cell")
         for cf in resolved_cell_formats:
             field_ref = cf.get("_field_ref")
+            selectors = {key.replace("_", "-"): str(value) for key, value in cf.items() if key in ("scope", "data_class", "data-class")}
             for attr, val in cf.items():
-                if attr == "_field_ref":
+                if attr in ("_field_ref", "scope", "data_class", "data-class"):
                     continue
-                fmt = etree.SubElement(cell_rule, "format")
+                fmt = etree.SubElement(cell_rule, "format", **selectors)
                 fmt.set("attr", attr.replace("_", "-"))
                 if field_ref:
                     fmt.set("field", field_ref)
                 fmt.set("value", str(val))
+
+    if pane_formats:
+        pane_rule = table_style.find("style-rule[@element='pane']")
+        if pane_rule is None:
+            pane_rule = etree.SubElement(table_style, "style-rule", element="pane")
+        for spec in pane_formats:
+            selectors = {key.replace("_", "-"): str(value) for key, value in spec.items() if key in ("scope", "data_class", "data-class")}
+            values = {spec["attr"]: spec["value"]} if "attr" in spec and "value" in spec else {key: value for key, value in spec.items() if key not in ("scope", "data_class", "data-class")}
+            for attr, value in values.items():
+                fmt = etree.SubElement(pane_rule, "format", **selectors)
+                fmt.set("attr", str(attr).replace("_", "-"))
+                fmt.set("value", str(value))
 
     # Table-level header formats (height, width, total-label, etc.)
     if resolved_header_formats:
@@ -426,11 +440,17 @@ def apply_worksheet_style(
             axis_rule = etree.SubElement(table_style, "style-rule")
             axis_rule.set("element", "axis")
         for key, val in resolved_axis_style.items():
-            if key == "per_field":
+            if key in ("per_field", "encodings"):
                 continue
             fmt = etree.SubElement(axis_rule, "format")
             fmt.set("attr", key)
             fmt.set("value", str(val))
+        for specification in resolved_axis_style.get("encodings", []):
+            attributes = {"attr": "space", "field-type": "quantitative", "type": "space", **specification}
+            for existing in list(axis_rule.findall("encoding")):
+                if existing.get("field") == attributes["field"] and existing.get("scope", "") == attributes.get("scope", "") and existing.get("class", "") == attributes.get("class", ""):
+                    axis_rule.remove(existing)
+            etree.SubElement(axis_rule, "encoding", attributes)
         for pf in resolved_axis_style.get("per_field", []):
             field_ref = pf.get("_field_ref", "")
             attr = pf.get("attr", "")

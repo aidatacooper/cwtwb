@@ -350,6 +350,7 @@ def configure_dual_axis(
     color_map_1: Optional[dict[str, str]] = None,
     fold_axis: bool = False,
     color_by_measure_names: bool = False,
+    table_calc_overrides: Optional[dict[str, list[dict]]] = None,
 ) -> str:
     """Route dual-axis configuration to the dedicated builder."""
 
@@ -388,6 +389,7 @@ def configure_dual_axis(
         color_map_1=color_map_1,
         fold_axis=fold_axis,
         color_by_measure_names=color_by_measure_names,
+        table_calc_overrides=table_calc_overrides,
     )
     return builder.build()
 

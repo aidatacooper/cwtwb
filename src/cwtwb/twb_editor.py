@@ -1658,6 +1658,22 @@ class TWBEditor(ParametersMixin, ConnectionsMixin, ChartsMixin, DashboardsMixin)
             normalized[source_alias["display_name"]] = target_alias["display_name"]
         return normalized
 
+    def set_date_options(self, *, start_of_week: str = "sunday") -> str:
+        """Set the datasource weekday origin used by date-part headers."""
+        value = start_of_week.strip().casefold()
+        if value not in {"sunday", "monday", "tuesday", "wednesday", "thursday", "friday", "saturday"}:
+            raise ValueError("start_of_week must name a weekday")
+        options = self._datasource.find("date-options")
+        if options is None:
+            options = etree.Element("date-options")
+            anchor = self._datasource.find("object-graph")
+            if anchor is not None:
+                anchor.addprevious(options)
+            else:
+                self._datasource.append(options)
+        options.set("start-of-week", value)
+        return f"Set datasource week start to {value}"
+
     def add_hierarchy(self, name: str, fields: list[str]) -> str:
         """Create a Tableau drill path such as Category > Sub-Category."""
 
@@ -1843,11 +1859,37 @@ class TWBEditor(ParametersMixin, ConnectionsMixin, ChartsMixin, DashboardsMixin)
                     f"Measure '{field}' is not used by worksheet '{worksheet_name}'."
                 )
             for instance in candidates:
+                old_name = instance.get("name", "")
+                parts = old_name.strip("[]").split(":")
+                if len(parts) >= 3:
+                    parts = [part for part in parts if not part.startswith("vt")]
+                    if visual_total != "None":
+                        parts.insert(-1, "vt" + visual_total.lower())
+                    new_name = "[" + ":".join(parts) + "]"
+                    if new_name != old_name:
+                        old_ref = f"[{ds_name}].{old_name}"
+                        new_ref = f"[{ds_name}].{new_name}"
+                        for node in worksheet.iter():
+                            for key, value in list(node.attrib.items()):
+                                if old_ref in value:
+                                    node.set(key, value.replace(old_ref, new_ref))
+                            if node.text and old_ref in node.text:
+                                node.text = node.text.replace(old_ref, new_ref)
+                        instance.set("name", new_name)
                 instance.set("visual-totals", visual_total)
             configured_measures += 1
 
         subtotal_fields = subtotal_fields or []
         if subtotal_fields:
+            table = worksheet.find("table")
+            subtotals = table.find("subtotals")
+            if subtotals is None:
+                subtotals = etree.SubElement(table, "subtotals")
+            for field in subtotal_fields:
+                field_ci = self.field_registry.parse_expression(field)
+                reference = self.field_registry.resolve_full_reference(field_ci.instance_name)
+                if not any(node.text == reference for node in subtotals.findall("column")):
+                    etree.SubElement(subtotals, "column").text = reference
             style = worksheet.find("table/style")
             if style is None:
                 style = etree.SubElement(worksheet.find("table"), "style")
@@ -3079,7 +3121,20 @@ class TWBEditor(ParametersMixin, ConnectionsMixin, ChartsMixin, DashboardsMixin)
         for bucket_val, hex_color in color_map.items():
             m = etree.SubElement(enc, "map", to=hex_color)
             b = etree.SubElement(m, "bucket")
-            b.text = str(bucket_val)
+            if is_measure_names:
+                b.text = str(bucket_val)
+            else:
+                field_info = self.field_registry._find_field(ci.column_local_name)
+                text = str(bucket_val)
+                if field_info.datatype == "boolean" or field_info.calculation_class == "set":
+                    b.text = text.lower()
+                elif field_info.datatype in ("integer", "real"):
+                    b.text = text
+                elif text.startswith('"') and text.endswith('"'):
+                    b.text = text
+                else:
+                    import json
+                    b.text = json.dumps(text, ensure_ascii=False)
 
         return f"Set color palette for '{field}'"
 
@@ -3118,6 +3173,8 @@ class TWBEditor(ParametersMixin, ConnectionsMixin, ChartsMixin, DashboardsMixin)
                 r.set("fontsize", str(run_dict["fontsize"]))
             if run_dict.get("fontcolor"):
                 r.set("fontcolor", str(run_dict["fontcolor"]))
+            if run_dict.get("fontalignment"):
+                r.set("fontalignment", str(run_dict["fontalignment"]))
 
             raw_text = str(run_dict.get("text", ""))
 
