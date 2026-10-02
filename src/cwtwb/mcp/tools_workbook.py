@@ -312,6 +312,18 @@ def add_set(
 
 
 @server.tool()
+def set_field_format(field: str, default_format: str) -> str:
+    """Set or clear a field's default Tableau display format."""
+    return get_editor().set_field_format(field, default_format)
+
+
+@server.tool()
+def set_date_options(start_of_week: str = "sunday") -> str:
+    """Set datasource weekday origin for date-part headers and week calculations."""
+    return get_editor().set_date_options(start_of_week=start_of_week)
+
+
+@server.tool()
 def add_hierarchy(name: str, fields: list[str]) -> str:
     """Create an ordered Tableau drill hierarchy from bare dimension fields."""
 
@@ -582,6 +594,7 @@ def configure_dual_axis(
     mark_color_1: Optional[str] = None,
     reverse_axis_1: bool = False,
     color_map_1: Optional[dict[str, str]] = None,
+    table_calc_overrides: Optional[dict[str, list[dict]]] = None,
 ) -> str:
     """Configure a dual-axis chart composition.
 
@@ -619,6 +632,7 @@ def configure_dual_axis(
         mark_color_1=mark_color_1,
         reverse_axis_1=reverse_axis_1,
         color_map_1=color_map_1,
+        table_calc_overrides=table_calc_overrides,
     )
     return result + _skill_hint("configure_dual_axis")
 
@@ -672,6 +686,11 @@ def configure_worksheet_style(
     cell_formats: list[dict] | None = None,
     header_formats: list[dict] | None = None,
     axis_style: dict | None = None,
+    map_style: dict | None = None,
+    color_style: dict | None = None,
+    pane_formats: list[dict] | None = None,
+    size_style: dict | None = None,
+    gridline_style: dict | None = None,
 ) -> str:
     """Apply worksheet-level styling: background color, axis/grid/border visibility.
 
@@ -701,6 +720,11 @@ def configure_worksheet_style(
         cell_formats=cell_formats,
         header_formats=header_formats,
         axis_style=axis_style,
+        map_style=map_style,
+        color_style=color_style,
+        pane_formats=pane_formats,
+        size_style=size_style,
+        gridline_style=gridline_style,
     )
     return result + _skill_hint("configure_worksheet_style")
 
@@ -878,6 +902,7 @@ def add_dashboard_action(
     aggregation: str = "attr",
     clear_behavior: str = "keep-current",
     clear_value: str = "",
+    field_mappings: dict[str, str] | None = None,
 ) -> str:
     """Add a filter, highlight, URL, navigation, or parameter dashboard action.
 
@@ -901,6 +926,7 @@ def add_dashboard_action(
         aggregation=aggregation,
         clear_behavior=clear_behavior,
         clear_value=clear_value,
+        field_mappings=field_mappings,
     )
 
 

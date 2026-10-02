@@ -61,6 +61,7 @@ class FlexNode:
         self.parameter = d.get("parameter") or d.get("param")
         self.target_dashboard = d.get("target_dashboard")
         self.caption = d.get("caption", "GO BACK")
+        self.control_caption = d.get("caption")
         self.background_color = d.get("background_color", "#1ba3c6")
 
         self.x = 0
@@ -321,7 +322,16 @@ def _render_container(
     if node.layout_strategy:
         zone.set("layout-strategy-id", node.layout_strategy)
     for child in node.children:
-        render_flex_node(child, zone, get_id_fn, context)
+        target_parent = zone
+        if node.direction == "floating" and child.type == "navigation_button":
+            # Floating dashboard objects are peers of the tiled root zone.
+            # Nesting navigation objects inside layout-basic clips the button.
+            ancestor = zone.getparent()
+            while ancestor is not None and ancestor.tag != "zones":
+                ancestor = ancestor.getparent()
+            if ancestor is not None:
+                target_parent = ancestor
+        render_flex_node(child, target_parent, get_id_fn, context)
 
 
 def _render_text(node: FlexNode, zone: etree._Element) -> None:
@@ -377,9 +387,21 @@ def _render_navigation_button(
     )
     if target_dashboard is None:
         raise ValueError(f"Target dashboard '{target}' was not found.")
-    simple_id = target_dashboard.find("simple-id")
+    target_window = editor.root.find(
+        f"./windows/window[@class='dashboard'][@name='{target}']"
+    )
+    simple_id = target_window.find("simple-id") if target_window is not None else None
     if simple_id is None or not simple_id.get("uuid"):
-        raise ValueError(f"Target dashboard '{target}' has no window id.")
+        raise ValueError(f"Target dashboard '{target}' has no dashboard window id.")
+
+    manifest = editor.root.find("document-format-change-manifest")
+    if manifest is None:
+        manifest = etree.Element("document-format-change-manifest")
+        editor.root.insert(0, manifest)
+    for feature in ("BasicButtonObject", "BasicButtonObjectTextSupport", "NavigationAction"):
+        if manifest.find(feature) is None:
+            attributes = {"ignorable": "true", "predowngraded": "true"} if feature == "BasicButtonObjectTextSupport" else {}
+            etree.SubElement(manifest, feature, **attributes)
 
     zone.set("type", "dashboard-object")
     button = etree.SubElement(zone, "button")
@@ -400,6 +422,14 @@ def _render_navigation_button(
     background.set("value", str(node.background_color))
 
 
+def _render_control_caption(node: FlexNode, zone: etree._Element) -> None:
+    """Override a control title without changing its field/parameter identity."""
+    if node.control_caption is not None:
+        zone.set("custom-title", "true")
+        formatted = etree.SubElement(zone, "formatted-text")
+        etree.SubElement(formatted, "run").text = str(node.control_caption)
+
+
 def _render_filter(
     node: FlexNode,
     zone: etree._Element,
@@ -407,6 +437,7 @@ def _render_filter(
 ) -> None:
     """Render a filter control zone and resolve its backing field reference."""
     zone.set("type-v2", "filter")
+    _render_control_caption(node, zone)
     if node.worksheet:
         zone.set("name", node.worksheet)
     if node.mode:
@@ -438,6 +469,7 @@ def _render_paramctrl(
 ) -> None:
     """Render a parameter control zone using workbook parameter metadata."""
     zone.set("type-v2", "paramctrl")
+    _render_control_caption(node, zone)
     if node.mode:
         zone.set("mode", node.mode)
     if node.parameter and context.get("parameters"):
@@ -460,6 +492,10 @@ def _render_color(
     zone.set("type-v2", "color")
     if node.worksheet:
         zone.set("name", node.worksheet)
+    if not node.show_title:
+        zone.set("show-title", "false")
+    if node.mode:
+        zone.set("leg-item-layout", node.mode)
     if node.field and context.get("field_registry"):
         field_registry = context["field_registry"]
         try:

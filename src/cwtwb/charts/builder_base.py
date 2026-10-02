@@ -464,24 +464,47 @@ class BaseChartBuilder:
                 )
             for old in list(column_instance.findall("table-calc")):
                 column_instance.remove(old)
+            def column_reference(expression: str) -> str:
+                parsed = self.field_registry.parse_expression(expression)
+                return f"[{ds_name}].{parsed.column_local_name}"
+
             for specification in specifications:
                 attributes: dict[str, str] = {}
                 for key, value in specification.items():
                     xml_key = key.replace("_", "-")
-                    if xml_key == "ordering-field":
-                        ordering_instance = self._instance_for_expression(
-                            instances, str(value)
-                        )
+                    if xml_key in ("order", "sort"):
+                        continue
+                    if xml_key in ("field", "level-break"):
+                        attributes[xml_key] = column_reference(str(value))
+                    elif xml_key == "ordering-field":
+                        ordering_instance = self._instance_for_expression(instances, str(value))
                         if ordering_instance is None:
-                            raise ValueError(
-                                f"Could not resolve table-calc ordering field: {value}"
-                            )
-                        attributes[xml_key] = self.field_registry.resolve_full_reference(
-                            ordering_instance.instance_name
-                        )
+                            raise ValueError(f"Could not resolve table-calc ordering field: {value}")
+                        attributes[xml_key] = self.field_registry.resolve_full_reference(ordering_instance.instance_name)
                     else:
+                        if isinstance(value, (dict, list)):
+                            raise ValueError(f"Table-calc attribute {key} must be a scalar")
                         attributes[xml_key] = str(value)
-                etree.SubElement(column_instance, "table-calc", attributes)
+                order = specification.get("order", [])
+                if not isinstance(order, list) or any(not isinstance(field, str) for field in order):
+                    raise ValueError("Table-calc order must be a list of field expressions")
+                sort = specification.get("sort")
+                sort_attributes = None
+                if sort is not None:
+                    if not isinstance(sort, dict) or set(sort) != {"direction", "using"}:
+                        raise ValueError("Table-calc sort requires direction and using")
+                    direction = str(sort["direction"]).upper()
+                    if direction not in ("ASC", "DESC"):
+                        raise ValueError("Table-calc sort direction must be ASC or DESC")
+                    sort_instance = self._instance_for_expression(instances, sort["using"])
+                    if sort_instance is None:
+                        raise ValueError(f"Could not resolve table-calc sort field: {sort['using']}")
+                    sort_attributes = {"direction": direction, "using": self.field_registry.resolve_full_reference(sort_instance.instance_name)}
+                table_calc = etree.SubElement(column_instance, "table-calc", attributes)
+                for field in order:
+                    etree.SubElement(table_calc, "order", field=column_reference(field))
+                if sort_attributes is not None:
+                    etree.SubElement(table_calc, "sort", sort_attributes)
 
     def _add_calculated_field_deps(self, view: etree._Element, ds_name: str, all_exprs: list[str]) -> None:
         """Ensure calculated fields are present in dependency blocks when needed."""
@@ -1638,6 +1661,11 @@ class MapChartBuilder(BaseChartBuilder):
             self._add_filters(view, instances, self.filters)
 
         self.editor._setup_table_style(table, "Map")
+        if self.map_layers and len(self.map_layers) > 1:
+            style = table.find("style")
+            rule = etree.SubElement(style, "style-rule", element="axis")
+            for index in range(1, len(self.map_layers)):
+                etree.SubElement(rule, "encoding", {"attr": "space", "class": str(index), "field": f"[{ds_name}].[Longitude (generated)]", "field-type": "quantitative", "fold": "true", "scope": "cols", "type": "space"})
 
         return f"Configured worksheet '{self.worksheet_name}' as Map chart"
 
@@ -1737,7 +1765,8 @@ class MapChartBuilder(BaseChartBuilder):
     def _build_multi_layer(self, table, ds_name, instances):
         """Build multi-layer panes with ``customization-axis='layer'``."""
         # Ensure Tableau knows this workbook uses layers
-        self._ensure_manifest_entry("Layers")
+        # Repeated longitude axes are legacy spatial overlays, not the
+        # modern customization-axis="layer" feature.
         self._ensure_manifest_entry("MapboxVectorStylesAndLayers")
 
         # Remove the existing empty <panes> and create a new one

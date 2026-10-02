@@ -7,6 +7,35 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Unreleased
 
+## [0.27.1] - 2026-10-02
+
+### Added
+
+- Quantitative mark-size range styles and navigation text-button feature declarations.
+
+- Public field display formats, floating navigation placement, and parameter-driven
+  axis-title expression graphs, with synthetic MCP regression coverage.
+
+- Structured dual-axis table-calculation addressing, including ordered dimensions,
+  nested calculations, level breaks, and aggregate sorting.
+- Mapped filter actions, independent and fixed axis encodings, map styles,
+  continuous color palette settings, pane formats, and datasource week origins.
+- Custom parameter/filter captions and horizontal legends in the dashboard layout DSL.
+
+### Fixed
+
+- Dual-axis dimensions now cross measure unions; distinct column axes share
+  the correct overlay class.
+- Layered categorical palettes preserve nested table-calculation context, and
+  layered rich labels use the shared label builder.
+- Spatial overlays fold repeated longitude axes without enabling modern layer
+  metadata; categorical palettes bind local datasource instances.
+- Average subtotals enable their dimensions, bind visual-total instances, and
+  preserve subtotal-only formatting selectors.
+
+Case provenance and public API examples are in
+[`docs/case-driven-enhancements.md`](docs/case-driven-enhancements.md).
+
 ## [0.27.0] - 2026-08-12
 
 ### Added

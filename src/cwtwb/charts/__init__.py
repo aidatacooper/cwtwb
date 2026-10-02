@@ -140,6 +140,7 @@ class ChartsMixin:
         color_map_1: Optional[dict[str, str]] = None,
         fold_axis: bool = False,
         color_by_measure_names: bool = False,
+        table_calc_overrides: Optional[dict[str, list[dict]]] = None,
     ) -> str:
         """Route dual axis configuration to the specific builder."""
 
@@ -177,6 +178,7 @@ class ChartsMixin:
             color_map_1=color_map_1,
             fold_axis=fold_axis,
             color_by_measure_names=color_by_measure_names,
+            table_calc_overrides=table_calc_overrides,
         )
 
     def configure_layered_chart(
@@ -204,6 +206,47 @@ class ChartsMixin:
             hide_axes=hide_axes,
             table_calc_overrides=table_calc_overrides,
         )
+
+    def _set_parameter_axis_title(self, worksheet, reference, parameter, scope, duplicate_index):
+        """Bind an axis title to a parameter using Tableau's expression graph."""
+        from lxml import etree
+        from uuid import uuid4
+        guid = lambda: str(uuid4())
+        manifest = self.root.find("document-format-change-manifest")
+        if manifest is None:
+            manifest = etree.Element("document-format-change-manifest")
+            self.root.insert(0, manifest)
+        for feature in ("DatagraphCoreV1", "DatagraphNodeAxisTitle", "DatagraphNodeSingleValueFieldV1"):
+            if manifest.find(feature) is None:
+                etree.SubElement(manifest, feature)
+        datagraph = self.root.find("datagraph")
+        if datagraph is None:
+            datagraph = etree.SubElement(self.root, "datagraph")
+        graph = datagraph.find("graph")
+        if graph is None:
+            graph = etree.SubElement(datagraph, "graph")
+            properties = etree.SubElement(graph, "properties")
+            etree.SubElement(properties, "default-execution-subgraph-guid", value=guid())
+            for tag in ("node-execution-subgraphs", "nodes", "edges", "pin-values"):
+                etree.SubElement(graph, tag)
+        nodes, edges = graph.find("nodes"), graph.find("edges")
+        sheet_id = worksheet.find("simple-id").get("uuid")
+        orientation = "horizontal" if scope == "cols" else "vertical"
+        axis = next((node for node in nodes.findall("axis-title-node") if node.get("sheet-identifier") == sheet_id and node.get("fieldname") == reference and node.get("orientation") == orientation and node.get("duplicate-index") == str(duplicate_index)), None)
+        if axis is None:
+            axis = etree.SubElement(nodes, "axis-title-node", {"duplicate-index": str(duplicate_index), "fieldname": reference, "node-guid": guid(), "orientation": orientation, "sheet-identifier": sheet_id, "title-input-guid": guid()})
+        previous = next((edge for edge in edges.findall("edge") if edge.get("to") == axis.get("title-input-guid")), None)
+        source = next((node for node in nodes.findall("single-value-field-node") if previous is not None and node.get("value-output-guid") == previous.get("from")), None)
+        if source is None:
+            source = etree.SubElement(nodes, "single-value-field-node", {"fieldname-input-guid": guid(), "node-guid": guid(), "value-output-guid": guid()})
+        source.set("fieldname", f"[Parameters].{self._parameters[parameter]['internal_name']}")
+        if previous is None:
+            etree.SubElement(edges, "edge", {"from": source.get("value-output-guid"), "to": axis.get("title-input-guid")})
+        subgraph = graph.find("properties/default-execution-subgraph-guid").get("value")
+        pairs = graph.find("node-execution-subgraphs")
+        for node in (axis, source):
+            if not any(pair.get("node-guid") == node.get("node-guid") for pair in pairs.findall("pair")):
+                etree.SubElement(pairs, "pair", {"execution-subgraph-guid": subgraph, "node-guid": node.get("node-guid")})
 
     def configure_worksheet_style(
         self,
@@ -233,16 +276,31 @@ class ChartsMixin:
         cell_formats: Optional[list] = None,
         header_formats: Optional[list] = None,
         axis_style: Optional[dict] = None,
+        map_style: Optional[dict] = None,
+        color_style: Optional[dict] = None,
+        pane_formats: Optional[list] = None,
+        size_style: Optional[dict] = None,
+        gridline_style: Optional[dict] = None,
     ) -> str:
         """Apply worksheet-level styling after chart configuration."""
+        if pane_formats is not None and (not isinstance(pane_formats, list) or any(not isinstance(item, dict) for item in pane_formats)):
+            raise ValueError("pane_formats requires a list of format specifications")
         ws = self._find_worksheet(worksheet_name)
         table = ws.find("table")
         if table is None:
             raise ValueError(f"Worksheet '{worksheet_name}' is malformed: missing <table>")
+        def style_reference(instance):
+            dependencies = table.find("view/datasource-dependencies[@datasource='%s']" % self._datasource.get("name", ""))
+            if dependencies is not None:
+                for existing in dependencies.findall("column-instance"):
+                    if existing.get("column") == instance.column_local_name and existing.get("visual-totals"):
+                        return self.field_registry.resolve_full_reference(existing.get("name"))
+            return self.field_registry.resolve_full_reference(instance.instance_name)
+
         hide_row_label_ref = None
         if hide_row_label:
             ci = self.field_registry.parse_expression(hide_row_label)
-            hide_row_label_ref = self.field_registry.resolve_full_reference(ci.instance_name)
+            hide_row_label_ref = style_reference(ci)
 
         # Resolve label_formats field references
         resolved_label_formats = None
@@ -252,7 +310,7 @@ class ChartsMixin:
                 resolved_lf = {}
                 if "field" in lf:
                     ci = self.field_registry.parse_expression(lf["field"])
-                    resolved_lf["_field_ref"] = self.field_registry.resolve_full_reference(ci.instance_name)
+                    resolved_lf["_field_ref"] = style_reference(ci)
                 for k, v in lf.items():
                     if k != "field":
                         resolved_lf[k] = v
@@ -266,7 +324,7 @@ class ChartsMixin:
                 resolved_cf = {}
                 if "field" in cf:
                     ci = self.field_registry.parse_expression(cf["field"])
-                    resolved_cf["_field_ref"] = self.field_registry.resolve_full_reference(ci.instance_name)
+                    resolved_cf["_field_ref"] = style_reference(ci)
                 for k, v in cf.items():
                     if k != "field":
                         resolved_cf[k] = v
@@ -280,24 +338,54 @@ class ChartsMixin:
                 resolved_hf = {}
                 if "field" in hf:
                     ci = self.field_registry.parse_expression(hf["field"])
-                    resolved_hf["_field_ref"] = self.field_registry.resolve_full_reference(ci.instance_name)
+                    resolved_hf["_field_ref"] = style_reference(ci)
                 for k, v in hf.items():
                     if k != "field":
                         resolved_hf[k] = v
                 resolved_header_formats.append(resolved_hf)
 
+        dynamic_axis_titles = []
+        for specification in (axis_style or {}).get("per_field", []):
+            if "title_parameter" in specification:
+                parameter = specification["title_parameter"]
+                if parameter not in self._parameters:
+                    raise ValueError(f"Unknown axis title parameter: {parameter}")
+                if not specification.get("field"):
+                    raise ValueError("Dynamic axis titles require a field")
+                scope = specification.get("scope", "cols")
+                if scope not in ("rows", "cols"):
+                    raise ValueError("Dynamic axis title scope must be rows or cols")
+                dynamic_axis_titles.append((specification, style_reference(self.field_registry.parse_expression(specification["field"]))))
+
         # Resolve axis_style per_field references
         resolved_axis_style = None
         if axis_style:
-            resolved_axis_style = {k: v for k, v in axis_style.items() if k != "per_field"}
+            resolved_axis_style = {k: v for k, v in axis_style.items() if k not in ("per_field", "encodings")}
+            if "encodings" in axis_style:
+                encodings = axis_style["encodings"]
+                if not isinstance(encodings, list) or any(not isinstance(item, dict) or not item.get("field") for item in encodings):
+                    raise ValueError("axis_style encodings requires a list of field specifications")
+                resolved_axis_style["encodings"] = []
+                for encoding in encodings:
+                    ci = self.field_registry.parse_expression(encoding["field"])
+                    resolved = {key.replace("_", "-"): str(value).lower() if isinstance(value, bool) else str(value) for key, value in encoding.items() if key != "field"}
+                    resolved["field"] = style_reference(ci)
+                    resolved_axis_style["encodings"].append(resolved)
             if "per_field" in axis_style:
                 resolved_per_field = []
                 for pf in axis_style["per_field"]:
-                    resolved_pf = {k: v for k, v in pf.items() if k != "field"}
+                    resolved_pf = {k: v for k, v in pf.items() if k not in ("field", "title_parameter")}
+                    if "title_parameter" in pf and resolved_pf.get("attr") == "title" and "value" not in resolved_pf:
+                        parameter_info = self._parameters[pf["title_parameter"]]
+                        parameter_column = self.root.find(f"datasources/datasource[@name='Parameters']/column[@name='{parameter_info['internal_name']}']")
+                        raw_value = parameter_column.get("value", "")
+                        alias = parameter_column.find(f"aliases/alias[@key='{raw_value}']")
+                        resolved_pf["value"] = alias.get("value") if alias is not None else raw_value.strip('"')
                     if "field" in pf:
                         ci = self.field_registry.parse_expression(pf["field"])
-                        resolved_pf["_field_ref"] = self.field_registry.resolve_full_reference(ci.instance_name)
-                    resolved_per_field.append(resolved_pf)
+                        resolved_pf["_field_ref"] = style_reference(ci)
+                    if "attr" in resolved_pf:
+                        resolved_per_field.append(resolved_pf)
                 resolved_axis_style["per_field"] = resolved_per_field
 
         apply_worksheet_style(
@@ -325,9 +413,101 @@ class ChartsMixin:
             panes_style=panes_style,
             resolved_label_formats=resolved_label_formats,
             resolved_cell_formats=resolved_cell_formats,
+            pane_formats=pane_formats,
             resolved_header_formats=resolved_header_formats,
             resolved_axis_style=resolved_axis_style,
         )
+        for specification, reference in dynamic_axis_titles:
+            self._set_parameter_axis_title(ws, reference, specification["title_parameter"], specification.get("scope", "cols"), specification.get("class", "0"))
+        if gridline_style:
+            if not isinstance(gridline_style, dict) or set(gridline_style) - {"rows", "cols"}:
+                raise ValueError("gridline_style requires rows/cols format dictionaries")
+            allowed = {"line-visibility", "stroke-color", "stroke-size", "stroke-pattern"}
+            for scope, formats in gridline_style.items():
+                if not isinstance(formats, dict) or not formats:
+                    raise ValueError("gridline_style scopes require nonempty format dictionaries")
+                for key, value in formats.items():
+                    attr = key.replace("_", "-")
+                    if attr not in allowed or isinstance(value, (dict, list)):
+                        raise ValueError(f"Unsupported gridline style: {key}")
+                    if attr == "line-visibility" and value not in ("on", "off"):
+                        raise ValueError("gridline line_visibility must be on or off")
+            from lxml import etree
+            style = table.find("style")
+            rule = style.find("style-rule[@element='gridline']")
+            if rule is None:
+                rule = etree.SubElement(style, "style-rule", element="gridline")
+            for scope, formats in gridline_style.items():
+                for key, value in formats.items():
+                    attr = key.replace("_", "-")
+                    for old in list(rule.findall("format")):
+                        if old.get("attr") == attr and old.get("scope") == scope:
+                            rule.remove(old)
+                    etree.SubElement(rule, "format", attr=attr, scope=scope, value=str(value))
+        if size_style:
+            if not isinstance(size_style, dict) or not size_style.get("field"):
+                raise ValueError("size_style requires a field")
+            allowed = {"field", "min", "max", "min_size", "max_size", "min-size", "max-size", "type"}
+            if set(size_style) - allowed or size_style.get("type", "rangesize") != "rangesize":
+                raise ValueError("size_style supports rangesize field/min/max/min_size/max_size")
+            import math
+            for key, value in size_style.items():
+                if key not in ("field", "type"):
+                    try:
+                        number = float(value)
+                    except (ValueError, TypeError):
+                        raise ValueError(f"size_style {key} must be numeric") from None
+                    if isinstance(value, bool) or not math.isfinite(number) or (key.replace("_", "-") in ("min-size", "max-size") and number < 0):
+                        raise ValueError(f"size_style {key} must be a finite numeric size")
+            from lxml import etree
+            attributes = {"attr": "size", "type": "rangesize", "field-type": "quantitative", "field": style_reference(self.field_registry.parse_expression(size_style["field"]))}
+            attributes.update({key.replace("_", "-"): str(value) for key, value in size_style.items() if key not in ("field", "type")})
+            style = table.find("style")
+            rule = style.find("style-rule[@element='mark']")
+            if rule is None:
+                rule = etree.SubElement(style, "style-rule", element="mark")
+            for old in list(rule.findall("encoding")):
+                if old.get("attr") == "size" and old.get("field") == attributes["field"]:
+                    rule.remove(old)
+            etree.SubElement(rule, "encoding", attributes)
+        if color_style:
+            if not isinstance(color_style, dict) or not color_style.get("field") or not color_style.get("palette"):
+                raise ValueError("color_style requires field and palette")
+            allowed = {"field", "palette", "center", "min", "max", "include_totals", "include-totals"}
+            if set(color_style) - allowed:
+                raise ValueError("Unsupported continuous color style setting")
+            from lxml import etree
+            attributes = {"attr": "color", "type": "interpolated", "field": style_reference(self.field_registry.parse_expression(color_style["field"]))}
+            for key, value in color_style.items():
+                if key != "field":
+                    attributes[key.replace("_", "-")] = str(value).lower() if isinstance(value, bool) else str(value)
+            style = table.find("style")
+            rule = style.find("style-rule[@element='mark']")
+            if rule is None:
+                rule = etree.SubElement(style, "style-rule", element="mark")
+            for old in list(rule.findall("encoding")):
+                if old.get("attr") == "color" and old.get("field") == attributes["field"]:
+                    rule.remove(old)
+            etree.SubElement(rule, "encoding", attributes)
+        if map_style:
+            allowed = {"map-style", "washout"}
+            settings = {key.replace("_", "-"): value for key, value in map_style.items()}
+            if set(settings) - allowed:
+                raise ValueError("map_style supports map_style and washout")
+            if "map-style" in settings and settings["map-style"] not in ("light", "normal", "dark", "satellite", "outdoors", "streets"):
+                raise ValueError("Unsupported Tableau map style")
+            if "washout" in settings and not 0 <= float(settings["washout"]) <= 100:
+                raise ValueError("map_style washout must be between 0 and 100")
+            from lxml import etree
+            style = table.find("style")
+            rule = style.find("style-rule[@element='map']")
+            if rule is None:
+                rule = etree.SubElement(style, "style-rule", element="map")
+            for attr, value in settings.items():
+                for old in list(rule.findall("format")):
+                    if old.get("attr") == attr:
+                        rule.remove(old)
+                etree.SubElement(rule, "format", attr=attr, value=str(value))
         parts = []
         if background_color:
             parts.append(f"background={background_color}")
