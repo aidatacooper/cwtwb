@@ -269,7 +269,7 @@ def add_group(
     field_name: str,
     source_field: str,
     groups: dict[str, list[str]],
-    default_value: str = "Other",
+    default_value: str | None = "Other",
     internal_name: str = "",
 ) -> str:
     """Create a categorical dimension by grouping source-field members."""
@@ -646,9 +646,10 @@ def configure_layered_chart(
     axis_shelf: str = "rows",
     synchronized: bool = True,
     hide_axes: bool = False,
+    sort_descending: str | None = None,
     table_calc_overrides: dict[str, list[dict]] | None = None,
 ) -> str:
-    """Build an explicit multi-pane worksheet, including Multiple Values axes."""
+    """Build layered panes with path/color_extra, ordered Multiple Values and row sorting."""
 
     result = get_editor().configure_layered_chart(
         worksheet_name=worksheet_name,
@@ -658,6 +659,7 @@ def configure_layered_chart(
         axis_shelf=axis_shelf,
         synchronized=synchronized,
         hide_axes=hide_axes,
+        sort_descending=sort_descending,
         table_calc_overrides=table_calc_overrides,
     )
     return result + _skill_hint("configure_layered_chart")

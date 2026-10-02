@@ -7,6 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Unreleased
 
+### Added
+
+- Layered pane path and additional color bindings, ordered Measure Names, repeated
+  Measure Values axis folding and descending row sorting (2026 WW09, 2019 WW48).
+- Categorical groups can omit their fallback with `default_value=None` (2019 WW46).
+
+### Fixed
+
+- Layered table calculations use shared ordered/nested addressing; attribute
+  aggregations preserve nominal/ordinal field domains (2026 WW09).
+- Virtual Measure Names/Values fields bind directly in worksheet styles without
+  creating physical fields. Shelf sorting targets the inner dimension (2026 WW07).
+- Numeric palettes serialize unquoted numbers (2019 WW48). Categorical-bin members
+  use Tableau backslash escaping for quotes, backslashes, # and % (2019 WW46).
+
 ## [0.27.1] - 2026-10-02
 
 ### Added

@@ -50,6 +50,7 @@ CAPABILITY_SPECS: tuple[CapabilitySpec, ...] = (
         canonical="Line",
         aliases=("line chart",),
         rationale="High-frequency time-series primitive with stable semantics.",
+        notes="Layered line panes support path, color_extra and repeated Multiple Values axes for parallel coordinates.",
     ),
     CapabilitySpec(
         key="area",

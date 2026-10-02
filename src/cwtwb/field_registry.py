@@ -460,7 +460,7 @@ class FieldRegistry:
         # Determine type suffix
         if m and m.group(1).upper() == "EXACTDATE":
             ci_type = "quantitative"
-        elif derivation in ("None", "User", "Collect"):
+        elif derivation in ("None", "User", "Collect", "Attribute"):
             ci_type = fi.field_type   # nominal / quantitative — preserve field's own type
         elif derivation in _TEMPORAL_DERIVATIONS:
             ci_type = "ordinal"

@@ -738,10 +738,10 @@ class TWBEditor(ParametersMixin, ConnectionsMixin, ChartsMixin, DashboardsMixin)
         source_field: str,
         groups: dict[str, list[str]],
         *,
-        default_value: str = "Other",
+        default_value: Optional[str] = "Other",
         internal_name: Optional[str] = None,
     ) -> str:
-        """Create a categorical group field from members of a source dimension."""
+        """Create a categorical group; None preserves ungrouped source members."""
 
         field_name = field_name.strip()
         source_field = source_field.strip()
@@ -772,7 +772,8 @@ class TWBEditor(ParametersMixin, ConnectionsMixin, ChartsMixin, DashboardsMixin)
             normalized_groups[group_name] = members
 
         def tableau_string(value: str) -> str:
-            return f'"{value.replace(chr(34), chr(34) * 2)}"'
+            escaped = value.replace("\\", "\\\\").replace('"', '\\"').replace("#", "\\#").replace("%", "\\%")
+            return f'"{escaped}"'
 
         if internal_name is None:
             internal_name = f"[Calculation_{_generate_uuid().strip('{}').replace('-','')}]"
@@ -787,7 +788,8 @@ class TWBEditor(ParametersMixin, ConnectionsMixin, ChartsMixin, DashboardsMixin)
         calc = etree.SubElement(col, "calculation")
         calc.set("class", "categorical-bin")
         calc.set("column", source_info.local_name)
-        calc.set("default", tableau_string(str(default_value)))
+        if default_value is not None:
+            calc.set("default", tableau_string(str(default_value)))
         calc.set("new-bin", "true")
         for group_name, members in normalized_groups.items():
             bin_element = etree.SubElement(calc, "bin")

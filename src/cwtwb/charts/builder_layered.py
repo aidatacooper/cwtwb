@@ -35,6 +35,7 @@ class LayeredChartBuilder(BaseChartBuilder):
         axis_shelf: str = "rows",
         synchronized: bool = True,
         hide_axes: bool = False,
+        sort_descending: Optional[str] = None,
         table_calc_overrides: Optional[
             dict[str, list[dict[str, Any]]]
         ] = None,
@@ -47,6 +48,7 @@ class LayeredChartBuilder(BaseChartBuilder):
         self.axis_shelf = axis_shelf
         self.synchronized = synchronized
         self.hide_axes = hide_axes
+        self.sort_descending = sort_descending
         self.table_calc_overrides = table_calc_overrides or {}
 
     @staticmethod
@@ -79,6 +81,16 @@ class LayeredChartBuilder(BaseChartBuilder):
             return f"({refs[index]} + {nested(index + 1)})"
 
         return nested(0)
+
+    def _build_dimension_shelf(self, instances, expressions: list[str], ds_name: str) -> str:
+        if not any(self._is_special(expression) for expression in expressions):
+            return build_dimension_shelf(self.editor, instances, expressions)
+        refs = [self._field_ref(instances, expression, ds_name) for expression in expressions]
+        def nested(index):
+            if index == len(refs) - 1:
+                return refs[index]
+            return f"({refs[index]} / {nested(index + 1)})"
+        return nested(0) if refs else ""
 
     def _append_measure_names_filter(
         self,
@@ -142,6 +154,7 @@ class LayeredChartBuilder(BaseChartBuilder):
         pane: etree._Element,
         instances,
         labels: list[str],
+        ds_name: str,
     ) -> None:
         if not labels:
             return
@@ -154,10 +167,7 @@ class LayeredChartBuilder(BaseChartBuilder):
             if node.get("column")
         }
         for expression in labels:
-            ci = self._instance_for_expression(instances, expression)
-            if ci is None:
-                continue
-            ref = self.field_registry.resolve_full_reference(ci.instance_name)
+            ref = self._field_ref(instances, expression, ds_name)
             if ref not in existing:
                 etree.SubElement(encodings, "text", {"column": ref})
                 existing.add(ref)
@@ -189,55 +199,9 @@ class LayeredChartBuilder(BaseChartBuilder):
     ) -> None:
         """Apply explicit, per-instance Tableau table-calculation addressing."""
 
-        if not self.table_calc_overrides:
-            return
-        dependencies = view.find(
-            f"datasource-dependencies[@datasource='{ds_name}']"
+        super()._apply_table_calc_overrides(
+            view, instances, ds_name, self.table_calc_overrides
         )
-        if dependencies is None:
-            return
-
-        for expression, specifications in self.table_calc_overrides.items():
-            instance = self._instance_for_expression(instances, expression)
-            if instance is None:
-                raise ValueError(
-                    f"Could not resolve table-calc override field: {expression}"
-                )
-            column_instance = dependencies.find(
-                f"column-instance[@name='{instance.instance_name}']"
-            )
-            if column_instance is None:
-                raise ValueError(
-                    f"Missing column instance for table-calc override: {expression}"
-                )
-            for old in list(column_instance.findall("table-calc")):
-                column_instance.remove(old)
-
-            for specification in specifications:
-                attributes: dict[str, str] = {}
-                for key, value in specification.items():
-                    xml_key = key.replace("_", "-")
-                    if xml_key == "field":
-                        field = self.field_registry._find_field(str(value))
-                        attributes[xml_key] = f"[{ds_name}].{field.local_name}"
-                    elif xml_key == "ordering-field":
-                        ordering_instance = self._instance_for_expression(
-                            instances,
-                            str(value),
-                        )
-                        if ordering_instance is None:
-                            raise ValueError(
-                                "Could not resolve table-calc ordering field: "
-                                f"{value}"
-                            )
-                        attributes[xml_key] = (
-                            self.field_registry.resolve_full_reference(
-                                ordering_instance.instance_name
-                            )
-                        )
-                    else:
-                        attributes[xml_key] = str(value)
-                etree.SubElement(column_instance, "table-calc", attributes)
 
     def _apply_color_map(self, instances, pane_spec: dict[str, Any], view: etree._Element) -> None:
         color_map = pane_spec.get("color_map")
@@ -349,10 +313,13 @@ class LayeredChartBuilder(BaseChartBuilder):
 
         for expression in self.columns + self.rows:
             include(expression)
+        include(self.sort_descending)
         all_measure_values: list[str] = []
         for pane_spec in self.panes:
-            for key in ("axis", "color", "size", "label", "detail"):
+            for key in ("axis", "color", "size", "label", "detail", "path"):
                 include(pane_spec.get(key))
+            for expression in pane_spec.get("color_extra", []):
+                include(expression)
             for expression in pane_spec.get("labels", []):
                 include(expression)
             tooltip = pane_spec.get("tooltip")
@@ -372,12 +339,28 @@ class LayeredChartBuilder(BaseChartBuilder):
             )
         self._setup_datasource_dependencies(view, ds_name, instances, expressions)
         self._apply_table_calc_overrides(view, instances, ds_name)
+        if self.sort_descending:
+            self._add_shelf_sort(view, ds_name, instances, self.rows, self.sort_descending)
         self._append_measure_names_filter(
             view,
             instances,
             ds_name,
             all_measure_values,
         )
+        for old in list(view.findall("manual-sort")):
+            if old.get("column") == f"[{ds_name}].[:Measure Names]":
+                view.remove(old)
+        if all_measure_values:
+            values = etree.Element("manual-sort", column=f"[{ds_name}].[:Measure Names]", direction="ASC")
+            dictionary = etree.SubElement(values, "dictionary")
+            for expression in all_measure_values:
+                bucket = etree.SubElement(dictionary, "bucket")
+                bucket.text = '"' + self._field_ref(instances, expression, ds_name) + '"'
+            anchor = next((view.find(tag) for tag in ("shelf-sorts", "slices", "aggregation") if view.find(tag) is not None), None)
+            if anchor is not None:
+                anchor.addprevious(values)
+            else:
+                view.append(values)
 
         old_pane = table.find("pane")
         if old_pane is not None:
@@ -407,8 +390,9 @@ class LayeredChartBuilder(BaseChartBuilder):
             if axis:
                 axis_ref = self._field_ref(instances, axis, ds_name)
                 pane.set(axis_attribute, axis_ref)
-                if axis_ref not in axis_refs:
-                    axis_refs.append(axis_ref)
+                if axis == _SPECIAL_MULTIPLE_VALUES:
+                    pane.set("y-index" if self.axis_shelf == "rows" else "x-index", str(axis_refs.count(axis_ref)))
+                axis_refs.append(axis_ref)
             pane_view = etree.SubElement(pane, "view")
             etree.SubElement(pane_view, "breakdown", {"value": "auto"})
             self._setup_pane(
@@ -416,9 +400,9 @@ class LayeredChartBuilder(BaseChartBuilder):
                 pane_spec.get("mark_type", "Automatic"),
                 pane_spec.get("mark_type", "Automatic"),
                 instances,
-                pane_spec.get("color"),
+                None if self._is_special(pane_spec.get("color")) else pane_spec.get("color"),
                 pane_spec.get("size"),
-                pane_spec.get("label"),
+                None if self._is_special(pane_spec.get("label")) else pane_spec.get("label"),
                 pane_spec.get("detail"),
                 None,
                 pane_spec.get("tooltip"),
@@ -436,10 +420,18 @@ class LayeredChartBuilder(BaseChartBuilder):
                     "color",
                     {"column": f"[{ds_name}].[:Measure Names]"},
                 )
+            encodings = pane.find("encodings")
+            if encodings is None:
+                encodings = etree.SubElement(pane, "encodings")
+            for expression in pane_spec.get("color_extra", []):
+                etree.SubElement(encodings, "color", column=self._field_ref(instances, expression, ds_name))
+            if pane_spec.get("path"):
+                etree.SubElement(encodings, "path", column=self._field_ref(instances, pane_spec["path"], ds_name))
             self._append_extra_labels(
                 pane,
                 instances,
-                pane_spec.get("labels", []),
+                pane_spec.get("labels", []) + ([pane_spec["label"]] if self._is_special(pane_spec.get("label")) else []),
+                ds_name,
             )
             if pane_spec.get("label_runs"):
                 self._build_rich_label(
@@ -470,10 +462,10 @@ class LayeredChartBuilder(BaseChartBuilder):
                     ds_name,
                 )
             else:
-                rows_element.text = build_dimension_shelf(
-                    self.editor,
+                rows_element.text = self._build_dimension_shelf(
                     instances,
                     self.rows,
+                    ds_name,
                 )
         if columns_element is not None:
             if self.axis_shelf in {"columns", "cols"}:
@@ -483,10 +475,10 @@ class LayeredChartBuilder(BaseChartBuilder):
                     ds_name,
                 )
             else:
-                columns_element.text = build_dimension_shelf(
-                    self.editor,
+                columns_element.text = self._build_dimension_shelf(
                     instances,
                     self.columns,
+                    ds_name,
                 )
 
         old_style = table.find("style")
@@ -509,7 +501,7 @@ class LayeredChartBuilder(BaseChartBuilder):
             for class_index, axis_ref in enumerate(axis_refs[1:]):
                 attributes = {
                     "attr": "space",
-                    "class": str(class_index),
+                    "class": str(class_index + 1 if axis_ref == axis_refs[0] else class_index),
                     "field": axis_ref,
                     "field-type": "quantitative",
                     "fold": "true",

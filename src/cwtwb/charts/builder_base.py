@@ -103,6 +103,15 @@ class BaseChartBuilder:
         field = self.field_registry._find_field(column_instance.column_local_name)
         if field.datatype == "boolean" or field.calculation_class == "set":
             return str(value).strip().lower()
+        if field.datatype in {"integer", "real"}:
+            from decimal import Decimal, InvalidOperation
+            try:
+                number = Decimal(str(value))
+            except InvalidOperation as exc:
+                raise ValueError(f"Numeric palette member must be a number: {value}") from exc
+            if not number.is_finite():
+                raise ValueError(f"Numeric palette member must be finite: {value}")
+            return str(value).strip()
         return f'"{value}"'
 
     def _gather_expressions(self, columns, rows, color, size, label, detail, wedge_size, sort_descending, tooltip, filters, geographic_field, measure_values) -> list[str]:
@@ -944,10 +953,10 @@ class BaseChartBuilder:
         rows: list[str],
         sort_measure_expr: str,
     ) -> None:
-        """Attach descending shelf sort metadata for the leading row dimension."""
+        """Attach descending shelf sort metadata for the innermost row dimension."""
         dim_ci = None
-        for expr in rows:
-            ci = instances.get(expr)
+        for expr in reversed(rows):
+            ci = self._instance_for_expression(instances, expr)
             if ci and ci.ci_type == "nominal":
                 dim_ci = ci
                 break

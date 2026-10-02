@@ -191,9 +191,10 @@ class ChartsMixin:
         axis_shelf: str = "rows",
         synchronized: bool = True,
         hide_axes: bool = False,
+        sort_descending: Optional[str] = None,
         table_calc_overrides: Optional[dict[str, list[dict]]] = None,
     ) -> str:
-        """Configure three or more independently encoded mark panes."""
+        """Configure independently encoded panes, with path/color_extra and sorting."""
 
         return dispatch_configure_layered_chart(
             self,
@@ -204,6 +205,7 @@ class ChartsMixin:
             axis_shelf=axis_shelf,
             synchronized=synchronized,
             hide_axes=hide_axes,
+            sort_descending=sort_descending,
             table_calc_overrides=table_calc_overrides,
         )
 
@@ -289,6 +291,14 @@ class ChartsMixin:
         table = ws.find("table")
         if table is None:
             raise ValueError(f"Worksheet '{worksheet_name}' is malformed: missing <table>")
+        def style_instance(expression):
+            special = {"Measure Names": ("[:Measure Names]", "nominal"), "Multiple Values": ("[Multiple Values]", "quantitative")}
+            if expression in special:
+                from ..field_registry import ColumnInstance
+                name, field_type = special[expression]
+                return ColumnInstance(column_local_name=name, derivation="None", instance_name=name, ci_type=field_type, is_direct=True)
+            return self.field_registry.parse_expression(expression)
+
         def style_reference(instance):
             dependencies = table.find("view/datasource-dependencies[@datasource='%s']" % self._datasource.get("name", ""))
             if dependencies is not None:
@@ -299,7 +309,7 @@ class ChartsMixin:
 
         hide_row_label_ref = None
         if hide_row_label:
-            ci = self.field_registry.parse_expression(hide_row_label)
+            ci = style_instance(hide_row_label)
             hide_row_label_ref = style_reference(ci)
 
         # Resolve label_formats field references
@@ -309,7 +319,7 @@ class ChartsMixin:
             for lf in label_formats:
                 resolved_lf = {}
                 if "field" in lf:
-                    ci = self.field_registry.parse_expression(lf["field"])
+                    ci = style_instance(lf["field"])
                     resolved_lf["_field_ref"] = style_reference(ci)
                 for k, v in lf.items():
                     if k != "field":
@@ -323,7 +333,7 @@ class ChartsMixin:
             for cf in cell_formats:
                 resolved_cf = {}
                 if "field" in cf:
-                    ci = self.field_registry.parse_expression(cf["field"])
+                    ci = style_instance(cf["field"])
                     resolved_cf["_field_ref"] = style_reference(ci)
                 for k, v in cf.items():
                     if k != "field":
@@ -337,7 +347,7 @@ class ChartsMixin:
             for hf in header_formats:
                 resolved_hf = {}
                 if "field" in hf:
-                    ci = self.field_registry.parse_expression(hf["field"])
+                    ci = style_instance(hf["field"])
                     resolved_hf["_field_ref"] = style_reference(ci)
                 for k, v in hf.items():
                     if k != "field":
@@ -367,7 +377,7 @@ class ChartsMixin:
                     raise ValueError("axis_style encodings requires a list of field specifications")
                 resolved_axis_style["encodings"] = []
                 for encoding in encodings:
-                    ci = self.field_registry.parse_expression(encoding["field"])
+                    ci = style_instance(encoding["field"])
                     resolved = {key.replace("_", "-"): str(value).lower() if isinstance(value, bool) else str(value) for key, value in encoding.items() if key != "field"}
                     resolved["field"] = style_reference(ci)
                     resolved_axis_style["encodings"].append(resolved)
@@ -382,7 +392,7 @@ class ChartsMixin:
                         alias = parameter_column.find(f"aliases/alias[@key='{raw_value}']")
                         resolved_pf["value"] = alias.get("value") if alias is not None else raw_value.strip('"')
                     if "field" in pf:
-                        ci = self.field_registry.parse_expression(pf["field"])
+                        ci = style_instance(pf["field"])
                         resolved_pf["_field_ref"] = style_reference(ci)
                     if "attr" in resolved_pf:
                         resolved_per_field.append(resolved_pf)

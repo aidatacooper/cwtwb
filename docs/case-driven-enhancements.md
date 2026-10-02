@@ -1,5 +1,57 @@
 # Case-driven SDK enhancements
 
+## Five additional cases: 2019 WW46–48 and 2026 WW07/09
+
+These enhancements were discovered by independent empty-workbook builds, then
+checked against real Tableau Cloud image/CSV exports in the companion case lab.
+They remain generic APIs and contain no author workbook or case-specific data.
+
+- **WW46 manufacturer groups:** `add_group(default_value=None)` preserves
+  ungrouped source values. Categorical bins now escape literal quotes with
+  backslashes rather than SQL doubled quotes, and escape `#`, `%` and backslashes.
+  The incorrect encoding created 327 manufacturer groups instead of 183 in Cloud;
+  tests use synthetic quoted/pattern-like strings, without the author data.
+- **WW48 threshold bars:** `configure_layered_chart(sort_descending=...)` exposes
+  shared sorting through the facade, dispatcher and MCP. Numeric categorical
+  palettes emit numeric buckets, rather than quoted strings that Cloud ignores.
+  Structured table-calculation `order` addresses both grouping dimensions so the
+  selected/combined state counts span the full view.
+- **WW07 paired TC/LOD bars:** shelf sorts target the inner nominal dimension,
+  consistent with Tableau's innermost sort flag, preserving the outer region
+  partitions while sorting categories by sales.
+- **WW09 parallel coordinates:** layered pane dictionaries accept `path` and
+  `color_extra` bindings. Repeated `Multiple Values` axes retain their distinct
+  pane indices and fold classes; explicit `measure_values` lists retain metric
+  order through the Measure Names dictionary. Table-calculation overrides use
+  the same validated ordered/nested addressing as ordinary charts. Virtual
+  `Measure Names` labels and worksheet styles bypass physical field registration.
+  Explicit `ATTR` expressions preserve nominal/ordinal domains, keeping textual
+  tooltips and labels correctly typed.
+
+```python
+editor.configure_layered_chart(
+    "Comparison", columns=["Measure Names"],
+    rows=["Multiple Values", "Multiple Values"],
+    panes=[
+        {"axis": "Multiple Values", "mark_type": "Line", "detail": "Item",
+         "color": "Selected", "color_extra": ["ATTR(Venue)"],
+         "measure_values": ["Metric A", "Metric B"]},
+        {"axis": "Multiple Values", "mark_type": "Line", "path": "Item",
+         "label": "Measure Names"},
+    ],
+    table_calc_overrides={"Metric A": [{"ordering_type": "Field", "order": ["Item", "Selected"]}]},
+    synchronized=True, hide_axes=True,
+)
+editor.configure_worksheet_style("Comparison", label_formats=[
+    {"field": "Measure Names", "display": "false"}])
+```
+
+**WW47 boundary:** deterministic order-ID jitter is a case-level reproducibility
+choice. `RANDOM()` remains excluded from the official function catalog: Tableau's
+[support article](https://help.salesforce.com/s/articleView?id=001473019&language=en_US&type=1)
+identifies it as unofficial and potentially deprecated. REST captures and static
+action contracts do not establish browser clicks, hover or live Explain Data use.
+
 ## 2019 WW34: single-sheet Top N manufacturers
 
 Each region must rank manufacturers independently. The earlier dual-axis API had no way to describe its INDEX addressing, ordered dimensions, descending quantity sort, or nested calculation addressing. `configure_dual_axis(table_calc_overrides=...)` now exposes the shared chart addressing API through the builder, dispatcher, Python facade, and MCP. Structured specifications accept `order` field lists, `sort` with `direction` and `using`, `level_break`, and nested `field` expressions. Dimension shelves now cross a dual-axis measure union instead of adding dimension and measure expressions.

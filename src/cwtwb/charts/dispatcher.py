@@ -404,6 +404,7 @@ def configure_layered_chart(
     axis_shelf: str = "rows",
     synchronized: bool = True,
     hide_axes: bool = False,
+    sort_descending: Optional[str] = None,
     table_calc_overrides: Optional[dict[str, list[dict]]] = None,
 ) -> str:
     """Build an explicitly declared multi-pane worksheet."""
@@ -419,5 +420,6 @@ def configure_layered_chart(
         axis_shelf=axis_shelf,
         synchronized=synchronized,
         hide_axes=hide_axes,
+        sort_descending=sort_descending,
         table_calc_overrides=table_calc_overrides,
     ).build()
