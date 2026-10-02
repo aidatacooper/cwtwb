@@ -1,5 +1,34 @@
 # Case-driven SDK enhancements
 
+## 2020 WW01: independent measure panes and custom sort headers
+
+The single-click sorting challenge places sales bars, a text column, and profit
+ratio bars beside one another in one worksheet. Layered charts previously folded
+every secondary axis into an overlay. `configure_layered_chart(fold_axes=False)`
+now keeps the measure axes independent while retaining pane-specific marks,
+labels, styles, and axis visibility. The default remains the existing overlay.
+
+The author's separate clickable header replaces Tableau's built-in sorting
+controls. `configure_worksheet_style(hide_sort_controls=True)` emits the native
+view control; `False` restores it, and the default `None` preserves current state.
+Both options are available through Python and MCP. Synthetic tests cover
+independent panes, existing folding, hide-control idempotence, explicit removal,
+option validation, and workbook save/load without author data.
+
+Parameter actions also resolve the virtual `Measure Names` source directly to
+`[:Measure Names]`, avoiding an invented physical column when header marks choose
+the sort metric. Tests cover both the display name and virtual reference spelling.
+
+```python
+editor.configure_layered_chart(
+    "Comparison", rows=["Item"], columns=["SUM(Value)", "SUM(Ratio)"],
+    axis_shelf="columns", fold_axes=False, hide_axes=True,
+    panes=[{"axis": "SUM(Value)", "mark_type": "Bar"},
+           {"axis": "SUM(Ratio)", "mark_type": "Text"}],
+)
+editor.configure_worksheet_style("Comparison", hide_sort_controls=True)
+```
+
 ## Five additional cases: 2019 WW46–48 and 2026 WW07/09
 
 These enhancements were discovered by independent empty-workbook builds, then

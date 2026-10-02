@@ -775,6 +775,14 @@ def _ensure_group_action_manifest(editor) -> None:
             manifest.append(feature)
 
 
+def _parameter_action_source_reference(editor, source_field: str) -> str:
+    """Resolve virtual Measure Names without registering a physical field."""
+    if source_field.strip() in {"Measure Names", "[:Measure Names]"}:
+        return editor.field_registry.resolve_full_reference("[:Measure Names]")
+    instance = editor.field_registry.parse_expression(source_field).instance_name
+    return editor.field_registry.resolve_full_reference(instance)
+
+
 def _validate_action_targets(
     editor,
     *,
@@ -809,7 +817,7 @@ def _validate_action_targets(
     if action_type == "parameter":
         if not source_field.strip():
             raise ValueError("action_type 'parameter' requires a non-empty source_field.")
-        editor.field_registry.parse_expression(source_field)
+        _parameter_action_source_reference(editor, source_field)
         if target_parameter not in editor._parameters:
             raise ValueError(
                 f"Parameter '{target_parameter}' not found. "
@@ -852,8 +860,7 @@ def _configure_parameter_action(
         clear_el.set("type", _PARAMETER_ACTION_CLEAR_BEHAVIORS[clear_behavior])
         clear_el.set("value", clear_value)
 
-    source_instance = editor.field_registry.parse_expression(source_field).instance_name
-    source_reference = editor.field_registry.resolve_full_reference(source_instance)
+    source_reference = _parameter_action_source_reference(editor, source_field)
     parameter_reference = (
         f"[Parameters].{editor._parameters[target_parameter]['internal_name']}"
     )

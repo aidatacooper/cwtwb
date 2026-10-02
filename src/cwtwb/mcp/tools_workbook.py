@@ -663,6 +663,7 @@ def configure_layered_chart(
     panes: list[dict] | None = None,
     axis_shelf: str = "rows",
     synchronized: bool = True,
+    fold_axes: bool = True,
     hide_axes: bool = False,
     sort_descending: str | None = None,
     table_calc_overrides: dict[str, list[dict]] | None = None,
@@ -678,6 +679,7 @@ def configure_layered_chart(
         panes=panes,
         axis_shelf=axis_shelf,
         synchronized=synchronized,
+        fold_axes=fold_axes,
         hide_axes=hide_axes,
         sort_descending=sort_descending,
         sort_field=sort_field,
@@ -715,6 +717,7 @@ def configure_worksheet_style(
     pane_formats: list[dict] | None = None,
     size_style: dict | None = None,
     gridline_style: dict | None = None,
+    hide_sort_controls: bool | None = None,
 ) -> str:
     """Apply worksheet-level styling: background color, axis/grid/border visibility.
 
@@ -749,6 +752,7 @@ def configure_worksheet_style(
         pane_formats=pane_formats,
         size_style=size_style,
         gridline_style=gridline_style,
+        hide_sort_controls=hide_sort_controls,
     )
     return result + _skill_hint("configure_worksheet_style")
 

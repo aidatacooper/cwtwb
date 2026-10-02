@@ -9,6 +9,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Independent layered measure panes with `fold_axes=False`, and optional native
+  worksheet sort-control visibility via `hide_sort_controls` (2020 WW01).
+
 - Generated geography, explicit set members and set action selection options;
   multi-source and multi-target dashboard filter/highlight actions.
 - Dynamic zone visibility, linked worksheet filters, parameter text runs and
@@ -21,6 +24,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Categorical groups can omit their fallback with `default_value=None` (2019 WW46).
 
 ### Fixed
+
+- Parameter actions bind virtual Measure Names directly rather than inventing a
+  physical field (2020 WW01 clickable sort headers).
 
 - Layered table calculations use shared ordered/nested addressing; attribute
   aggregations preserve nominal/ordinal field domains (2026 WW09).

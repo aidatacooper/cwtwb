@@ -36,6 +36,7 @@ class LayeredChartBuilder(BaseChartBuilder):
         panes: Optional[list[dict[str, Any]]] = None,
         axis_shelf: str = "rows",
         synchronized: bool = True,
+        fold_axes: bool = True,
         hide_axes: bool = False,
         sort_descending: Optional[str] = None,
         sort_field: Optional[str] = None,
@@ -51,6 +52,9 @@ class LayeredChartBuilder(BaseChartBuilder):
         self.panes = panes or []
         self.axis_shelf = axis_shelf
         self.synchronized = synchronized
+        if not isinstance(fold_axes, bool):
+            raise ValueError("fold_axes must be boolean")
+        self.fold_axes = fold_axes
         self.hide_axes = hide_axes
         self.sort_descending = sort_descending
         self.sort_field = sort_field
@@ -572,7 +576,8 @@ class LayeredChartBuilder(BaseChartBuilder):
                 }
                 if self.synchronized:
                     attributes["synchronized"] = "true"
-                etree.SubElement(axis_rule, "encoding", attributes)
+                if self.fold_axes:
+                    etree.SubElement(axis_rule, "encoding", attributes)
                 if self.hide_axes:
                     etree.SubElement(
                         axis_rule,

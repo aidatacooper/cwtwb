@@ -18,6 +18,57 @@ def synthetic():
     return editor
 
 
+def test_independent_measure_panes_and_hidden_sort_controls_through_mcp(monkeypatch, tmp_path):
+    editor = synthetic()
+    editor.add_calculated_field("Other", "2.0", datatype="real")
+    monkeypatch.setattr(tools_workbook, "get_editor", lambda: editor)
+    tools_workbook.configure_layered_chart(
+        "Synthetic", rows=["Item"], columns=["SUM(Value)", "SUM(Other)"],
+        axis_shelf="columns", fold_axes=False, hide_axes=True,
+        panes=[{"axis": "SUM(Value)", "mark_type": "Bar"},
+               {"axis": "SUM(Other)", "mark_type": "Text"}],
+    )
+    table = editor.root.find("worksheets/worksheet/table")
+    assert len(table.findall("panes/pane")) == 2
+    assert table.find("style/style-rule/encoding[@fold='true']") is None
+    assert len(table.findall("style/style-rule[@element='axis']/format[@attr='display']")) == 2
+    tools_workbook.configure_worksheet_style("Synthetic", hide_sort_controls=True)
+    tools_workbook.configure_worksheet_style("Synthetic", hide_sort_controls=True)
+    assert len(table.findall("view/hide-sort-controls")) == 1
+    tools_workbook.configure_worksheet_style("Synthetic", hide_gridlines=True)
+    assert table.find("view/hide-sort-controls") is not None
+    tools_workbook.configure_worksheet_style("Synthetic", hide_sort_controls=False)
+    assert table.find("view/hide-sort-controls") is None
+    tools_workbook.configure_worksheet_style("Synthetic", hide_sort_controls=True)
+    output = tmp_path / "independent.twb"
+    editor.save(output)
+    assert TWBEditor.open_existing(output).root.find(".//view/hide-sort-controls") is not None
+
+
+def test_independent_pane_options_reject_non_boolean_values():
+    editor = synthetic()
+    with pytest.raises(ValueError, match="fold_axes"):
+        editor.configure_layered_chart("Synthetic", fold_axes="false")
+    with pytest.raises(ValueError, match="hide_sort_controls"):
+        editor.configure_worksheet_style("Synthetic", hide_sort_controls="true")
+
+
+@pytest.mark.parametrize("source", ["Measure Names", "[:Measure Names]"])
+def test_parameter_action_accepts_virtual_measure_names_without_physical_field(source, monkeypatch):
+    editor = synthetic()
+    editor.configure_chart("Synthetic", rows=["Item"], columns=["SUM(Value)"])
+    editor.add_parameter("Selected Metric", datatype="string", default_value="Value", domain_type="any")
+    editor.add_dashboard("Comparison", worksheet_names=["Synthetic"])
+    monkeypatch.setattr(tools_workbook, "get_editor", lambda: editor)
+    tools_workbook.add_dashboard_action(
+        dashboard_name="Comparison", action_type="parameter", source_sheet="Synthetic",
+        source_field=source, target_parameter="Selected Metric",
+    )
+    source = editor.root.find("actions/edit-parameter-action/params/param[@name='source-field']")
+    assert source.get("value").endswith(".[:Measure Names]")
+    assert not editor.root.xpath("datasources/datasource/column[@caption='Measure Names']")
+
+
 def test_repeated_measure_axes_keep_path_compound_color_and_metric_order(monkeypatch, tmp_path):
     editor = synthetic()
     monkeypatch.setattr(tools_workbook, "get_editor", lambda: editor)

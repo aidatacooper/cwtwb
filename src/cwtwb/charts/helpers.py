@@ -174,6 +174,7 @@ def apply_worksheet_style(
     hide_row_label_ref: str | None = None,
     hide_col_field_labels: bool = False,
     hide_row_field_labels: bool = False,
+    hide_sort_controls: bool | None = None,
     hide_droplines: bool = False,
     hide_reflines: bool = False,
     hide_table_dividers: bool = False,
@@ -193,6 +194,21 @@ def apply_worksheet_style(
     resolved_axis_style: dict | None = None,
 ) -> None:
     """Apply worksheet-level styling: background, axis/grid/border visibility."""
+
+    if hide_sort_controls is not None:
+        if not isinstance(hide_sort_controls, bool):
+            raise ValueError("hide_sort_controls must be boolean")
+        view = table.find("view")
+        if view is not None:
+            for control in view.findall("hide-sort-controls"):
+                view.remove(control)
+            if hide_sort_controls:
+                control = etree.Element("hide-sort-controls")
+                anchor = next((view.find(tag) for tag in ("slices", "aggregation") if view.find(tag) is not None), None)
+                if anchor is None:
+                    view.append(control)
+                else:
+                    anchor.addprevious(control)
 
     # Column / Row totals visibility
     if show_column_totals:

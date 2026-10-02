@@ -194,6 +194,7 @@ class ChartsMixin:
         panes: Optional[list[dict]] = None,
         axis_shelf: str = "rows",
         synchronized: bool = True,
+        fold_axes: bool = True,
         hide_axes: bool = False,
         sort_descending: Optional[str] = None,
         table_calc_overrides: Optional[dict[str, list[dict]]] = None,
@@ -210,6 +211,7 @@ class ChartsMixin:
             panes=panes,
             axis_shelf=axis_shelf,
             synchronized=synchronized,
+            fold_axes=fold_axes,
             hide_axes=hide_axes,
             sort_descending=sort_descending,
             sort_field=sort_field,
@@ -291,6 +293,7 @@ class ChartsMixin:
         pane_formats: Optional[list] = None,
         size_style: Optional[dict] = None,
         gridline_style: Optional[dict] = None,
+        hide_sort_controls: Optional[bool] = None,
     ) -> str:
         """Apply worksheet-level styling after chart configuration."""
         if pane_formats is not None and (not isinstance(pane_formats, list) or any(not isinstance(item, dict) for item in pane_formats)):
@@ -417,6 +420,7 @@ class ChartsMixin:
             hide_row_label_ref=hide_row_label_ref,
             hide_col_field_labels=hide_col_field_labels,
             hide_row_field_labels=hide_row_field_labels,
+            hide_sort_controls=hide_sort_controls,
             hide_droplines=hide_droplines,
             hide_reflines=hide_reflines,
             hide_table_dividers=hide_table_dividers,
