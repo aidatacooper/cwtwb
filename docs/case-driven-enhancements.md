@@ -246,3 +246,63 @@ target, leaving the Cloud button disabled and gray regardless of its color style
 Navigation rendering now resolves `windows/window[@class="dashboard"]` by target
 name and requires its simple ID. A synthetic test deliberately assigns distinct
 UUIDs to prove the action references the window.
+
+
+## 2019 WW49?51 and 2026 WW08/11: geography, actions and dashboard contracts
+
+WW49 requires generated latitude/longitude/geometry in layered panes, compound
+geographic detail, explicit initial set members, set-specific table calculation
+addressing, and single-selection assignment with retained selection on clear.
+`add_set(..., members=[...])` validates and escapes members; layered charts expose
+`geometry`, `detail_extra`, `filters`, and `sort_field`. Hidden exclusions use a
+binary set difference and remain outside ordinary filter slices.
+
+Cloud exports exposed an inherited geocoding country in the empty template.
+Generated US maps must explicitly establish their lookup context. Fields whose
+source names do not identify geography can receive an explicit geographic role;
+existing worksheet dependency copies are updated as well.
+
+```python
+editor.set_geocoding_context(country="United States", state=None)
+editor.set_field_geographic_role("Region Name", "state")
+```
+
+WW50 needs ordinal date cohort shelves and an explicit sort dimension rather than
+an implicit innermost dimension. Basic, text, dual-axis and layered chart APIs
+accept `sort_field`. WW51 requires one filter source targeting multiple sheets and
+hover highlighting with multiple source and target sheets. Dashboard actions now
+accept `source_sheets` and `target_sheets`, validate dashboard membership, and
+serialize excluded sheets separately for each side. Continuous color styles can
+use `colors=["#f1f1f1", "#83514a"]`; map styles expose named layer visibility.
+`EXACTDATE(...)` is preserved through field normalization without registering a
+spurious field bearing the whole expression as its name.
+
+WW08 requires genuine dynamic zone visibility driven by a boolean calculation.
+A layout node may specify `visibility={"field": "Panel Visible",
+"initially_visible": False}`. The SDK creates field/zone datagraph bindings and
+manifest flags. Filter controls expose relevant values and `show_all=False`;
+`link_worksheet_filters(field, worksheet_names)` shares an existing categorical
+filter across selected sheets. Dashboard rich text may contain parameter runs.
+Measure Values text charts preserve the supplied measure order, and rich labels
+support virtual `Multiple Values` and `Measure Names` fields with required text
+encodings. These capabilities allow KPI values and captions in one chart.
+
+WW11 requires native rounded container corners. Layout `corner_radius` accepts
+finite nonnegative values and enables the corresponding workbook feature. The
+same layout graph supports inner and outer containers with independent padding.
+
+Synthetic regressions cover generated geography, geocoding context, hidden set
+exclusions, set calculation addressing, scope validation for multi-sheet actions,
+virtual KPI labels, dynamic visibility graphs, shared filters, parameter text,
+rounded corners, and exact date normalization. Cloud images and actual CSV scope
+are recorded by the case repository separately; artifact tests do not claim
+browser interaction execution.
+
+
+WW50 also requires the layered shelf grammar to distinguish a discrete dimension
+crossing continuous axes (`dimension * (axis1 + axis2)`) from continuous axis
+addition and hierarchical discrete dimensions (`dimension1 / dimension2`).
+WW51 Cloud diagnostics isolated empty queries to redundantly encoding a temporal
+shelf field as a tooltip mark. Chart builders now retain the formatted tooltip
+reference while omitting a duplicate encoding for an expression already present
+on rows or columns. A synthetic month/year regression covers that distinction.

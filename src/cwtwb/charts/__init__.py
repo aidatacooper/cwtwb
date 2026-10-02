@@ -73,6 +73,7 @@ class ChartsMixin:
         label_runs: Optional[list[dict]] = None,
         label_param: Optional[str] = None,
         table_calc_overrides: Optional[dict[str, list[dict]]] = None,
+        sort_field: Optional[str] = None,
     ) -> str:
         """Route chart configuration to the correct builder."""
 
@@ -88,6 +89,7 @@ class ChartsMixin:
             detail=detail,
             wedge_size=wedge_size,
             sort_descending=sort_descending,
+            sort_field=sort_field,
             tooltip=tooltip,
             filters=filters,
             geographic_field=geographic_field,
@@ -141,6 +143,7 @@ class ChartsMixin:
         fold_axis: bool = False,
         color_by_measure_names: bool = False,
         table_calc_overrides: Optional[dict[str, list[dict]]] = None,
+        sort_field: Optional[str] = None,
     ) -> str:
         """Route dual axis configuration to the specific builder."""
 
@@ -162,6 +165,7 @@ class ChartsMixin:
             detail_2=detail_2,
             synchronized=synchronized,
             sort_descending=sort_descending,
+            sort_field=sort_field,
             filters=filters,
             wedge_size_1=wedge_size_1,
             wedge_size_2=wedge_size_2,
@@ -193,6 +197,8 @@ class ChartsMixin:
         hide_axes: bool = False,
         sort_descending: Optional[str] = None,
         table_calc_overrides: Optional[dict[str, list[dict]]] = None,
+        sort_field: Optional[str] = None,
+        filters: Optional[list[dict]] = None,
     ) -> str:
         """Configure independently encoded panes, with path/color_extra and sorting."""
 
@@ -206,6 +212,8 @@ class ChartsMixin:
             synchronized=synchronized,
             hide_axes=hide_axes,
             sort_descending=sort_descending,
+            sort_field=sort_field,
+            filters=filters,
             table_calc_overrides=table_calc_overrides,
         )
 
@@ -292,7 +300,7 @@ class ChartsMixin:
         if table is None:
             raise ValueError(f"Worksheet '{worksheet_name}' is malformed: missing <table>")
         def style_instance(expression):
-            special = {"Measure Names": ("[:Measure Names]", "nominal"), "Multiple Values": ("[Multiple Values]", "quantitative")}
+            special = {"Measure Names": ("[:Measure Names]", "nominal"), "Multiple Values": ("[Multiple Values]", "quantitative"), **{name: (f"[{name}]", "quantitative") for name in ("Latitude (generated)", "Longitude (generated)", "Geometry (generated)")}}
             if expression in special:
                 from ..field_registry import ColumnInstance
                 name, field_type = special[expression]
@@ -481,16 +489,22 @@ class ChartsMixin:
                     rule.remove(old)
             etree.SubElement(rule, "encoding", attributes)
         if color_style:
-            if not isinstance(color_style, dict) or not color_style.get("field") or not color_style.get("palette"):
-                raise ValueError("color_style requires field and palette")
-            allowed = {"field", "palette", "center", "min", "max", "include_totals", "include-totals"}
+            if not isinstance(color_style, dict) or not color_style.get("field") or not (color_style.get("palette") or color_style.get("colors")):
+                raise ValueError("color_style requires field and either palette or colors")
+            allowed = {"field", "palette", "colors", "center", "min", "max", "include_totals", "include-totals"}
             if set(color_style) - allowed:
                 raise ValueError("Unsupported continuous color style setting")
             from lxml import etree
             attributes = {"attr": "color", "type": "interpolated", "field": style_reference(self.field_registry.parse_expression(color_style["field"]))}
             for key, value in color_style.items():
-                if key != "field":
+                if key not in {"field", "colors"}:
                     attributes[key.replace("_", "-")] = str(value).lower() if isinstance(value, bool) else str(value)
+            colors = color_style.get("colors")
+            if colors is not None:
+                import re
+                if color_style.get("palette") or not isinstance(colors, list) or len(colors) < 2 or any(not isinstance(c, str) or re.fullmatch(r"#[0-9a-fA-F]{6}(?:[0-9a-fA-F]{2})?", c) is None for c in colors):
+                    raise ValueError("Custom colors require at least two hex colors and no named palette")
+                attributes["type"] = "custom-interpolated"
             style = table.find("style")
             rule = style.find("style-rule[@element='mark']")
             if rule is None:
@@ -498,12 +512,16 @@ class ChartsMixin:
             for old in list(rule.findall("encoding")):
                 if old.get("attr") == "color" and old.get("field") == attributes["field"]:
                     rule.remove(old)
-            etree.SubElement(rule, "encoding", attributes)
+            encoding = etree.SubElement(rule, "encoding", attributes)
+            if colors is not None:
+                palette = etree.SubElement(encoding, "color-palette", custom="true", name="", type="ordered-sequential")
+                for color in colors:
+                    etree.SubElement(palette, "color").text = color
         if map_style:
-            allowed = {"map-style", "washout"}
+            allowed = {"map-style", "washout", "layers"}
             settings = {key.replace("_", "-"): value for key, value in map_style.items()}
             if set(settings) - allowed:
-                raise ValueError("map_style supports map_style and washout")
+                raise ValueError("map_style supports map_style, washout and layers")
             if "map-style" in settings and settings["map-style"] not in ("light", "normal", "dark", "satellite", "outdoors", "streets"):
                 raise ValueError("Unsupported Tableau map style")
             if "washout" in settings and not 0 <= float(settings["washout"]) <= 100:
@@ -513,6 +531,18 @@ class ChartsMixin:
             rule = style.find("style-rule[@element='map']")
             if rule is None:
                 rule = etree.SubElement(style, "style-rule", element="map")
+            layers = settings.pop("layers", None)
+            if layers is not None:
+                if not isinstance(layers, dict) or any(not isinstance(name, str) or not name or not isinstance(enabled, bool) for name, enabled in layers.items()):
+                    raise ValueError("map_style layers must map nonempty layer IDs to booleans")
+                layer_rule = style.find("style-rule[@element='map-layer']")
+                if layer_rule is None:
+                    layer_rule = etree.SubElement(style, "style-rule", element="map-layer")
+                for name, enabled in layers.items():
+                    for old in list(layer_rule.findall("format")):
+                        if old.get("id") == name and old.get("attr") == "enabled":
+                            layer_rule.remove(old)
+                    etree.SubElement(layer_rule, "format", attr="enabled", id=name, value=str(enabled).lower())
             for attr, value in settings.items():
                 for old in list(rule.findall("format")):
                     if old.get("attr") == attr:

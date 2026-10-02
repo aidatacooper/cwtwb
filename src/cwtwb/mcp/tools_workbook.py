@@ -292,6 +292,7 @@ def add_set(
     top_n: int | str = 0,
     direction: str = "DESC",
     internal_name: str = "",
+    members: Optional[list] = None,
 ) -> str:
     """Create a Tableau set (datasource filter-group) for membership logic.
 
@@ -308,7 +309,20 @@ def add_set(
         top_n=top_n or None,
         direction=direction,
         internal_name=internal_name or None,
+        members=members,
     )
+
+
+@server.tool()
+def set_geocoding_context(country: str, state: Optional[str] = None) -> str:
+    """Set geographic lookup context for generated map coordinates."""
+    return get_editor().set_geocoding_context(country=country, state=state)
+
+
+@server.tool()
+def set_field_geographic_role(field: str, geographic_role: str) -> str:
+    """Assign or clear a field's geographic role."""
+    return get_editor().set_field_geographic_role(field, geographic_role)
 
 
 @server.tool()
@@ -527,6 +541,7 @@ def configure_chart(
     map_partition: str | None = None,
     label_runs: list[dict] | None = None,
     label_param: str | None = None,
+    sort_field: Optional[str] = None,
 ) -> str:
     """Configure chart type and field mappings for a worksheet.
 
@@ -545,6 +560,7 @@ def configure_chart(
         detail=detail,
         wedge_size=wedge_size,
         sort_descending=sort_descending,
+        sort_field=sort_field,
         tooltip=tooltip,
         filters=filters,
         geographic_field=geographic_field,
@@ -595,6 +611,7 @@ def configure_dual_axis(
     reverse_axis_1: bool = False,
     color_map_1: Optional[dict[str, str]] = None,
     table_calc_overrides: Optional[dict[str, list[dict]]] = None,
+    sort_field: Optional[str] = None,
 ) -> str:
     """Configure a dual-axis chart composition.
 
@@ -619,6 +636,7 @@ def configure_dual_axis(
         detail_2=detail_2,
         synchronized=synchronized,
         sort_descending=sort_descending,
+        sort_field=sort_field,
         filters=filters,
         wedge_size_1=wedge_size_1,
         wedge_size_2=wedge_size_2,
@@ -648,6 +666,8 @@ def configure_layered_chart(
     hide_axes: bool = False,
     sort_descending: str | None = None,
     table_calc_overrides: dict[str, list[dict]] | None = None,
+    sort_field: Optional[str] = None,
+    filters: Optional[list[dict]] = None,
 ) -> str:
     """Build layered panes with path/color_extra, ordered Multiple Values and row sorting."""
 
@@ -660,6 +680,8 @@ def configure_layered_chart(
         synchronized=synchronized,
         hide_axes=hide_axes,
         sort_descending=sort_descending,
+        sort_field=sort_field,
+        filters=filters,
         table_calc_overrides=table_calc_overrides,
     )
     return result + _skill_hint("configure_layered_chart")
@@ -893,7 +915,7 @@ def add_dashboard(
 def add_dashboard_action(
     dashboard_name: str,
     action_type: str,
-    source_sheet: str,
+    source_sheet: str = "",
     target_sheet: str = "",
     fields: list[str] | None = None,
     event_type: str = "on-select",
@@ -905,6 +927,8 @@ def add_dashboard_action(
     clear_behavior: str = "keep-current",
     clear_value: str = "",
     field_mappings: dict[str, str] | None = None,
+    source_sheets: list[str] | None = None,
+    target_sheets: list[str] | None = None,
 ) -> str:
     """Add a filter, highlight, URL, navigation, or parameter dashboard action.
 
@@ -929,6 +953,8 @@ def add_dashboard_action(
         clear_behavior=clear_behavior,
         clear_value=clear_value,
         field_mappings=field_mappings,
+        source_sheets=source_sheets,
+        target_sheets=target_sheets,
     )
 
 
@@ -940,6 +966,8 @@ def add_dashboard_set_action(
     event_type: str = "on-hover",
     caption: str = "",
     clear_option: str = "exclude-all",
+    single_select: Optional[bool] = None,
+    selection_mode: Optional[str] = None,
 ) -> str:
     """Add a Set Action (edit-group-action) to a dashboard.
 
@@ -955,6 +983,8 @@ def add_dashboard_set_action(
         event_type=event_type,
         caption=caption,
         clear_option=clear_option,
+        single_select=single_select,
+        selection_mode=selection_mode,
     )
 
 
@@ -1416,3 +1446,9 @@ def inspect_excel_connection(file_path: str, sheet_name: str = "") -> str:
     }
     return json.dumps(preview, ensure_ascii=False, indent=2)
 
+
+
+@server.tool()
+def link_worksheet_filters(field: str, worksheet_names: list[str]) -> str:
+    """Link matching categorical filters so one control filters all given sheets."""
+    return get_editor().link_worksheet_filters(field, worksheet_names)

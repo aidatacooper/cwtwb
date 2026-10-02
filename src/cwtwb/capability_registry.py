@@ -102,6 +102,7 @@ CAPABILITY_SPECS: tuple[CapabilitySpec, ...] = (
         canonical="Map",
         aliases=("map chart", "multipolygon"),
         rationale="Stable geographic primitive with dedicated builder support.",
+        notes='Generated geography supports explicit lookup context and field roles; map_style.layers controls background layers.',
     ),
     CapabilitySpec(
         key="text",
@@ -297,6 +298,7 @@ CAPABILITY_SPECS: tuple[CapabilitySpec, ...] = (
         canonical="Layout Container",
         aliases=("layout-flow", "layout container"),
         rationale="Base dashboard layout primitive used to arrange worksheet zones.",
+        notes='Advanced layouts support boolean field-driven visibility and finite corner_radius with native feature declarations.',
     ),
     CapabilitySpec(
         key="text-zone",
@@ -305,6 +307,7 @@ CAPABILITY_SPECS: tuple[CapabilitySpec, ...] = (
         canonical="Text",
         aliases=("text zone", "text"),
         rationale="Supports dashboard annotation and KPI placeholder composition.",
+        notes='Formatted runs may reference parameters; Measure Values chart labels support virtual values and names.',
     ),
     CapabilitySpec(
         key="navigation-button",
@@ -329,6 +332,7 @@ CAPABILITY_SPECS: tuple[CapabilitySpec, ...] = (
         canonical="Filter",
         aliases=("filter zone",),
         rationale="Interactive dashboard control above base sheet placement.",
+        notes='Controls support relevant values and show_all=False; link_worksheet_filters shares existing categorical filters.',
     ),
     CapabilitySpec(
         key="paramctrl-zone",
@@ -518,6 +522,7 @@ CAPABILITY_SPECS: tuple[CapabilitySpec, ...] = (
             "Use add_set(name, dimension_field, basis_field=..., top_n=...) for "
             "top-N sets and add_set(name, dimension_field) for an empty set. "
             "Sets serialize as <group user:ui-builder='filter-group'> nodes."
+            ' members initializes explicit typed membership; members and top-N ranking are mutually exclusive.'
         ),
     ),
     CapabilitySpec(
@@ -533,6 +538,7 @@ CAPABILITY_SPECS: tuple[CapabilitySpec, ...] = (
         notes=(
             "Use add_dashboard_set_action(dashboard_name, source_sheet, "
             "target_set, event_type='on-hover', clear_option='exclude-all')."
+            ' single_select and selection_mode support assignment/add/remove; clear may retain membership via do-nothing.'
         ),
     ),
 )

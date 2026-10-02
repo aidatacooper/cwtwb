@@ -14,6 +14,7 @@ __author__ = "Cooper Wenhua <imgwho@gmail.com>"
 import copy
 import io
 import logging
+import math
 import os
 import re
 import zipfile
@@ -873,6 +874,7 @@ class TWBEditor(ParametersMixin, ConnectionsMixin, ChartsMixin, DashboardsMixin)
         top_n: Optional[int | str] = None,
         direction: str = "DESC",
         internal_name: Optional[str] = None,
+        members: Optional[list] = None,
     ) -> str:
         """Create a Tableau set as a datasource ``<group filter-group>`` node.
 
@@ -892,11 +894,26 @@ class TWBEditor(ParametersMixin, ConnectionsMixin, ChartsMixin, DashboardsMixin)
             direction: "DESC" for top N, "ASC" for bottom N.
             internal_name: Optional explicit bracketed internal name. Defaults to
                 ``[SetName]`` which matches how the source references the set.
+            members: Optional initial categorical membership. An empty list
+                creates an empty set; omitted membership retains existing
+                empty/top-N behavior. Explicit membership cannot be combined
+                with ranking and accepts string, boolean and finite numeric
+                Tableau literals.
 
         Returns:
             Confirmation message.
         """
         set_name = str(set_name).strip()
+        if members is not None:
+            if not isinstance(members, list):
+                raise ValueError("members must be a list")
+            if top_n is not None or basis_field:
+                raise ValueError("Explicit set members cannot be combined with ranking")
+            for member in members:
+                if not isinstance(member, (str, bool, int, float)):
+                    raise ValueError("Set members must be strings, booleans, or finite numbers")
+                if isinstance(member, float) and not math.isfinite(member):
+                    raise ValueError("Set members must be finite")
         if not set_name:
             raise ValueError("set_name must not be empty")
         if not dimension_field:
@@ -936,7 +953,20 @@ class TWBEditor(ParametersMixin, ConnectionsMixin, ChartsMixin, DashboardsMixin)
         )
 
         is_empty = top_n is None or str(top_n).strip() == "" or not basis_field
-        if is_empty:
+        if members is not None and members:
+            def literal(member):
+                if isinstance(member, bool):
+                    return "true" if member else "false"
+                if isinstance(member, str):
+                    escaped = member.replace("\\", "\\\\").replace('"', '\\"').replace("#", "\\#").replace("%", "\\%")
+                    return '"' + escaped + '"'
+                return str(member)
+            parent = group
+            if len(members) > 1:
+                parent = etree.SubElement(group, "groupfilter", function="union")
+            for member in members:
+                etree.SubElement(parent, "groupfilter", function="member", level=level_local, member=literal(member))
+        elif is_empty:
             gfilter = etree.SubElement(group, "groupfilter")
             gfilter.set("function", "empty-level")
             gfilter.set("member", level_local)
@@ -1002,6 +1032,8 @@ class TWBEditor(ParametersMixin, ConnectionsMixin, ChartsMixin, DashboardsMixin)
             calculation_class="set",
         )
 
+        if members is not None:
+            return f"Added explicit set '{set_name}' with {len(members)} members over '{dimension_field}'"
         if is_empty:
             return f"Added empty set '{set_name}' over '{dimension_field}'"
         count_desc = count_value if isinstance(top_n, int) else f"parameter '{top_n}'"
@@ -1657,6 +1689,54 @@ class TWBEditor(ParametersMixin, ConnectionsMixin, ChartsMixin, DashboardsMixin)
             target_alias = self._resolve_field_alias(target_name)
             normalized[source_alias["display_name"]] = target_alias["display_name"]
         return normalized
+
+    def set_geocoding_context(self, *, country: str, state: Optional[str] = None) -> str:
+        """Set the geographic lookup country and optional state for the datasource."""
+        if not isinstance(country, str) or not country.strip():
+            raise ValueError("country must be a nonempty geographic name")
+        if state is not None and (not isinstance(state, str) or not state.strip()):
+            raise ValueError("state must be a nonempty geographic name or None")
+        values = self._datasource.find("semantic-values")
+        if values is None:
+            values = etree.Element("semantic-values")
+            anchor = self._datasource.find("date-options")
+            if anchor is not None:
+                anchor.addprevious(values)
+            else:
+                self._datasource.append(values)
+        for key, value in (("[Country].[Name]", country), ("[State].[Name]", state)):
+            for old in list(values.findall("semantic-value")):
+                if old.get("key") == key:
+                    values.remove(old)
+            literal = "%null%" if value is None else '"' + value.replace('\\', '\\\\').replace('"', '\\"') + '"'
+            etree.SubElement(values, "semantic-value", key=key, value=literal)
+        return "Set geographic lookup context"
+
+    def set_field_geographic_role(self, field: str, geographic_role: str) -> str:
+        """Assign a geographic role to a field and its worksheet dependencies.
+
+        Supported roles are country, state, city, county, and postal_code.
+        An empty role clears an existing assignment.
+        """
+        roles = {"country": "[Country].[ISO3166_2]", "state": "[State].[Name]",
+                 "city": "[City].[Name]", "county": "[County].[Name]",
+                 "postal_code": "[ZipCode].[Name]", "": ""}
+        if not isinstance(geographic_role, str) or geographic_role not in roles:
+            raise ValueError("Unsupported geographic_role")
+        info = self.field_registry._find_field(field)
+        column = self._datasource.find(f"column[@name='{info.local_name}']")
+        if column is None:
+            raise ValueError("Geographic field must have a datasource column")
+        nodes = [column]
+        for dependencies in self.root.findall(".//datasource-dependencies"):
+            if dependencies.get("datasource") == self._datasource.get("name"):
+                nodes.extend(dependencies.findall(f"column[@name='{info.local_name}']"))
+        for node in nodes:
+            if geographic_role:
+                node.set("semantic-role", roles[geographic_role])
+            else:
+                node.attrib.pop("semantic-role", None)
+        return f"Set geographic role for '{field}'"
 
     def set_field_format(self, field: str, default_format: str) -> str:
         """Set a real or calculated field's Tableau display format.

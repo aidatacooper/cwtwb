@@ -602,6 +602,9 @@ def apply_measure_values(
     enc_el = etree.Element("encodings")
     text_el = etree.SubElement(enc_el, "text")
     text_el.set("column", f"[{ds_name}].[Multiple Values]")
+    customized_label = pane.find("customized-label")
+    if customized_label is not None and "[:Measure Names]" in etree.tostring(customized_label, encoding="unicode"):
+        etree.SubElement(enc_el, "text", column=f"[{ds_name}].[:Measure Names]")
 
     style_el = pane.find("style")
     if style_el is not None:
@@ -646,6 +649,20 @@ def apply_measure_values(
             insert_before.addprevious(filter_el)
         else:
             view.append(filter_el)
+
+    for old in list(view.findall("manual-sort")):
+        if old.get("column") == f"[{ds_name}].[:Measure Names]":
+            view.remove(old)
+    if measure_refs:
+        sort = etree.Element("manual-sort", column=f"[{ds_name}].[:Measure Names]", direction="ASC")
+        dictionary = etree.SubElement(sort, "dictionary")
+        for ref in measure_refs:
+            etree.SubElement(dictionary, "bucket").text = f'"{ref}"'
+        anchor = next((view.find(tag) for tag in ("slices", "aggregation") if view.find(tag) is not None), None)
+        if anchor is not None:
+            anchor.addprevious(sort)
+        else:
+            view.append(sort)
 
     table_style = table.find("style")
     if table_style is None:

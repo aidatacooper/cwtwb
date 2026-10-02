@@ -126,6 +126,7 @@ AGGREGATE_FUNCTION_PREFIXES = (
     "dateparse(",
     "my(",
     "daytrunc(",
+    "exactdate(",
 )
 
 DATE_FIELD_HINTS = (

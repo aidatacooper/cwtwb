@@ -21,6 +21,8 @@ def _coerce_text_run(run: dict[str, Any]) -> dict[str, Any]:
     }
     if "font_name" in run or "fontname" in run:
         res["font_name"] = str(run.get("font_name") or run.get("fontname"))
+    if "parameter" in run:
+        res["parameter"] = run["parameter"]
     if "hyperlink" in run:
         res["hyperlink"] = str(run.get("hyperlink"))
     return res
@@ -56,6 +58,10 @@ class FlexNode:
         self.mode = d.get("mode", "")
         self.show_title = d.get("show_title", True)
         self.show_apply = d.get("show_apply")
+        self.values = d.get("values")
+        self.show_all = d.get("show_all")
+        self.visibility = d.get("visibility")
+        self.corner_radius = d.get("corner_radius")
         self.absolute = d.get("absolute")
 
         self.parameter = d.get("parameter") or d.get("param")
@@ -229,7 +235,7 @@ def render_flex_node(
                 cache.set("type-h", "cell")
                 cache.set("type-w", "cell")
     elif node.type == "text":
-        _render_text(node, zone)
+        _render_text(node, zone, context)
     elif node.type == "filter":
         _render_filter(node, zone, context)
     elif node.type == "paramctrl":
@@ -246,6 +252,38 @@ def render_flex_node(
         if "background-color" not in style_dict and "background_color" not in style_dict:
             style_dict["background-color"] = "#ffffff"
     apply_zone_style(zone, style_dict)
+    if node.corner_radius is not None:
+        from math import isfinite
+        radius = node.corner_radius
+        if isinstance(radius, bool) or not isinstance(radius, (int, float)) or not isfinite(radius) or radius < 0:
+            raise ValueError("corner_radius must be a finite nonnegative number")
+        editor = context.get("editor")
+        if editor is None:
+            raise ValueError("Rounded dashboard corners require editor context")
+        feature = "_.fcp.DashboardRoundedCorners.true..."
+        manifest = editor.root.find("document-format-change-manifest")
+        if manifest is None:
+            manifest = etree.Element("document-format-change-manifest")
+            editor.root.insert(0, manifest)
+        if manifest.find(feature + "DashboardRoundedCorners") is None:
+            etree.SubElement(manifest, feature + "DashboardRoundedCorners")
+        etree.SubElement(zone.find("zone-style"), feature + "format", attr="corner-radius", value=str(radius))
+    if node.visibility is not None:
+        visibility = node.visibility
+        if not isinstance(visibility, dict) or not isinstance(visibility.get("field"), str) or not visibility["field"].strip():
+            raise ValueError("visibility requires a nonempty field expression")
+        if "initially_visible" in visibility and not isinstance(visibility["initially_visible"], bool):
+            raise ValueError("visibility.initially_visible must be boolean")
+        editor = context.get("editor")
+        if editor is None:
+            raise ValueError("Dynamic zone visibility requires editor context")
+        field_info = editor.field_registry._find_field(visibility["field"])
+        if field_info.datatype != "boolean":
+            raise ValueError("Dynamic zone visibility requires a boolean field")
+        if not visibility.get("initially_visible", True):
+            for child_zone in zone.iter("zone"):
+                child_zone.set("hidden-by-user", "true")
+        context.setdefault("visibility_bindings", []).append((zone.get("id"), field_info.local_name))
     return zone
 
 
@@ -334,7 +372,7 @@ def _render_container(
         render_flex_node(child, target_parent, get_id_fn, context)
 
 
-def _render_text(node: FlexNode, zone: etree._Element) -> None:
+def _render_text(node: FlexNode, zone: etree._Element, context: dict[str, Any]) -> None:
     """Render a text zone with one or more formatted-text runs."""
     zone.set("type-v2", "text")
     zone.set("forceUpdate", "true")
@@ -352,7 +390,16 @@ def _render_text(node: FlexNode, zone: etree._Element) -> None:
                 run.set("fontname", str(text_run["font_name"]))
             if text_run.get("hyperlink"):
                 run.set("hyperlink", str(text_run["hyperlink"]))
-            run.text = str(text_run.get("text", ""))
+            if "parameter" in text_run:
+                parameter = text_run["parameter"]
+                parameters = context.get("parameters", {})
+                if not isinstance(parameter, str) or parameter not in parameters:
+                    raise ValueError(f"Unknown text run parameter: {parameter}")
+                if text_run.get("text"):
+                    raise ValueError("A text run accepts text or parameter, not both")
+                run.text = f"<[Parameters].{parameters[parameter]['internal_name']}>"
+            else:
+                run.text = str(text_run.get("text", ""))
         return
 
     run = etree.SubElement(formatted_text, "run")
@@ -442,6 +489,14 @@ def _render_filter(
         zone.set("name", node.worksheet)
     if node.mode:
         zone.set("mode", node.mode)
+    if node.values is not None:
+        if node.values not in ("relevant", "all", "database"):
+            raise ValueError("filter values must be relevant, all, or database")
+        zone.set("values", node.values)
+    if node.show_all is not None:
+        if not isinstance(node.show_all, bool):
+            raise ValueError("filter show_all must be boolean")
+        zone.set("show-all", str(node.show_all).lower())
     if not node.show_title:
         zone.set("show-title", "false")
     if getattr(node, "show_apply", None):

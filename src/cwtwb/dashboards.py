@@ -299,7 +299,7 @@ def render_dashboard_layout(
     field_registry,
     parameters,
     editor,
-) -> None:
+) -> list[tuple[str, str]]:
     """Render a normalized layout dict into the dashboard's <zones> tree."""
     context = {
         "field_registry": field_registry,
@@ -307,6 +307,40 @@ def render_dashboard_layout(
         "editor": editor,
     }
     generate_dashboard_zones(parent_zones_el, layout_dict, width, height, get_id_fn, context)
+    return context.get("visibility_bindings", [])
+
+
+def add_zone_visibility_graph(editor, dashboard, bindings):
+    """Bind boolean fields to arbitrary dashboard zones through Tableau's datagraph."""
+    if not bindings:
+        return
+    from uuid import uuid4
+    guid = lambda: str(uuid4())
+    manifest = editor.root.find("document-format-change-manifest")
+    if manifest is None:
+        manifest = etree.Element("document-format-change-manifest")
+        editor.root.insert(0, manifest)
+    for name in ("DatagraphCoreV1", "DatagraphNodeDashboardZoneVisibilityV1", "DatagraphNodeSingleValueFieldV1", "ZoneVisibilityControl"):
+        if manifest.find(name) is None:
+            etree.SubElement(manifest, name)
+    datagraph = editor.root.find("datagraph")
+    if datagraph is None:
+        datagraph = etree.SubElement(editor.root, "datagraph")
+        graph = etree.SubElement(datagraph, "graph")
+        properties = etree.SubElement(graph, "properties")
+        etree.SubElement(properties, "default-execution-subgraph-guid", value=guid())
+        for name in ("node-execution-subgraphs", "nodes", "edges", "pin-values"):
+            etree.SubElement(graph, name)
+    graph = datagraph.find("graph")
+    subgraph = graph.find("properties/default-execution-subgraph-guid").get("value")
+    ds_name = editor._datasource.get("name")
+    for zone_id, field_name in bindings:
+        source_node, target_node, output_pin, input_pin = [guid() for _ in range(4)]
+        etree.SubElement(graph.find("nodes"), "single-value-field-node", {"fieldname": f"[{ds_name}].{field_name}", "fieldname-input-guid": guid(), "node-guid": source_node, "value-output-guid": output_pin})
+        etree.SubElement(graph.find("nodes"), "dashboard-zone-visibility-node", {"dashboard-identifier": dashboard.find("simple-id").get("uuid"), "node-guid": target_node, "visibility-input-guid": input_pin, "zone-id": zone_id})
+        for node in (source_node, target_node):
+            etree.SubElement(graph.find("node-execution-subgraphs"), "pair", {"execution-subgraph-guid": subgraph, "node-guid": node})
+        etree.SubElement(graph.find("edges"), "edge", {"from": output_pin, "to": input_pin})
 
 
 # ---------------------------------------------------------------------------
@@ -324,6 +358,12 @@ def add_dashboard_dependencies(editor, db: etree._Element, layout_dict: dict) ->
             filter_zones.append(node)
         elif node.get("type") == "paramctrl":
             paramctrl_zones.append(node)
+        if node.get("type") == "text":
+            for run in node.get("runs", []):
+                if isinstance(run, dict) and "parameter" in run:
+                    paramctrl_zones.append({"parameter": run["parameter"]})
+        if node.get("visibility"):
+            filter_zones.append({"field": node["visibility"]["field"]})
         for child in node.get("children", []):
             _extract_zones(child)
 
@@ -391,6 +431,8 @@ def add_dashboard_dependencies(editor, db: etree._Element, layout_dict: dict) ->
                 col_el.set("role", fi.role)
                 col_el.set("type", fi.field_type)
                 src_col = editor._datasource.find(f"column[@name='{fi.local_name}']")
+                if src_col is not None and src_col.find("calculation") is not None:
+                    col_el.append(copy.deepcopy(src_col.find("calculation")))
                 if src_col is not None and src_col.get("semantic-role"):
                     col_el.set("semantic-role", src_col.get("semantic-role"))
                 col_elements.append(col_el)
@@ -446,7 +488,7 @@ def add_dashboard_action(
     editor,
     dashboard_name: str,
     action_type: str,
-    source_sheet: str,
+    source_sheet: str = "",
     target_sheet: str = "",
     fields: list[str] | None = None,
     event_type: str = "on-select",
@@ -458,6 +500,8 @@ def add_dashboard_action(
     clear_behavior: str = "keep-current",
     clear_value: str = "",
     field_mappings: dict[str, str] | None = None,
+    source_sheets: list[str] | None = None,
+    target_sheets: list[str] | None = None,
 ) -> str:
     """Add an interaction action to a dashboard."""
 
@@ -486,11 +530,23 @@ def add_dashboard_action(
     if db_el is None:
         raise ValueError(f"Dashboard '{dashboard_name}' not found.")
 
-    editor._find_worksheet(source_sheet)
+    dashboard_sheets = _collect_dashboard_worksheets(editor, db_el)
+    if source_sheets is not None or target_sheets is not None:
+        if normalized_type not in {"filter", "highlight"}:
+            raise ValueError("Worksheet lists are supported only for filter/highlight actions")
+        for values, single in ((source_sheets, source_sheet), (target_sheets, target_sheet)):
+            if values is not None:
+                if single or not isinstance(values, list) or not values or any(not isinstance(name, str) or name not in dashboard_sheets for name in values) or len(set(values)) != len(values):
+                    raise ValueError("Worksheet lists must be unique nonempty dashboard sheet names, without a single-sheet argument")
+        if field_mappings and target_sheets is not None and len(target_sheets) > 1:
+            raise ValueError("Explicit field mappings require a single target worksheet")
+    resolved_source = source_sheet or (source_sheets[0] if source_sheets else "")
+    resolved_target = target_sheet or (target_sheets[0] if target_sheets else "")
+    editor._find_worksheet(resolved_source)
     _validate_action_targets(
         editor,
         action_type=normalized_type,
-        target_sheet=target_sheet,
+        target_sheet=resolved_target,
         url=url,
         source_field=source_field,
         target_parameter=target_parameter,
@@ -545,7 +601,12 @@ def add_dashboard_action(
     source_el = etree.SubElement(action_el, "source")
     source_el.set("dashboard", dashboard_name)
     source_el.set("type", "sheet")
-    source_el.set("worksheet", source_sheet)
+    if source_sheets is None:
+        source_el.set("worksheet", source_sheet)
+    else:
+        for name in dashboard_sheets:
+            if name not in source_sheets:
+                etree.SubElement(source_el, "exclude-sheet", name=name)
 
     if normalized_type == "parameter":
         _ensure_parameter_action_manifest(editor)
@@ -562,7 +623,7 @@ def add_dashboard_action(
 
     dashboard_sheets = _collect_dashboard_worksheets(editor, db_el)
     exclude_sheets = [
-        sheet_name for sheet_name in dashboard_sheets if sheet_name != target_sheet
+        sheet_name for sheet_name in dashboard_sheets if sheet_name not in (target_sheets if target_sheets is not None else [target_sheet])
     ]
 
     if normalized_type == "filter":
@@ -574,7 +635,7 @@ def add_dashboard_action(
             fields,
             exclude_sheets,
             field_mappings=field_mappings,
-            target_sheet=target_sheet,
+            target_sheet=resolved_target,
         )
     elif normalized_type == "highlight":
         _configure_highlight_action(
@@ -600,6 +661,8 @@ def add_dashboard_set_action(
     event_type: str = "on-hover",
     caption: str = "",
     clear_option: str = "exclude-all",
+    single_select: Optional[bool] = None,
+    selection_mode: Optional[str] = None,
 ) -> str:
     """Add a Set Action (``edit-group-action``) to a dashboard.
 
@@ -619,6 +682,10 @@ def add_dashboard_set_action(
     Returns:
         Confirmation message.
     """
+    if single_select is not None and not isinstance(single_select, bool):
+        raise ValueError("single_select must be boolean")
+    if selection_mode is not None and selection_mode not in {"assign", "add", "remove"}:
+        raise ValueError("selection_mode must be assign, add or remove")
     normalized_clear = str(clear_option).strip()
     if normalized_clear not in _SET_ACTION_CLEAR_OPTIONS:
         raise ValueError(
@@ -665,6 +732,11 @@ def add_dashboard_set_action(
         normalized_clear,
     )
 
+    if single_select is not None:
+        element = etree.Element("single-select", value=str(single_select).lower())
+        action_el.find("params").addprevious(element)
+    if selection_mode is not None:
+        etree.SubElement(action_el.find("params"), "param", name="add-or-remove-marks", value=selection_mode)
     return f"Added set action '{action_caption}' to '{dashboard_name}'"
 
 
@@ -957,7 +1029,7 @@ def _configure_go_to_sheet_action(
     param_tgt.set("value", target_sheet)
 
 
-_SET_ACTION_CLEAR_OPTIONS = ("exclude-all", "keep-members")
+_SET_ACTION_CLEAR_OPTIONS = ("exclude-all", "keep-members", "do-nothing")
 
 
 def _configure_set_action(
@@ -1018,6 +1090,25 @@ class DashboardsMixin:
         if dashboards is not None:
             for dashboard in list(dashboards.findall("dashboard")):
                 if dashboard.get("name") == dashboard_name:
+                    identity = dashboard.find("simple-id")
+                    graph = self.root.find("datagraph/graph")
+                    if identity is not None and graph is not None:
+                        nodes = graph.find("nodes")
+                        targets = [n for n in nodes if n.get("dashboard-identifier") == identity.get("uuid")]
+                        input_pins = {n.get("visibility-input-guid") for n in targets}
+                        edges = graph.find("edges")
+                        removed_edges = [e for e in edges if e.get("to") in input_pins]
+                        outputs = {e.get("from") for e in removed_edges}
+                        removed_nodes = targets + [n for n in nodes if n.get("value-output-guid") in outputs]
+                        removed_guids = {n.get("node-guid") for n in removed_nodes}
+                        for edge in removed_edges:
+                            edges.remove(edge)
+                        for node in removed_nodes:
+                            nodes.remove(node)
+                        subgraphs = graph.find("node-execution-subgraphs")
+                        for pair in list(subgraphs):
+                            if pair.get("node-guid") in removed_guids:
+                                subgraphs.remove(pair)
                     dashboards.remove(dashboard)
 
         windows = self.root.find("windows")
@@ -1080,11 +1171,12 @@ class DashboardsMixin:
         zones = etree.SubElement(db, "zones")
 
         worksheet_options = {}
+        visibility_bindings = []
         if worksheet_names or isinstance(layout, dict) or isinstance(layout, str):
             layout_dict = resolve_dashboard_layout(layout, worksheet_names)
             validate_layout_worksheets(layout_dict)
             worksheet_options = extract_layout_options(layout_dict)
-            render_dashboard_layout(
+            visibility_bindings = render_dashboard_layout(
                 zones,
                 layout_dict,
                 width,
@@ -1098,6 +1190,7 @@ class DashboardsMixin:
 
         db_simple_id = etree.SubElement(db, "simple-id")
         db_simple_id.set("uuid", _generate_uuid())
+        add_zone_visibility_graph(self, db, visibility_bindings)
 
         self._add_window(
             dashboard_name,
@@ -1106,6 +1199,33 @@ class DashboardsMixin:
             worksheet_options=worksheet_options,
         )
         return f"Created dashboard '{dashboard_name}'"
+
+    def link_worksheet_filters(self, field: str, worksheet_names: list[str]) -> str:
+        """Share one existing categorical filter across selected worksheets.
+
+        Other worksheets remain independent. Call after configuring each
+        participating worksheet with the same filter and initial members.
+        """
+        if not isinstance(worksheet_names, list) or len(set(worksheet_names)) < 2:
+            raise ValueError("Linked filters require at least two distinct worksheets")
+        ci = self.field_registry.parse_expression(field)
+        ref = self.field_registry.resolve_full_reference(ci.instance_name)
+        filters = []
+        for name in worksheet_names:
+            sheet = self._find_worksheet(name)
+            node = sheet.find(f"table/view/filter[@column='{ref}']")
+            if node is None or node.get("class") != "categorical":
+                raise ValueError(f"Worksheet '{name}' has no categorical filter for '{field}'")
+            filters.append(node)
+        member_contracts = {etree.tostring(node.find("groupfilter"), method="c14n") for node in filters}
+        if len(member_contracts) != 1:
+            raise ValueError("Linked worksheet filters must have identical initial members")
+        # Tableau identifies selected-worksheet filter sharing by equal IDs.
+        existing = [int(n.get("filter-group")) for n in self.root.findall("worksheets/worksheet/table/view/filter") if (n.get("filter-group") or "").isdigit()]
+        group = str(max(existing, default=0) + 1)
+        for node in filters:
+            node.set("filter-group", group)
+        return f"Linked '{field}' filters across {len(filters)} worksheets"
 
     def _next_zone_id(self) -> int:
         """Return the next monotonic dashboard zone id for layout generation."""
@@ -1120,7 +1240,7 @@ class DashboardsMixin:
         self,
         dashboard_name: str,
         action_type: str,
-        source_sheet: str,
+        source_sheet: str = "",
         target_sheet: str = "",
         fields: list[str] | None = None,
         event_type: str = "on-select",
@@ -1132,6 +1252,8 @@ class DashboardsMixin:
         clear_behavior: str = "keep-current",
         clear_value: str = "",
         field_mappings: dict[str, str] | None = None,
+        source_sheets: list[str] | None = None,
+        target_sheets: list[str] | None = None,
     ) -> str:
         """Add an interaction action to a dashboard."""
         return add_dashboard_action(
@@ -1150,6 +1272,8 @@ class DashboardsMixin:
             clear_behavior,
             clear_value,
             field_mappings,
+            source_sheets=source_sheets,
+            target_sheets=target_sheets,
         )
 
     def add_dashboard_set_action(
@@ -1161,6 +1285,8 @@ class DashboardsMixin:
         event_type: str = "on-hover",
         caption: str = "",
         clear_option: str = "exclude-all",
+        single_select: Optional[bool] = None,
+        selection_mode: Optional[str] = None,
     ) -> str:
         """Add a Set Action (``edit-group-action``) to a dashboard."""
         return add_dashboard_set_action(
@@ -1171,6 +1297,8 @@ class DashboardsMixin:
             event_type=event_type,
             caption=caption,
             clear_option=clear_option,
+            single_select=single_select,
+            selection_mode=selection_mode,
         )
 
     def set_active_dashboard(self, dashboard_name: str, active_zone_id: str | int = "") -> str:

@@ -243,6 +243,7 @@ def configure_chart(
     label_extra: Optional[list[str]] = None,
     label_runs: Optional[list[dict]] = None,
     label_param: Optional[str] = None,
+    sort_field: Optional[str] = None,
 ) -> str:
     """Route chart configuration to the correct builder."""
 
@@ -288,6 +289,7 @@ def configure_chart(
             label_extra=label_extra,
             label_runs=label_runs,
             label_param=label_param,
+            sort_field=sort_field,
         )
         return builder.build()
 
@@ -312,6 +314,7 @@ def configure_chart(
         label_extra=label_extra,
         label_runs=label_runs,
         table_calc_overrides=table_calc_overrides,
+        sort_field=sort_field,
     )
     return builder.build()
 
@@ -351,6 +354,7 @@ def configure_dual_axis(
     fold_axis: bool = False,
     color_by_measure_names: bool = False,
     table_calc_overrides: Optional[dict[str, list[dict]]] = None,
+    sort_field: Optional[str] = None,
 ) -> str:
     """Route dual-axis configuration to the dedicated builder."""
 
@@ -390,6 +394,7 @@ def configure_dual_axis(
         fold_axis=fold_axis,
         color_by_measure_names=color_by_measure_names,
         table_calc_overrides=table_calc_overrides,
+        sort_field=sort_field,
     )
     return builder.build()
 
@@ -406,6 +411,8 @@ def configure_layered_chart(
     hide_axes: bool = False,
     sort_descending: Optional[str] = None,
     table_calc_overrides: Optional[dict[str, list[dict]]] = None,
+    sort_field: Optional[str] = None,
+    filters: Optional[list[dict]] = None,
 ) -> str:
     """Build an explicitly declared multi-pane worksheet."""
 
@@ -421,5 +428,7 @@ def configure_layered_chart(
         synchronized=synchronized,
         hide_axes=hide_axes,
         sort_descending=sort_descending,
+        sort_field=sort_field,
+        filters=filters,
         table_calc_overrides=table_calc_overrides,
     ).build()

@@ -9,6 +9,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Generated geography, explicit set members and set action selection options;
+  multi-source and multi-target dashboard filter/highlight actions.
+- Dynamic zone visibility, linked worksheet filters, parameter text runs and
+  rounded dashboard corners.
+- Explicit geographic roles and lookup context, custom continuous palettes,
+  map layer visibility, and ordered rich Measure Values KPI labels.
+
 - Layered pane path and additional color bindings, ordered Measure Names, repeated
   Measure Values axis folding and descending row sorting (2026 WW09, 2019 WW48).
 - Categorical groups can omit their fallback with `default_value=None` (2019 WW46).

@@ -66,6 +66,7 @@ class DualAxisChartBuilder(BaseChartBuilder):
                  fold_axis: bool = False,
                  color_by_measure_names: bool = False,
                  table_calc_overrides: Optional[dict[str, list[dict]]] = None,
+                 sort_field: Optional[str] = None,
                  ) -> None:
         """Capture dual-axis chart settings for later XML composition."""
         super().__init__(editor)
@@ -85,6 +86,7 @@ class DualAxisChartBuilder(BaseChartBuilder):
         self.detail_2 = detail_2
         self.synchronized = synchronized
         self.sort_descending = sort_descending
+        self.sort_field = sort_field
         self.filters = filters
         self.wedge_size_1 = wedge_size_1
         self.wedge_size_2 = wedge_size_2
@@ -534,7 +536,7 @@ class DualAxisChartBuilder(BaseChartBuilder):
             table.append(style_el)
 
         if self.sort_descending:
-             self._add_shelf_sort(view, ds_name, instances, self.rows, self.sort_descending)
+             self._add_shelf_sort(view, ds_name, instances, self.rows, self.sort_descending, self.sort_field)
 
         # Build Measure Names filter BEFORE other filters so it appears first in view XML
         measure_values_list = []

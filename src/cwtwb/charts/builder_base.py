@@ -475,7 +475,8 @@ class BaseChartBuilder:
                 column_instance.remove(old)
             def column_reference(expression: str) -> str:
                 parsed = self.field_registry.parse_expression(expression)
-                return f"[{ds_name}].{parsed.column_local_name}"
+                reference = parsed.instance_name if parsed.derivation == "InOut" else parsed.column_local_name
+                return f"[{ds_name}].{reference}"
 
             for specification in specifications:
                 attributes: dict[str, str] = {}
@@ -614,6 +615,9 @@ class BaseChartBuilder:
                     return f"{prefix}<[Parameters].{internal}>"
                 return ""
             if "field" in spec:
+                virtual = {"Measure Names": ":Measure Names", "Multiple Values": "Multiple Values"}
+                if spec["field"] in virtual:
+                    return f"{spec.get('prefix', '')}<[{self._datasource.get('name')}].[{virtual[spec['field']]}]>"
                 ci = self._instance_for_expression(instances, spec["field"])
                 if ci:
                     full_ref = self.field_registry.resolve_full_reference(ci.instance_name)
@@ -777,6 +781,8 @@ class BaseChartBuilder:
                     for expression in (color, size, label, detail, wedge_size)
                     if expression
                 }
+                mark_expressions.update(getattr(self, "columns", None) or [])
+                mark_expressions.update(getattr(self, "rows", None) or [])
                 for tt in tooltip_list:
                     if tt in mark_expressions:
                         continue
@@ -810,6 +816,10 @@ class BaseChartBuilder:
                 continue
             
             filter_el = etree.Element("filter")
+            if f.get("kind") is not None:
+                if f["kind"] != "hide":
+                    raise ValueError("Unsupported filter kind; supported value is hide")
+                filter_el.set("kind", "hide")
             if f.get("context"):
                 filter_el.set("context", "true")
             if f.get("filter_group") is not None:
@@ -871,17 +881,7 @@ class BaseChartBuilder:
                 gf_level.set(f"{USER_NS}ui-enumeration", "all")
                 gf_level.set(f"{USER_NS}ui-marker", "enumerate")
 
-                # Add dimension to <slices> — required for Tableau to apply Top N correctly
-                slices_el = view.find("slices")
-                if slices_el is None:
-                    slices_el = etree.Element("slices")
-                    agg_el = view.find("aggregation")
-                    if agg_el is not None:
-                        agg_el.addprevious(slices_el)
-                    else:
-                        view.append(slices_el)
-                slice_col = etree.SubElement(slices_el, "column")
-                slice_col.text = self.field_registry.resolve_full_reference(ci.instance_name)
+                # Ordinary Top N filters join slices below; hidden filters do not.
             else:
                 filter_el.set("class", "categorical")
                 filter_el.set("column", self.field_registry.resolve_full_reference(ci.instance_name))
@@ -912,6 +912,14 @@ class BaseChartBuilder:
                     gf.set(f"{USER_NS}ui-enumeration", "inclusive")
                     gf.set(f"{USER_NS}ui-marker", "enumerate")
             
+            if f.get("exclude"):
+                group = filter_el.find("groupfilter")
+                if group is None:
+                    raise ValueError("exclude is supported only for categorical filters")
+                filter_el.remove(group)
+                inverse = etree.SubElement(filter_el, "groupfilter", function="except")
+                etree.SubElement(inverse, "groupfilter", function="level-members", level=ci.instance_name)
+                inverse.append(group)
             insert_before = None
             for tag in ("sort", "perspectives", "shelf-sorts", "slices", "aggregation"):
                 insert_before = view.find(tag)
@@ -923,6 +931,8 @@ class BaseChartBuilder:
                 view.append(filter_el)
 
             filter_ref = self.field_registry.resolve_full_reference(ci.instance_name)
+            if f.get("kind") == "hide":
+                continue
             slices_el = view.find("slices")
             if slices_el is None:
                 slices_el = etree.Element("slices")
@@ -952,14 +962,17 @@ class BaseChartBuilder:
         instances: dict[str, "ColumnInstance"],
         rows: list[str],
         sort_measure_expr: str,
+        sort_field: Optional[str] = None,
     ) -> None:
         """Attach descending shelf sort metadata for the innermost row dimension."""
-        dim_ci = None
-        for expr in reversed(rows):
-            ci = self._instance_for_expression(instances, expr)
-            if ci and ci.ci_type == "nominal":
-                dim_ci = ci
-                break
+        dimensions = [self._instance_for_expression(instances, expr) for expr in rows]
+        dimensions = [ci for ci in dimensions if ci and ci.ci_type in {"nominal", "ordinal"}]
+        if sort_field is not None:
+            dim_ci = self._instance_for_expression(instances, sort_field)
+            if dim_ci is None or not any(ci.instance_name == dim_ci.instance_name for ci in dimensions):
+                raise ValueError("sort_field must identify a dimension on the row shelf")
+        else:
+            dim_ci = next((ci for ci in reversed(dimensions) if ci.ci_type == "nominal"), None)
         if dim_ci is None:
             return
 
@@ -979,7 +992,7 @@ class BaseChartBuilder:
         sort_v2.set("dimension-to-sort",
                      self.field_registry.resolve_full_reference(dim_ci.instance_name))
         sort_v2.set("direction", "DESC")
-        sort_v2.set("is-on-innermost-dimension", "true")
+        sort_v2.set("is-on-innermost-dimension", "true" if dimensions[-1].instance_name == dim_ci.instance_name else "false")
         sort_v2.set("measure-to-sort-by",
                      self.field_registry.resolve_full_reference(measure_ci.instance_name))
         sort_v2.set("shelf", "rows")
@@ -1014,7 +1027,8 @@ class BasicChartBuilder(BaseChartBuilder):
                  text_format: Optional[dict[str, str]] = None,
                  label_extra: Optional[list[str]] = None,
                  label_runs: Optional[list[dict]] = None,
-                 table_calc_overrides: Optional[dict[str, list[dict]]] = None) -> None:
+                 table_calc_overrides: Optional[dict[str, list[dict]]] = None,
+                 sort_field: Optional[str] = None) -> None:
         """Capture chart configuration for one single-pane worksheet mutation."""
         super().__init__(editor)
         self.worksheet_name = worksheet_name
@@ -1026,6 +1040,7 @@ class BasicChartBuilder(BaseChartBuilder):
         self.label = label
         self.detail = detail
         self.sort_descending = sort_descending
+        self.sort_field = sort_field
         self.tooltip = tooltip
         self.filters = filters
         self.mark_sizing_off = mark_sizing_off
@@ -1160,7 +1175,7 @@ class BasicChartBuilder(BaseChartBuilder):
             cols_el.text = self.editor._build_dimension_shelf(instances, columns) if columns else None
 
         if self.sort_descending:
-             self._add_shelf_sort(view, ds_name, instances, rows, self.sort_descending)
+             self._add_shelf_sort(view, ds_name, instances, rows, self.sort_descending, self.sort_field)
 
         if self.filters:
             self._add_filters(view, instances, self.filters)
@@ -1387,6 +1402,7 @@ class TextChartBuilder(BaseChartBuilder):
         label_extra: Optional[list[str]] = None,
         label_runs: Optional[list[dict]] = None,
         label_param: Optional[str] = None,
+        sort_field: Optional[str] = None,
     ) -> None:
         """Capture text-table/KPI options, including measure-values configuration."""
         super().__init__(editor)
@@ -1399,6 +1415,7 @@ class TextChartBuilder(BaseChartBuilder):
         self.label = label
         self.detail = detail
         self.sort_descending = sort_descending
+        self.sort_field = sort_field
         self.tooltip = tooltip
         self.filters = filters
         self.measure_values = measure_values or []
@@ -1547,7 +1564,7 @@ class TextChartBuilder(BaseChartBuilder):
                     cols_el.text = self.editor._build_dimension_shelf(instances, self.columns) if self.columns else None
 
         if self.sort_descending:
-            self._add_shelf_sort(view, ds_name, instances, self.rows, self.sort_descending)
+            self._add_shelf_sort(view, ds_name, instances, self.rows, self.sort_descending, self.sort_field)
 
         self.editor._setup_table_style(table, "Text")
 

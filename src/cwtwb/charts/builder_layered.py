@@ -14,11 +14,13 @@ from copy import deepcopy
 from lxml import etree
 
 from .builder_base import BaseChartBuilder
-from .helpers import build_dimension_shelf
+from .helpers import build_dimension_shelf, setup_mapsources
+from ..field_registry import ColumnInstance
 
 
 _SPECIAL_MULTIPLE_VALUES = "Multiple Values"
 _SPECIAL_MEASURE_NAMES = "Measure Names"
+_GENERATED_FIELDS = {"Latitude (generated)", "Longitude (generated)", "Geometry (generated)"}
 
 
 class LayeredChartBuilder(BaseChartBuilder):
@@ -36,6 +38,8 @@ class LayeredChartBuilder(BaseChartBuilder):
         synchronized: bool = True,
         hide_axes: bool = False,
         sort_descending: Optional[str] = None,
+        sort_field: Optional[str] = None,
+        filters: Optional[list[dict]] = None,
         table_calc_overrides: Optional[
             dict[str, list[dict[str, Any]]]
         ] = None,
@@ -49,6 +53,8 @@ class LayeredChartBuilder(BaseChartBuilder):
         self.synchronized = synchronized
         self.hide_axes = hide_axes
         self.sort_descending = sort_descending
+        self.sort_field = sort_field
+        self.filters = filters or []
         self.table_calc_overrides = table_calc_overrides or {}
 
     @staticmethod
@@ -56,9 +62,12 @@ class LayeredChartBuilder(BaseChartBuilder):
         return str(expression or "").strip() in {
             _SPECIAL_MULTIPLE_VALUES,
             _SPECIAL_MEASURE_NAMES,
+            *_GENERATED_FIELDS,
         }
 
     def _field_ref(self, instances, expression: str, ds_name: str) -> str:
+        if str(expression).strip() in _GENERATED_FIELDS:
+            return f"[{ds_name}].[{str(expression).strip()}]"
         if str(expression or "").strip() == _SPECIAL_MULTIPLE_VALUES:
             return f"[{ds_name}].[Multiple Values]"
         if str(expression or "").strip() == _SPECIAL_MEASURE_NAMES:
@@ -75,10 +84,21 @@ class LayeredChartBuilder(BaseChartBuilder):
         if len(refs) == 1:
             return refs[0]
 
+        def discrete(expression: str) -> bool:
+            if expression == _SPECIAL_MEASURE_NAMES:
+                return True
+            if self._is_special(expression):
+                return False
+            instance = self._instance_for_expression(instances, expression)
+            return instance.ci_type in {"nominal", "ordinal"}
+
+        kinds = [discrete(expression) for expression in expressions]
+
         def nested(index: int) -> str:
             if index == len(refs) - 1:
                 return refs[index]
-            return f"({refs[index]} + {nested(index + 1)})"
+            operator = "/" if kinds[index] and kinds[index + 1] else "+" if not kinds[index] and not kinds[index + 1] else "*"
+            return f"({refs[index]} {operator} {nested(index + 1)})"
 
         return nested(0)
 
@@ -314,12 +334,18 @@ class LayeredChartBuilder(BaseChartBuilder):
         for expression in self.columns + self.rows:
             include(expression)
         include(self.sort_descending)
+        include(self.sort_field)
+        for specification in self.filters:
+            include(specification.get("column"))
         all_measure_values: list[str] = []
         for pane_spec in self.panes:
             for key in ("axis", "color", "size", "label", "detail", "path"):
                 include(pane_spec.get(key))
             for expression in pane_spec.get("color_extra", []):
                 include(expression)
+            for expression in pane_spec.get("detail_extra", []):
+                include(expression)
+            include(pane_spec.get("geometry"))
             for expression in pane_spec.get("labels", []):
                 include(expression)
             tooltip = pane_spec.get("tooltip")
@@ -330,7 +356,17 @@ class LayeredChartBuilder(BaseChartBuilder):
                 if expression not in all_measure_values:
                     all_measure_values.append(expression)
 
-        instances = self._parse_and_prepare_instances(expressions, None)
+        instances = self._parse_and_prepare_instances(expressions, self.filters)
+        if self.sort_field is not None:
+            bound_expressions = list(self.columns + self.rows)
+            for specification in self.panes:
+                bound_expressions.extend(specification.get(key) for key in ("detail", "color", "path", "label") if specification.get(key))
+                for key in ("detail_extra", "color_extra", "labels"):
+                    bound_expressions.extend(specification.get(key, []))
+            target = self._instance_for_expression(instances, self.sort_field)
+            bound_instances = [self._instance_for_expression(instances, expression) for expression in bound_expressions if not self._is_special(expression)]
+            if target is None or target.ci_type not in {"nominal", "ordinal"} or not any(instance and instance.instance_name == target.instance_name for instance in bound_instances):
+                raise ValueError("sort_field must identify a dimension bound to a shelf or mark encoding")
         for pane_spec in self.panes:
             self._add_tooltip_instances(
                 instances,
@@ -338,9 +374,31 @@ class LayeredChartBuilder(BaseChartBuilder):
                 pane_spec.get("tooltip"),
             )
         self._setup_datasource_dependencies(view, ds_name, instances, expressions)
+        geographic = any(pane.get("geometry") in _GENERATED_FIELDS for pane in self.panes) or any(expr in _GENERATED_FIELDS for expr in self.columns + self.rows)
+        if geographic:
+            setup_mapsources(self.editor, view)
+        for name in _GENERATED_FIELDS:
+            instances[name] = ColumnInstance(column_local_name=f"[{name}]", derivation="None", instance_name=f"[{name}]", ci_type="quantitative", is_direct=True)
         self._apply_table_calc_overrides(view, instances, ds_name)
+        self._add_filters(view, instances, self.filters)
         if self.sort_descending:
-            self._add_shelf_sort(view, ds_name, instances, self.rows, self.sort_descending)
+            row_instances = [self._instance_for_expression(instances, expression) for expression in self.rows]
+            sort_instance = self._instance_for_expression(instances, self.sort_field) if self.sort_field else None
+            if sort_instance is not None and not any(instance and instance.instance_name == sort_instance.instance_name for instance in row_instances):
+                if sort_instance.ci_type not in {"nominal", "ordinal"}:
+                    raise ValueError("sort_field must identify a dimension")
+                measure = self._instance_for_expression(instances, self.sort_descending)
+                for old in list(view.findall("computed-sort")):
+                    if old.get("column") == self.field_registry.resolve_full_reference(sort_instance.instance_name):
+                        view.remove(old)
+                sort = etree.Element("computed-sort", column=self.field_registry.resolve_full_reference(sort_instance.instance_name), direction="DESC", using=self.field_registry.resolve_full_reference(measure.instance_name))
+                anchor = next((view.find(tag) for tag in ("slices", "aggregation") if view.find(tag) is not None), None)
+                if anchor is not None:
+                    anchor.addprevious(sort)
+                else:
+                    view.append(sort)
+            else:
+                self._add_shelf_sort(view, ds_name, instances, self.rows, self.sort_descending, sort_field=self.sort_field)
         self._append_measure_names_filter(
             view,
             instances,
@@ -390,7 +448,7 @@ class LayeredChartBuilder(BaseChartBuilder):
             if axis:
                 axis_ref = self._field_ref(instances, axis, ds_name)
                 pane.set(axis_attribute, axis_ref)
-                if axis == _SPECIAL_MULTIPLE_VALUES:
+                if axis in {_SPECIAL_MULTIPLE_VALUES, *_GENERATED_FIELDS}:
                     pane.set("y-index" if self.axis_shelf == "rows" else "x-index", str(axis_refs.count(axis_ref)))
                 axis_refs.append(axis_ref)
             pane_view = etree.SubElement(pane, "view")
@@ -425,6 +483,10 @@ class LayeredChartBuilder(BaseChartBuilder):
                 encodings = etree.SubElement(pane, "encodings")
             for expression in pane_spec.get("color_extra", []):
                 etree.SubElement(encodings, "color", column=self._field_ref(instances, expression, ds_name))
+            for expression in pane_spec.get("detail_extra", []):
+                etree.SubElement(encodings, "lod", column=self._field_ref(instances, expression, ds_name))
+            if pane_spec.get("geometry"):
+                etree.SubElement(encodings, "geometry", column=self._field_ref(instances, pane_spec["geometry"], ds_name))
             if pane_spec.get("path"):
                 etree.SubElement(encodings, "path", column=self._field_ref(instances, pane_spec["path"], ds_name))
             self._append_extra_labels(
