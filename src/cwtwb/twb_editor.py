@@ -389,11 +389,9 @@ class TWBEditor(ParametersMixin, ConnectionsMixin, ChartsMixin, DashboardsMixin)
         """Add top-level elements the XSD schema expects (external)."""
         from lxml import etree as _etree
 
-        # datagraph is NOT part of the TWB schema — remove if present
+        # Modern Tableau schemas support expression graphs. Preserve nonempty
+        # graphs, including parameter-driven axis titles, during serialization.
         self._remove_empty_top_level_container("datagraph")
-        dg = self.root.find("datagraph")
-        if dg is not None:
-            self.root.remove(dg)
 
         # Ensure external exists and is after windows
         ext = self.root.find("external")
@@ -1657,6 +1655,38 @@ class TWBEditor(ParametersMixin, ConnectionsMixin, ChartsMixin, DashboardsMixin)
             target_alias = self._resolve_field_alias(target_name)
             normalized[source_alias["display_name"]] = target_alias["display_name"]
         return normalized
+
+    def set_field_format(self, field: str, default_format: str) -> str:
+        """Set a real or calculated field's Tableau display format.
+
+        Existing worksheet dependency copies are updated as well. The registry
+        remains bound to the same field identity; formulas and types are unchanged.
+        An empty format clears an explicit default.
+        """
+        if not isinstance(default_format, str):
+            raise ValueError("default_format must be a Tableau format string")
+        info = self.field_registry._find_field(field)
+        column = self._datasource.find(f"column[@name='{info.local_name}']")
+        if column is None:
+            column = etree.Element("column", {"name": info.local_name, "datatype": info.datatype, "role": info.role, "type": info.field_type})
+            if info.display_name != info.local_name.strip("[]"):
+                column.set("caption", info.display_name)
+            anchor = next((self._datasource.find(tag) for tag in ("column-instance", "group", "layout", "style", "semantic-values", "date-options", "object-graph") if self._datasource.find(tag) is not None), None)
+            if anchor is not None:
+                anchor.addprevious(column)
+            else:
+                self._datasource.append(column)
+        ds_name = self._datasource.get("name", "")
+        columns = [column]
+        for dependencies in self.root.findall(".//datasource-dependencies"):
+            if dependencies.get("datasource") == ds_name:
+                columns.extend(dependencies.findall(f"column[@name='{info.local_name}']"))
+        for node in columns:
+            if default_format:
+                node.set("default-format", default_format)
+            else:
+                node.attrib.pop("default-format", None)
+        return f"Set default format for '{field}'"
 
     def set_date_options(self, *, start_of_week: str = "sunday") -> str:
         """Set the datasource weekday origin used by date-part headers."""

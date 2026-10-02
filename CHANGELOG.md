@@ -11,6 +11,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Quantitative mark-size range styles and navigation text-button feature declarations.
+
+- Public field display formats, floating navigation placement, and parameter-driven
+  axis-title expression graphs, with synthetic MCP regression coverage.
+
 - Structured dual-axis table-calculation addressing, including ordered dimensions,
   nested calculations, level breaks, and aggregate sorting.
 - Mapped filter actions, independent and fixed axis encodings, map styles,

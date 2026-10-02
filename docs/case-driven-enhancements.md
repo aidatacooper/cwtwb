@@ -116,3 +116,81 @@ instance can silently fall back to default colors. This correction copies only
 SDK-generated bound metadata; it never reads an author workbook. Synthetic MCP
 coverage verifies the palette and worksheet contexts match and are independent
 XML nodes. Cloud verification remains a separate case acceptance step.
+
+## 2019 WW30: floating navigation objects and field formats
+
+Tableau's floating navigation buttons are direct peers under dashboard `zones`.
+Nesting those objects inside a `layout-basic` container can clip them to thin lines
+in Cloud. Floating navigation nodes now render at the dashboard level while
+retaining their computed absolute bounds; worksheet/text siblings retain existing
+container layout behavior. Target UUID validation and navigation action generation
+remain unchanged.
+
+`set_field_format(field, default_format)` sets the default Tableau format of a
+physical or calculated field without renaming its registry identity. Physical
+fields with only connection metadata receive an explicit datasource column, and
+existing worksheet dependency copies are updated. Empty strings clear the format.
+The same operation is exposed by MCP. This lets the detail dashboards use currency
+formatting without touching internal datasource XML.
+
+```python
+editor.set_field_format("Sales", 'c"$"#,##0.00')
+```
+
+## 2026 WW04: parameter-driven axis titles
+
+Dynamic axes require Tableau's expression graph rather than a literal fallback
+axis-title format. `axis_style.per_field` accepts `title_parameter` and a `rows` or
+`cols` scope. The SDK creates field-bound axis-title and parameter-value nodes,
+connects their pins, registers their execution subgraph, and enables the required
+manifest features. Repeated calls update the parameter binding for the same axis.
+Synthetic MCP tests check field/sheet references, edge connectivity and idempotence;
+Cloud parameter-state exports verify actual displayed Month/Quarter/Week titles.
+
+```python
+editor.configure_worksheet_style("Sales", axis_style={"per_field": [{
+    "field": "Date", "scope": "cols", "title_parameter": "Timeframe"}]})
+```
+
+## 2019 WW31: explicit spatial size range
+
+The route width and destination point size depend on both each pane's mark size
+and the worksheet's quantitative size range. `size_style` now exposes `rangesize`
+encodings with a resolved `field`, data-domain `min`/`max`, and independent
+`min_size`/`max_size` bounds. This prevents a constant concert count from mapping
+to an unintended oversized line. Numeric values or numeric strings are accepted;
+strings preserve exact Tableau precision. Invalid types and non-finite sizes are
+rejected. MCP uses the same interface and repeated updates replace the field's
+encoding.
+
+```python
+editor.configure_worksheet_style("Routes", size_style={
+    "field": "Concert Count", "min": 1, "min_size": "0.00251905",
+    "max_size": 1, "type": "rangesize"})
+```
+
+WW30 navigation rendering also declares `BasicButtonObject`,
+`BasicButtonObjectTextSupport`, and `NavigationAction` in the workbook manifest.
+These feature declarations identify the navigation text-button capabilities.
+A working navigation target also requires the correct window UUID, described below.
+
+## 2026 WW05: gridline orientation
+
+`gridline_style={"rows": {"line_visibility": "on"}, "cols": {
+"line_visibility": "off"}}` controls horizontal and vertical gridlines separately.
+The earlier global `hide_gridlines` switch could not retain only the author's
+horizontal guides. Scoped line visibility, stroke color, size and pattern are
+available through Python and MCP; repeat updates replace matching scope formats.
+
+Dynamic-axis expression graphs are retained during workbook serialization. The
+previous cleanup assumed obsolete schema support and removed every graph; current
+2026 schemas include them. A save-and-reparse regression verifies the graph survives,
+and omitted fallback titles use the selected parameter's current display alias.
+
+WW30 also exposed a distinct navigation identity bug: Tableau's `goto-sheet`
+`window-id` must reference the target dashboard's **window** UUID, not its dashboard
+UUID. The two identifiers can differ. Using the dashboard UUID creates an invalid
+target, leaving the Cloud button disabled and gray regardless of its color style.
+Navigation rendering now resolves `windows/window[@class="dashboard"]` by target
+name and requires its simple ID. A synthetic test deliberately assigns distinct
+UUIDs to prove the action references the window.

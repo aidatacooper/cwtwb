@@ -312,6 +312,12 @@ def add_set(
 
 
 @server.tool()
+def set_field_format(field: str, default_format: str) -> str:
+    """Set or clear a field's default Tableau display format."""
+    return get_editor().set_field_format(field, default_format)
+
+
+@server.tool()
 def set_date_options(start_of_week: str = "sunday") -> str:
     """Set datasource weekday origin for date-part headers and week calculations."""
     return get_editor().set_date_options(start_of_week=start_of_week)
@@ -683,6 +689,8 @@ def configure_worksheet_style(
     map_style: dict | None = None,
     color_style: dict | None = None,
     pane_formats: list[dict] | None = None,
+    size_style: dict | None = None,
+    gridline_style: dict | None = None,
 ) -> str:
     """Apply worksheet-level styling: background color, axis/grid/border visibility.
 
@@ -715,6 +723,8 @@ def configure_worksheet_style(
         map_style=map_style,
         color_style=color_style,
         pane_formats=pane_formats,
+        size_style=size_style,
+        gridline_style=gridline_style,
     )
     return result + _skill_hint("configure_worksheet_style")
 

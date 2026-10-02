@@ -322,7 +322,16 @@ def _render_container(
     if node.layout_strategy:
         zone.set("layout-strategy-id", node.layout_strategy)
     for child in node.children:
-        render_flex_node(child, zone, get_id_fn, context)
+        target_parent = zone
+        if node.direction == "floating" and child.type == "navigation_button":
+            # Floating dashboard objects are peers of the tiled root zone.
+            # Nesting navigation objects inside layout-basic clips the button.
+            ancestor = zone.getparent()
+            while ancestor is not None and ancestor.tag != "zones":
+                ancestor = ancestor.getparent()
+            if ancestor is not None:
+                target_parent = ancestor
+        render_flex_node(child, target_parent, get_id_fn, context)
 
 
 def _render_text(node: FlexNode, zone: etree._Element) -> None:
@@ -378,9 +387,21 @@ def _render_navigation_button(
     )
     if target_dashboard is None:
         raise ValueError(f"Target dashboard '{target}' was not found.")
-    simple_id = target_dashboard.find("simple-id")
+    target_window = editor.root.find(
+        f"./windows/window[@class='dashboard'][@name='{target}']"
+    )
+    simple_id = target_window.find("simple-id") if target_window is not None else None
     if simple_id is None or not simple_id.get("uuid"):
-        raise ValueError(f"Target dashboard '{target}' has no window id.")
+        raise ValueError(f"Target dashboard '{target}' has no dashboard window id.")
+
+    manifest = editor.root.find("document-format-change-manifest")
+    if manifest is None:
+        manifest = etree.Element("document-format-change-manifest")
+        editor.root.insert(0, manifest)
+    for feature in ("BasicButtonObject", "BasicButtonObjectTextSupport", "NavigationAction"):
+        if manifest.find(feature) is None:
+            attributes = {"ignorable": "true", "predowngraded": "true"} if feature == "BasicButtonObjectTextSupport" else {}
+            etree.SubElement(manifest, feature, **attributes)
 
     zone.set("type", "dashboard-object")
     button = etree.SubElement(zone, "button")

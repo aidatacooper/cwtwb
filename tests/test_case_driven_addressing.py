@@ -232,3 +232,125 @@ def test_layered_palette_preserves_nested_table_calc_context_through_mcp(editor,
     assert len(palette.findall("table-calc")) == 2
     assert palette.findall("table-calc")[1].get("field").endswith(editor.field_registry.parse_expression("Running").column_local_name)
     assert palette.findall("table-calc")[0] is not bound.findall("table-calc")[0]
+
+
+def test_floating_navigation_is_a_dashboard_object_peer_with_exact_bounds(editor):
+    editor.add_dashboard("Target")
+    bounds = {"x": 71000, "y": 1000, "w": 27000, "h": 9000}
+    editor.add_dashboard("Origin", width=600, height=600, layout={"type": "container", "direction": "floating", "children": [{"type": "navigation_button", "target_dashboard": "Target", "caption": "Return", "absolute": bounds}, {"type": "text", "text": "Heading", "absolute": {"x": 0, "y": 0, "w": 50000, "h": 5000}}]})
+    zones = editor.root.find("dashboards/dashboard[@name='Origin']/zones")
+    button_zone = zones.find("zone[@type='dashboard-object']")
+    assert button_zone is not None
+    assert {key: int(button_zone.get(key)) for key in bounds} == bounds
+    assert button_zone.findtext("button/button-visual-state/caption") == "Return"
+    assert zones.find("zone[@type-v2='layout-basic']/zone[@type-v2='text']") is not None
+    assert zones.find("zone[@type-v2='layout-basic']/zone[@type='dashboard-object']") is None
+
+
+def test_set_field_format_preserves_identity_and_updates_existing_dependencies(editor, monkeypatch):
+    editor.add_calculated_field("Money", "SUM([Sales])", datatype="real")
+    editor.add_worksheet("Money Sheet")
+    editor.configure_chart("Money Sheet", rows=["Category"], label="Money")
+    monkeypatch.setattr(tools_workbook, "get_editor", lambda: editor)
+    for field in ["Sales", "Money"]:
+        before = editor.field_registry.parse_expression(field).column_local_name
+        tools_workbook.set_field_format(field, 'c"$"#,##0.00')
+        assert editor.field_registry.parse_expression(field).column_local_name == before
+        assert editor._datasource.find(f"column[@name='{before}']").get("default-format") == 'c"$"#,##0.00'
+        for node in editor._find_worksheet("Money Sheet").findall(f"table/view/datasource-dependencies/column[@name='{before}']"):
+            assert node.get("default-format") == 'c"$"#,##0.00'
+    editor.set_field_format("Money", "")
+    assert editor._datasource.find("column[@caption='Money']").get("default-format") is None
+    with pytest.raises(ValueError):
+        editor.set_field_format("Money", None)
+
+
+def test_parameter_axis_title_mcp_graph_binding_and_idempotence(editor, monkeypatch, tmp_path):
+    editor.add_parameter("Period", "string", "month")
+    editor.add_parameter("Another", "string", "week")
+    editor.add_worksheet("Dynamic Axis")
+    editor.configure_chart("Dynamic Axis", columns=["MONTH(Order Date)"], rows=["SUM(Sales)"])
+    monkeypatch.setattr(tools_workbook, "get_editor", lambda: editor)
+    for parameter in ["Period", "Another"]:
+        tools_workbook.configure_worksheet_style("Dynamic Axis", axis_style={"per_field": [{"field": "MONTH(Order Date)", "scope": "cols", "title_parameter": parameter}]})
+    graph = editor.root.find("datagraph/graph")
+    assert len(graph.findall("nodes/axis-title-node")) == 1
+    assert len(graph.findall("nodes/single-value-field-node")) == 1
+    source = graph.find("nodes/single-value-field-node")
+    assert source.get("fieldname") == "[Parameters]." + editor._parameters["Another"]["internal_name"]
+    axis = graph.find("nodes/axis-title-node")
+    assert axis.get("fieldname").endswith(editor.field_registry.parse_expression("MONTH(Order Date)").instance_name)
+    assert axis.get("sheet-identifier") == editor._find_worksheet("Dynamic Axis").find("simple-id").get("uuid")
+    edge = graph.find("edges/edge")
+    assert edge.get("from") == source.get("value-output-guid")
+    assert edge.get("to") == axis.get("title-input-guid")
+    assert editor.root.find("document-format-change-manifest/DatagraphNodeAxisTitle") is not None
+    path = tmp_path / "dynamic.twb"
+    editor.save(path, validate=False)
+    from lxml import etree
+    saved = etree.parse(str(path))
+    assert saved.find("datagraph/graph/nodes/axis-title-node") is not None
+    assert saved.find("datagraph/graph/nodes/single-value-field-node") is not None
+    with pytest.raises(ValueError):
+        editor.configure_worksheet_style("Dynamic Axis", axis_style={"per_field": [{"field": "SUM(Sales)", "title_parameter": "Missing"}]})
+
+
+def test_navigation_button_enables_text_and_action_features_once(editor):
+    editor.add_dashboard("Target")
+    for name in ["First", "Second"]:
+        editor.add_dashboard(name, layout={"type": "container", "direction": "floating", "children": [{"type": "navigation_button", "target_dashboard": "Target"}]})
+    manifest = editor.root.find("document-format-change-manifest")
+    for feature in ["BasicButtonObject", "BasicButtonObjectTextSupport", "NavigationAction"]:
+        assert len(manifest.findall(feature)) == 1
+    assert manifest.find("BasicButtonObjectTextSupport").get("ignorable") == "true"
+
+
+def test_size_encoding_is_field_bound_replaceable_and_exposed_by_mcp(editor, monkeypatch):
+    editor.add_worksheet("Size")
+    editor.configure_chart("Size", rows=["Category"], size="SUM(Sales)")
+    monkeypatch.setattr(tools_workbook, "get_editor", lambda: editor)
+    settings = {"field": "SUM(Sales)", "min": "1", "min_size": "0.00251905", "max_size": 1}
+    for _ in range(2):
+        tools_workbook.configure_worksheet_style("Size", size_style=settings)
+    nodes = editor._find_worksheet("Size").findall("table/style/style-rule[@element='mark']/encoding[@attr='size']")
+    assert len(nodes) == 1
+    assert nodes[0].get("type") == "rangesize"
+    assert nodes[0].get("field").endswith(editor.field_registry.parse_expression("SUM(Sales)").instance_name)
+    assert nodes[0].get("min-size") == "0.00251905"
+    assert nodes[0].get("max-size") == "1"
+    assert nodes[0].get("min") == "1"
+
+
+@pytest.mark.parametrize("settings", [{"min_size": 1}, {"field": "Sales", "type": "palette"}, {"field": "Sales", "min_size": -1}, {"field": "Sales", "max_size": "nan"}, {"field": "Sales", "max": []}])
+def test_invalid_size_encoding_rejected(editor, settings):
+    editor.add_worksheet("Size")
+    editor.configure_chart("Size", rows=["Category"], size="SUM(Sales)")
+    with pytest.raises(ValueError):
+        editor.configure_worksheet_style("Size", size_style=settings)
+
+
+def test_gridlines_are_scoped_and_mcp_updates_idempotently(editor, monkeypatch):
+    editor.add_worksheet("Grid")
+    editor.configure_chart("Grid", rows=["SUM(Sales)"], columns=["MONTH(Order Date)"])
+    monkeypatch.setattr(tools_workbook, "get_editor", lambda: editor)
+    for _ in range(2):
+        tools_workbook.configure_worksheet_style("Grid", gridline_style={"rows": {"line_visibility": "on", "stroke_color": "#dddddd"}, "cols": {"line_visibility": "off"}})
+    rule = editor._find_worksheet("Grid").find("table/style/style-rule[@element='gridline']")
+    assert len(rule.findall("format[@attr='line-visibility']")) == 2
+    assert rule.find("format[@scope='rows'][@attr='line-visibility']").get("value") == "on"
+    assert rule.find("format[@scope='cols'][@attr='line-visibility']").get("value") == "off"
+    assert rule.find("format[@scope='rows'][@attr='stroke-color']").get("value") == "#dddddd"
+    with pytest.raises(ValueError):
+        editor.configure_worksheet_style("Grid", gridline_style={"bad": {"line_visibility": "off"}})
+
+
+def test_navigation_targets_window_uuid_not_dashboard_uuid(editor):
+    editor.add_dashboard("Destination")
+    dashboard_id = editor.root.find("dashboards/dashboard[@name='Destination']/simple-id")
+    window_id = editor.root.find("windows/window[@class='dashboard'][@name='Destination']/simple-id")
+    dashboard_id.set("uuid", "{DASHBOARD-IDENTITY}")
+    window_id.set("uuid", "{WINDOW-IDENTITY}")
+    editor.add_dashboard("Origin", layout={"type": "container", "direction": "floating", "children": [{"type": "navigation_button", "target_dashboard": "Destination"}]})
+    action = editor.root.find("dashboards/dashboard[@name='Origin']/zones/zone/button").get("action")
+    assert action == 'tabdoc:goto-sheet window-id="{WINDOW-IDENTITY}"'
+    assert "DASHBOARD-IDENTITY" not in action

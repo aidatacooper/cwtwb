@@ -51,7 +51,7 @@ def test_navigation_button_targets_dashboard_window(tmp_superstore, tmp_path):
     )
 
     home = editor.root.find(
-        "./dashboards/dashboard[@name='Home Dashboard']/simple-id"
+        "./windows/window[@class='dashboard'][@name='Home Dashboard']/simple-id"
     )
     button = editor.root.find(
         "./dashboards/dashboard[@name='Detail Dashboard']"
