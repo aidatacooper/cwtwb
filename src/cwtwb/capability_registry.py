@@ -167,6 +167,7 @@ CAPABILITY_SPECS: tuple[CapabilitySpec, ...] = (
         canonical="Dual Axis",
         aliases=("combo chart",),
         rationale="Important higher-order composition primitive with dedicated builder support.",
+        notes="configure_dual_axis supports table_calc_overrides with ordered fields, sort measures, level breaks, and nested calculation addressing.",
     ),
     CapabilitySpec(
         key="donut",
@@ -351,6 +352,7 @@ CAPABILITY_SPECS: tuple[CapabilitySpec, ...] = (
         canonical="Filter Action",
         aliases=("tsc:tsl-filter",),
         rationale="Important interaction primitive beyond base chart creation.",
+        notes="add_dashboard_action accepts field_mappings for source-to-target filter expressions, including self-filter deselection buttons.",
     ),
     CapabilitySpec(
         key="highlight-action",

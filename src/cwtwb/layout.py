@@ -61,6 +61,7 @@ class FlexNode:
         self.parameter = d.get("parameter") or d.get("param")
         self.target_dashboard = d.get("target_dashboard")
         self.caption = d.get("caption", "GO BACK")
+        self.control_caption = d.get("caption")
         self.background_color = d.get("background_color", "#1ba3c6")
 
         self.x = 0
@@ -400,6 +401,14 @@ def _render_navigation_button(
     background.set("value", str(node.background_color))
 
 
+def _render_control_caption(node: FlexNode, zone: etree._Element) -> None:
+    """Override a control title without changing its field/parameter identity."""
+    if node.control_caption is not None:
+        zone.set("custom-title", "true")
+        formatted = etree.SubElement(zone, "formatted-text")
+        etree.SubElement(formatted, "run").text = str(node.control_caption)
+
+
 def _render_filter(
     node: FlexNode,
     zone: etree._Element,
@@ -407,6 +416,7 @@ def _render_filter(
 ) -> None:
     """Render a filter control zone and resolve its backing field reference."""
     zone.set("type-v2", "filter")
+    _render_control_caption(node, zone)
     if node.worksheet:
         zone.set("name", node.worksheet)
     if node.mode:
@@ -438,6 +448,7 @@ def _render_paramctrl(
 ) -> None:
     """Render a parameter control zone using workbook parameter metadata."""
     zone.set("type-v2", "paramctrl")
+    _render_control_caption(node, zone)
     if node.mode:
         zone.set("mode", node.mode)
     if node.parameter and context.get("parameters"):
@@ -460,6 +471,10 @@ def _render_color(
     zone.set("type-v2", "color")
     if node.worksheet:
         zone.set("name", node.worksheet)
+    if not node.show_title:
+        zone.set("show-title", "false")
+    if node.mode:
+        zone.set("leg-item-layout", node.mode)
     if node.field and context.get("field_registry"):
         field_registry = context["field_registry"]
         try:

@@ -9,6 +9,7 @@ special ``Multiple Values`` axis.
 from __future__ import annotations
 
 from typing import Any, Optional
+from copy import deepcopy
 
 from lxml import etree
 
@@ -238,7 +239,7 @@ class LayeredChartBuilder(BaseChartBuilder):
                         attributes[xml_key] = str(value)
                 etree.SubElement(column_instance, "table-calc", attributes)
 
-    def _apply_color_map(self, instances, pane_spec: dict[str, Any]) -> None:
+    def _apply_color_map(self, instances, pane_spec: dict[str, Any], view: etree._Element) -> None:
         color_map = pane_spec.get("color_map")
         color = pane_spec.get("color")
         if not color_map or not color:
@@ -267,6 +268,19 @@ class LayeredChartBuilder(BaseChartBuilder):
                 anchor.addprevious(palette_instance)
             else:
                 self._datasource.append(palette_instance)
+        # Palette identity includes table-calculation addressing, not just its
+        # field name. Preserve the worksheet's actual nested calculation context.
+        palette_instance = self._datasource.find(
+            f"column-instance[@name='{instance.instance_name}']"
+        )
+        bound_instance = view.find(
+            f"datasource-dependencies/column-instance[@name='{instance.instance_name}']"
+        )
+        if bound_instance is not None:
+            for old in list(palette_instance.findall("table-calc")):
+                palette_instance.remove(old)
+            for calculation in bound_instance.findall("table-calc"):
+                palette_instance.append(deepcopy(calculation))
         style = self._datasource.find("style")
         if style is None:
             style = etree.Element("style")
@@ -428,7 +442,7 @@ class LayeredChartBuilder(BaseChartBuilder):
                 pane_spec.get("labels", []),
             )
             if pane_spec.get("label_runs"):
-                self.editor._build_rich_label(
+                self._build_rich_label(
                     pane,
                     instances,
                     pane_spec["label_runs"],
@@ -444,7 +458,7 @@ class LayeredChartBuilder(BaseChartBuilder):
                 else:
                     pane.insert(1, mark_sizing)
             self._apply_pane_style(pane, pane_spec.get("mark_style", {}))
-            self._apply_color_map(instances, pane_spec)
+            self._apply_color_map(instances, pane_spec, view)
 
         rows_element = table.find("rows")
         columns_element = table.find("cols")
