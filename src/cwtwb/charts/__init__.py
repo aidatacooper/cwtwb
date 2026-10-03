@@ -469,12 +469,15 @@ class ChartsMixin:
         if size_style:
             if not isinstance(size_style, dict) or not size_style.get("field"):
                 raise ValueError("size_style requires a field")
-            allowed = {"field", "min", "max", "min_size", "max_size", "min-size", "max-size", "type"}
+            allowed = {"field", "min", "max", "min_size", "max_size", "min-size", "max-size", "type", "reverse"}
             if set(size_style) - allowed or size_style.get("type", "rangesize") != "rangesize":
                 raise ValueError("size_style supports rangesize field/min/max/min_size/max_size")
             import math
             for key, value in size_style.items():
-                if key not in ("field", "type"):
+                if key == "reverse":
+                    if not isinstance(value, bool):
+                        raise ValueError("size_style reverse must be boolean")
+                elif key not in ("field", "type"):
                     try:
                         number = float(value)
                     except (ValueError, TypeError):
@@ -483,7 +486,7 @@ class ChartsMixin:
                         raise ValueError(f"size_style {key} must be a finite numeric size")
             from lxml import etree
             attributes = {"attr": "size", "type": "rangesize", "field-type": "quantitative", "field": style_reference(self.field_registry.parse_expression(size_style["field"]))}
-            attributes.update({key.replace("_", "-"): str(value) for key, value in size_style.items() if key not in ("field", "type")})
+            attributes.update({key.replace("_", "-"): str(value).lower() if isinstance(value, bool) else str(value) for key, value in size_style.items() if key not in ("field", "type")})
             style = table.find("style")
             rule = style.find("style-rule[@element='mark']")
             if rule is None:
@@ -495,9 +498,11 @@ class ChartsMixin:
         if color_style:
             if not isinstance(color_style, dict) or not color_style.get("field") or not (color_style.get("palette") or color_style.get("colors")):
                 raise ValueError("color_style requires field and either palette or colors")
-            allowed = {"field", "palette", "colors", "center", "min", "max", "include_totals", "include-totals"}
+            allowed = {"field", "palette", "colors", "center", "min", "max", "include_totals", "include-totals", "reverse"}
             if set(color_style) - allowed:
                 raise ValueError("Unsupported continuous color style setting")
+            if "reverse" in color_style and not isinstance(color_style["reverse"], bool):
+                raise ValueError("color_style reverse must be boolean")
             from lxml import etree
             attributes = {"attr": "color", "type": "interpolated", "field": style_reference(self.field_registry.parse_expression(color_style["field"]))}
             for key, value in color_style.items():

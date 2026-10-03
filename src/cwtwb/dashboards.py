@@ -57,6 +57,7 @@ from __future__ import annotations
 import copy
 import json
 import logging
+import math
 from pathlib import Path
 from typing import Any, Optional
 from urllib.parse import quote
@@ -1206,6 +1207,60 @@ class DashboardsMixin:
             worksheet_options=worksheet_options,
         )
         return f"Created dashboard '{dashboard_name}'"
+
+    def add_dashboard_toggle_button(
+        self, dashboard_name: str, target_worksheets: list[str], *,
+        caption_shown: str = "Hide", caption_hidden: str = "Show",
+        initially_hidden: bool = False, position: dict | None = None,
+    ) -> str:
+        """Add a native show/hide button for a shared floating sheet container.
+
+        Position uses dashboard pixels. Targets must all occupy one non-root
+        layout-flow container; no parameter or filter action substitutes for
+        the native button event.
+        """
+        if not target_worksheets or len(set(target_worksheets)) != len(target_worksheets):
+            raise ValueError("Toggle targets must be nonempty and unique")
+        if not isinstance(initially_hidden, bool):
+            raise ValueError("initially_hidden must be boolean")
+        dashboards = [d for d in self.root.findall("dashboards/dashboard") if d.get("name") == dashboard_name]
+        if len(dashboards) != 1:
+            raise ValueError("Dashboard does not exist")
+        dashboard = dashboards[0]
+        zones = dashboard.find("zones")
+        targets = []
+        for name in target_worksheets:
+            matches = [z for z in zones.iter("zone") if z.get("name") == name]
+            if len(matches) != 1:
+                raise ValueError("Each toggle target must occur once on the dashboard")
+            targets.append(matches[0])
+        container = next((z for z in targets[0].iterancestors("zone")
+                          if z.get("type-v2", z.get("type")) == "layout-flow"
+                          and all(z in t.iterancestors("zone") for t in targets)), None)
+        if container is None or container.getparent() is zones:
+            raise ValueError("Toggle targets require a dedicated floating layout-flow container")
+        window = next((w for w in self.root.findall("windows/window") if w.get("name") == dashboard_name and w.get("class") == "dashboard"), None)
+        if window is None or window.find("simple-id") is None:
+            raise ValueError("Dashboard window identity is missing")
+        dimensions = dashboard.find("size")
+        width, height = int(dimensions.get("maxwidth")), int(dimensions.get("maxheight"))
+        bounds = position or {"x": 0, "y": 0, "w": 200, "h": 30}
+        if set(bounds) != {"x", "y", "w", "h"} or any(isinstance(v, bool) or not isinstance(v, (int, float)) or not math.isfinite(v) for v in bounds.values()) or bounds["w"] <= 0 or bounds["h"] <= 0:
+            raise ValueError("Position requires finite x/y and positive w/h in pixels")
+        zone_id = str(self._next_zone_id())
+        zone = etree.SubElement(zones, "zone", {"id": zone_id, "type": "dashboard-object"})
+        for key, value in bounds.items():
+            zone.set(key, str(round(value / (width if key in ("x", "w") else height) * 100000)))
+        button = etree.SubElement(zone, "button", {"action": "", "button-type": "text", "active-visual-state-index": "1" if initially_hidden else "0"})
+        etree.SubElement(button, "toggle-action").text = f'tabdoc:toggle-button-click-action window-id="{window.find("simple-id").get("uuid")}" zone-id="{zone_id}" zone-ids=[{container.get("id")}]'
+        for caption in (caption_shown, caption_hidden):
+            state = etree.SubElement(button, "button-visual-state")
+            etree.SubElement(state, "caption").text = str(caption)
+            etree.SubElement(state, "button-caption-font-style", fontname="Tableau Medium", fontsize="9")
+        if initially_hidden:
+            for item in container.iter("zone"):
+                item.set("hidden-by-user", "true")
+        return f"Added toggle button for {', '.join(target_worksheets)}"
 
     def link_worksheet_filters(self, field: str, worksheet_names: list[str]) -> str:
         """Share one existing categorical filter across selected worksheets.

@@ -35,6 +35,10 @@ class CapabilitySpec:
 
 
 CAPABILITY_SPECS: tuple[CapabilitySpec, ...] = (
+    CapabilitySpec(key="independent-hyper-datasources", kind="connection", level="advanced", canonical="add_hyper_datasource", rationale="Author independent extracted sources and switch the active field registry without replacing existing worksheets."),
+    CapabilitySpec(key="viz-in-tooltip", kind="feature", level="advanced", canonical="configure_custom_tooltip", rationale="Embed worksheets in formatted tooltips with explicit source-field filtering and native target action filters."),
+    CapabilitySpec(key="toggle-button", kind="dashboard_zone", level="advanced", canonical="add_dashboard_toggle_button", rationale="Native show/hide events target a dedicated floating layout container."),
+    CapabilitySpec(key="axis-unit-mark-sizing", kind="encoding", level="advanced", canonical="mark_sizing", rationale="Layered panes support native axis-unit sizing, scaling and alignment."),
     CapabilitySpec(
         key="bar",
         kind="chart",

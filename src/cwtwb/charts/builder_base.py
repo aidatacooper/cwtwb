@@ -100,6 +100,8 @@ class BaseChartBuilder:
 
     def _format_palette_value(self, value, column_instance: ColumnInstance) -> str:
         """Serialize palette buckets using the color field's Tableau datatype."""
+        if value is None or value == "%null%":
+            return "%null%"
         field = self.field_registry._find_field(column_instance.column_local_name)
         if field.datatype == "boolean" or field.calculation_class == "set":
             return str(value).strip().lower()

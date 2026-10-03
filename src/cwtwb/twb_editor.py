@@ -12,6 +12,7 @@ from __future__ import annotations
 __author__ = "Cooper Wenhua <imgwho@gmail.com>"
 
 import copy
+import html
 import io
 import logging
 import math
@@ -441,6 +442,41 @@ class TWBEditor(ParametersMixin, ConnectionsMixin, ChartsMixin, DashboardsMixin)
 
         # Fallback: return the last one (single-datasource templates)
         return all_ds[-1]
+
+    def select_datasource(self, name: str) -> str:
+        """Select a data source for subsequent field and worksheet authoring.
+
+        Existing worksheet references are retained. Select by internal name or
+        unique caption; parameter-only sources cannot be selected.
+        """
+        matches = [ds for ds in self.root.findall("datasources/datasource")
+                   if ds.get("hasconnection") != "false"
+                   and name in (ds.get("name"), ds.get("caption"))]
+        if len(matches) != 1:
+            raise ValueError("Select one existing, unambiguous data datasource")
+        self._datasource = matches[0]
+        self.field_registry = FieldRegistry(self._datasource.get("name", ""))
+        self._init_fields()
+        return self._datasource.get("name", "")
+
+    def add_hyper_datasource(self, name: str, filepath: str, table_name: str = "Extract") -> str:
+        """Add and activate an independent Hyper source without replacing others."""
+        if not isinstance(name, str) or not name.strip() or name == "Parameters":
+            raise ValueError("A nonempty data source caption is required")
+        if any(name in (ds.get("name"), ds.get("caption"))
+               for ds in self.root.findall("datasources/datasource")):
+            raise ValueError("Datasource already exists")
+        if not Path(filepath).is_file():
+            raise FileNotFoundError(filepath)
+        # Build in a separate empty editor so failed schema inspection leaves
+        # the current workbook and registry untouched.
+        fresh = TWBEditor("")
+        fresh.set_hyper_connection(filepath, table_name=table_name)
+        datasource = copy.deepcopy(fresh._datasource)
+        datasource.set("name", "federated." + _generate_uuid().strip("{}").lower())
+        datasource.set("caption", name)
+        self.root.find("datasources").append(datasource)
+        return self.select_datasource(datasource.get("name"))
 
     def _init_fields(self) -> None:
         """Parse field info from metadata-records and column definitions."""
@@ -2266,7 +2302,7 @@ class TWBEditor(ParametersMixin, ConnectionsMixin, ChartsMixin, DashboardsMixin)
     ) -> str:
         """Author a formatted Tableau tooltip from literal and field runs.
 
-        Each run accepts either ``text`` or ``field`` plus Tableau rich-text
+        Each run accepts ``text``, ``field`` or a ``sheet`` specification plus Tableau rich-text
         attributes such as ``bold``, ``fontcolor``, ``fontname`` and
         ``fontsize``.  A literal newline is serialized using Tableau's
         paragraph separator.
@@ -2328,9 +2364,10 @@ class TWBEditor(ParametersMixin, ConnectionsMixin, ChartsMixin, DashboardsMixin)
         for spec in runs:
             has_text = "text" in spec
             has_field = bool(spec.get("field"))
-            if has_text == has_field:
+            has_sheet = "sheet" in spec
+            if sum((has_text, has_field, has_sheet)) != 1:
                 raise ValueError(
-                    "Each tooltip run must define exactly one of 'text' or 'field'."
+                    "Each tooltip run must define exactly one of 'text', 'field' or 'sheet'."
                 )
             run = etree.SubElement(formatted, "run")
             for attr in allowed_attrs:
@@ -2340,7 +2377,64 @@ class TWBEditor(ParametersMixin, ConnectionsMixin, ChartsMixin, DashboardsMixin)
                 if isinstance(value, bool):
                     value = "true" if value else "false"
                 run.set(attr, str(value))
-            if has_field:
+            if has_sheet:
+                sheet = spec["sheet"]
+                if not isinstance(sheet, dict) or not sheet.get("name"):
+                    raise ValueError("Tooltip sheet needs a name")
+                target = self._find_worksheet(sheet["name"])
+                target_view = target.find("table/view")
+                if target_view is None or target_view.find(f"datasource-dependencies[@datasource='{ds_name}']") is None:
+                    raise ValueError("Tooltip target must use the same datasource")
+                dimensions = {}
+                for key in ("maxwidth", "maxheight"):
+                    value = sheet.get(key, 300)
+                    if isinstance(value, bool) or not isinstance(value, int) or value <= 0:
+                        raise ValueError("Tooltip sheet dimensions must be positive integers")
+                    dimensions[key] = str(value)
+                fields = sheet.get("filter_fields", [])
+                if not isinstance(fields, list) or not fields or any(not isinstance(f, str) or not f for f in fields):
+                    raise ValueError("Tooltip sheet needs explicit filter_fields")
+                if len(set(fields)) != len(fields):
+                    raise ValueError("Tooltip filter fields must be unique")
+                instances = [resolve_field(field) for field in fields]
+                local_names = [self.field_registry.parse_expression(self.field_registry.default_view_expression(f)).column_local_name for f in fields]
+                caption = "Tooltip (" + ",".join(n.strip("[]") for n in local_names) + ")"
+                group_name = f"[{caption}]"
+                group = self._datasource.find(f"group[@name='{group_name}']")
+                user_ns = "http://www.tableausoftware.com/xml/user"
+                if group is None:
+                    group = etree.Element("group", caption=caption, hidden="true", name=group_name)
+                    group.set("name-style", "unqualified")
+                    group.set(f"{{{user_ns}}}auto-column", "sheet_link")
+                    group.set(f"{{{user_ns}}}ui-vit-column", "true")
+                    crossjoin = etree.SubElement(group, "groupfilter", function="crossjoin")
+                    for local_name in local_names:
+                        etree.SubElement(crossjoin, "groupfilter", function="level-members", level=local_name)
+                    self._insert_datasource_group(group)
+                reference = f"[{ds_name}].{group_name}"
+                old = target_view.find(f"filter[@column='{reference}']")
+                if old is None:
+                    action_filter = etree.Element("filter", {"class": "categorical", "column": reference})
+                    member = etree.SubElement(action_filter, "groupfilter", function="level-members", level=local_names[0])
+                    member.set(f"{{{user_ns}}}ui-action-filter", f"[Action - {sheet['name']}]")
+                    member.set(f"{{{user_ns}}}ui-enumeration", "all")
+                    member.set(f"{{{user_ns}}}ui-marker", "enumerate")
+                    target_view.find("datasource-dependencies").addnext(action_filter)
+                slices = target_view.find("slices")
+                if slices is None:
+                    slices = etree.SubElement(target_view, "slices")
+                if not any(c.text == reference for c in slices.findall("column")):
+                    etree.SubElement(slices, "column").text = reference
+                embed = etree.Element("Sheet", name=str(sheet["name"]), **dimensions)
+                embed.set("filter", ",".join(f"<{instance}>" for instance in instances))
+                run.text = html.unescape(etree.tostring(embed, encoding="unicode").removesuffix("/>")) + ">"
+                manifest = self.root.find("document-format-change-manifest")
+                if manifest is None:
+                    manifest = etree.Element("document-format-change-manifest")
+                    self.root.insert(0, manifest)
+                if manifest.find("VizInTooltipHideWorksheet") is None:
+                    etree.SubElement(manifest, "VizInTooltipHideWorksheet")
+            elif has_field:
                 run.text = f"<{resolve_field(str(spec['field']))}>"
             else:
                 text = str(spec.get("text", ""))

@@ -1456,3 +1456,32 @@ def inspect_excel_connection(file_path: str, sheet_name: str = "") -> str:
 def link_worksheet_filters(field: str, worksheet_names: list[str]) -> str:
     """Link matching categorical filters so one control filters all given sheets."""
     return get_editor().link_worksheet_filters(field, worksheet_names)
+
+
+@server.tool()
+def add_hyper_datasource(name: str, filepath: str, table_name: str = "Extract") -> str:
+    """Add and activate another independent extracted data source."""
+    return get_editor().add_hyper_datasource(name, filepath, table_name)
+
+
+@server.tool()
+def select_datasource(name: str) -> str:
+    """Select the source for subsequent field and worksheet authoring."""
+    return get_editor().select_datasource(name)
+
+
+@server.tool()
+def configure_custom_tooltip(worksheet_name: str, runs: list[dict], pane_index: int = 0) -> str:
+    """Set formatted text/field runs or embedded sheets with explicit filter_fields."""
+    return get_editor().configure_custom_tooltip(worksheet_name, runs, pane_index=pane_index)
+
+
+@server.tool()
+def add_dashboard_toggle_button(
+    dashboard_name: str, target_worksheets: list[str], caption_shown: str = "Hide",
+    caption_hidden: str = "Show", initially_hidden: bool = False, position: dict | None = None,
+) -> str:
+    """Show/hide a dedicated dashboard sheet container with a native button."""
+    return get_editor().add_dashboard_toggle_button(dashboard_name, target_worksheets,
+        caption_shown=caption_shown, caption_hidden=caption_hidden,
+        initially_hidden=initially_hidden, position=position)

@@ -10,6 +10,8 @@ from __future__ import annotations
 
 from typing import Any, Optional
 from copy import deepcopy
+import math
+import json
 
 from lxml import etree
 
@@ -277,6 +279,16 @@ class LayeredChartBuilder(BaseChartBuilder):
         color = pane_spec.get("color")
         if not color_map or not color:
             return
+        if color == _SPECIAL_MEASURE_NAMES:
+            buckets = {}
+            for expression, hex_color in color_map.items():
+                measure = self._instance_for_expression(instances, expression)
+                if measure is None:
+                    raise ValueError(f"Could not resolve Measure Names palette member: {expression}")
+                reference = self.field_registry.resolve_full_reference(measure.instance_name)
+                buckets[json.dumps(reference)] = hex_color
+            self.editor.set_datasource_color_palette("Measure Names", buckets, is_measure_names=True)
+            return
         instance = self._instance_for_expression(instances, color)
         if instance is None:
             raise ValueError(f"Could not resolve layered color field: {color}")
@@ -388,7 +400,7 @@ class LayeredChartBuilder(BaseChartBuilder):
             include(specification.get("column"))
         all_measure_values: list[str] = []
         for pane_spec in self.panes:
-            for key in ("axis", "color", "size", "label", "detail", "path"):
+            for key in ("axis", "color", "size", "label", "detail", "path", "shape"):
                 include(pane_spec.get(key))
             for expression in pane_spec.get("color_extra", []):
                 include(expression)
@@ -506,7 +518,10 @@ class LayeredChartBuilder(BaseChartBuilder):
                     pane.set("y-index" if self.axis_shelf == "rows" else "x-index", str(axis_refs.count(axis_ref)))
                 axis_refs.append(axis_ref)
             pane_view = etree.SubElement(pane, "view")
-            etree.SubElement(pane_view, "breakdown", {"value": "auto"})
+            breakdown = pane_spec.get("breakdown", "auto")
+            if breakdown not in {"auto", "on", "off"}:
+                raise ValueError("Pane breakdown must be auto, on or off")
+            etree.SubElement(pane_view, "breakdown", {"value": breakdown})
             self._setup_pane(
                 pane,
                 pane_spec.get("mark_type", "Automatic"),
@@ -545,6 +560,8 @@ class LayeredChartBuilder(BaseChartBuilder):
                 etree.SubElement(encodings, "geometry", column=self._field_ref(instances, pane_spec["geometry"], ds_name))
             if pane_spec.get("path"):
                 etree.SubElement(encodings, "path", column=self._field_ref(instances, pane_spec["path"], ds_name))
+            if pane_spec.get("shape"):
+                etree.SubElement(encodings, "shape", column=self._field_ref(instances, pane_spec["shape"], ds_name))
             self._append_extra_labels(
                 pane,
                 instances,
@@ -557,10 +574,35 @@ class LayeredChartBuilder(BaseChartBuilder):
                     instances,
                     pane_spec["label_runs"],
                 )
-            if pane_spec.get("mark_sizing_off"):
+            sizing = pane_spec.get("mark_sizing")
+            if sizing is not None:
+                if not isinstance(sizing, dict) or not sizing:
+                    raise ValueError("mark_sizing must be a nonempty dictionary")
+                sizing = {key.replace("_", "-"): value for key, value in sizing.items()}
+                allowed = {"mark-sizing-setting", "mark-alignment", "use-custom-mark-size", "custom-mark-size-in-axis-units"}
+                if set(sizing) - allowed:
+                    raise ValueError("Unsupported mark sizing attribute")
+                if pane_spec.get("mark_sizing_off"):
+                    raise ValueError("Use mark_sizing or mark_sizing_off, not both")
+                if "mark-sizing-setting" in sizing and sizing["mark-sizing-setting"] not in {"marks-scaling-on", "marks-scaling-off"}:
+                    raise ValueError("Invalid mark sizing setting")
+                if "mark-alignment" in sizing and sizing["mark-alignment"] not in {"mark-alignment-center", "mark-alignment-start", "mark-alignment-end"}:
+                    raise ValueError("Invalid mark alignment")
+                if "use-custom-mark-size" in sizing:
+                    if not isinstance(sizing["use-custom-mark-size"], bool):
+                        raise ValueError("use-custom-mark-size must be boolean")
+                    sizing["use-custom-mark-size"] = str(sizing["use-custom-mark-size"]).lower()
+                if "custom-mark-size-in-axis-units" in sizing:
+                    value = sizing["custom-mark-size-in-axis-units"]
+                    if isinstance(value, bool) or not isinstance(value, (float, int)) or not math.isfinite(value) or value <= 0:
+                        raise ValueError("Axis-unit mark size must be finite and positive")
+                sizing = {key: str(value) for key, value in sizing.items()}
+            elif pane_spec.get("mark_sizing_off"):
+                sizing = {"mark-sizing-setting": "marks-scaling-off"}
+            if sizing:
                 mark_sizing = etree.Element(
                     "mark-sizing",
-                    {"mark-sizing-setting": "marks-scaling-off"},
+                    sizing,
                 )
                 mark = pane.find("mark")
                 if mark is not None:
@@ -570,6 +612,30 @@ class LayeredChartBuilder(BaseChartBuilder):
             self._apply_pane_style(pane, pane_spec.get("mark_style", {}))
             self._apply_trendline(pane, pane_spec.get("trendline"), pane_spec.get("trendline_style"), instances, ds_name)
             self._apply_color_map(instances, pane_spec, view)
+            if pane_spec.get("shape_map"):
+                shape = self._instance_for_expression(instances, pane_spec.get("shape", ""))
+                if shape is None:
+                    raise ValueError("shape_map requires a shape field")
+                style = self._datasource.find("style")
+                if style is None:
+                    style = etree.SubElement(self._datasource, "style")
+                rule = style.find("style-rule[@element='mark']")
+                if rule is None:
+                    rule = etree.SubElement(style, "style-rule", element="mark")
+                for old in list(rule.findall("encoding")):
+                    if old.get("attr") == "shape" and old.get("field") == shape.instance_name:
+                        rule.remove(old)
+                encoding = etree.SubElement(rule, "encoding", attr="shape", field=shape.instance_name, type="palette")
+                # Shape identities, like colour identities, include the actual
+                # worksheet instance and its table calculation addressing.
+                palette_instance = self._datasource.find(f"column-instance[@name='{shape.instance_name}']")
+                if palette_instance is None:
+                    bound = view.find(f"datasource-dependencies/column-instance[@name='{shape.instance_name}']")
+                    palette_instance = deepcopy(bound)
+                    style.addprevious(palette_instance)
+                for value, symbol in pane_spec["shape_map"].items():
+                    mapping = etree.SubElement(encoding, "map", to=str(symbol))
+                    etree.SubElement(mapping, "bucket").text = self._format_palette_value(value, shape)
 
         rows_element = table.find("rows")
         columns_element = table.find("cols")

@@ -1,5 +1,66 @@
 # Case-driven SDK enhancements
 
+## 2020 WW07: overlaid measures and virtual palettes
+
+The parameter-driven forecast view needs Sales and Forecast bars to overlap,
+with a consistent blue/teal Measure Names palette. Layered panes previously
+forced `breakdown="auto"` and attempted to resolve Measure Names as a physical
+colour field. Pane dictionaries now accept `breakdown` (`auto`, `on`, `off`).
+Virtual palettes resolve each measure expression to its actual quoted, fully
+qualified Tableau instance without inventing a physical Measure Names column.
+
+## 2020 WW09: categorical order-event shapes
+
+The reorder timeline distinguishes a customer's initial order from later
+orders using a triangle/diamond shape palette and colours zero/one/null event
+categories. Layered panes now support `shape` and `shape_map`, and numeric
+palette serialization preserves Tableau's `%null%` category. Colour and shape
+palettes retain the real calculation instance and addressing identity.
+
+## 2020 WW10: independent spatial sources and filtered tooltip sheets
+
+The intermediate buffer map and parameter-driven hotel map use different
+extracted datasets. `add_hyper_datasource(name, filepath)` adds and activates an
+independent source; `select_datasource(name)` selects by internal name or unique
+caption without replacing prior worksheet references. Packaging includes all
+source extracts. A failed add leaves the current source unchanged.
+
+`configure_custom_tooltip` accepts a sheet run such as
+`{"sheet": {"name": "Details", "filter_fields": ["Hotel"], "maxwidth": 300, "maxheight": 300}}`.
+This authors the native Sheet token, hidden sheet-link group and target action
+filter. Explicit filter fields prevent accidental unfiltered tooltip lists.
+Source and target must use the same datasource. This is an artifact contract;
+REST worksheet exports verify target data, without claiming hover execution.
+
+The distance colour and size legends can now use `reverse=True`, matching the
+native continuous palette direction without case-specific transformed metrics.
+
+## 2020 WW10 and WW12: native collapsible containers
+
+`add_dashboard_toggle_button(dashboard_name, target_worksheets, initially_hidden=True,
+position={"x": 12, "y": 50, "w": 330, "h": 30})` creates a native button bound to
+the dedicated shared layout-flow container and dashboard window identity.
+`caption_shown` and `caption_hidden` label its two states. This preserves the
+native show/hide event and hidden-by-user state instead of substituting a
+parameter action. Targets must share a non-root container and position uses
+dashboard pixels. The SDK does not claim that REST image export clicks buttons.
+
+## 2020 WW12: bars sized in axis units
+
+Daily, weekly and monthly selected-period bars need native mark scaling and
+axis-unit width settings. Layered pane `mark_sizing` accepts the validated native
+keys `mark-sizing-setting`, `mark-alignment`, `use-custom-mark-size` (boolean),
+and `custom-mark-size-in-axis-units` (positive finite number). Underscore spellings
+are normalized. Existing `mark_sizing_off` remains supported; the two settings
+cannot be combined.
+
+All additions have synthetic regressions in
+`tests/test_independent_sources_tooltips_and_controls.py`, covering independent
+source references and packaging, invalid-input rejection, tooltip field scopes,
+native button targets, sizing, categorical nulls and virtual measure palettes.
+Public authoring operations are also exposed through MCP and the capability
+registry; layered pane settings travel through the existing dictionary API.
+
 ## 2020 WW02: parameter control title visibility
 
 The compact date-period dropdown declares `show_title=False`, but parameter
