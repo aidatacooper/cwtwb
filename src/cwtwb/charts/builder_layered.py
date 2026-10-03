@@ -528,7 +528,7 @@ class LayeredChartBuilder(BaseChartBuilder):
                 pane_spec.get("mark_type", "Automatic"),
                 instances,
                 None if self._is_special(pane_spec.get("color")) else pane_spec.get("color"),
-                pane_spec.get("size"),
+                None if self._is_special(pane_spec.get("size")) else pane_spec.get("size"),
                 None if self._is_special(pane_spec.get("label")) else pane_spec.get("label"),
                 pane_spec.get("detail"),
                 None,
@@ -552,6 +552,8 @@ class LayeredChartBuilder(BaseChartBuilder):
             if encodings is None:
                 encodings = etree.Element("encodings")
                 pane.find("mark").addnext(encodings)
+            if pane_spec.get("size") == _SPECIAL_MEASURE_NAMES:
+                etree.SubElement(encodings, "size", column=f"[{ds_name}].[:Measure Names]")
             for expression in pane_spec.get("color_extra", []):
                 etree.SubElement(encodings, "color", column=self._field_ref(instances, expression, ds_name))
             for expression in pane_spec.get("detail_extra", []):

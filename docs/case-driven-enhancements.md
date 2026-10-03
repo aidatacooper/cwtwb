@@ -8,6 +8,10 @@ forced `breakdown="auto"` and attempted to resolve Measure Names as a physical
 colour field. Pane dictionaries now accept `breakdown` (`auto`, `on`, `off`).
 Virtual palettes resolve each measure expression to its actual quoted, fully
 qualified Tableau instance without inventing a physical Measure Names column.
+Cloud comparison also exposed identical widths hiding the underlying Sales bar.
+Layered panes accept `size="Measure Names"` as a native virtual binding, allowing
+Tableau to assign different widths to overlaid measures. A synthetic regression
+checks that no physical Measure Names field is introduced.
 
 ## 2020 WW09: categorical order-event shapes
 

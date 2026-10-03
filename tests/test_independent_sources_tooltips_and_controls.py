@@ -138,6 +138,15 @@ def test_measure_names_palette_uses_actual_measure_instances(editor):
     assert not editor.root.xpath("//datasources/datasource/column[@caption='Measure Names']")
 
 
+def test_measure_names_sizes_use_virtual_binding(editor):
+    editor.add_calculated_field('Forecast', 'SUM([Sales])*1.1')
+    editor.add_worksheet('Bars')
+    editor.configure_layered_chart('Bars', panes=[{'axis': 'Multiple Values', 'measure_values': ['SUM(Sales)', 'Forecast'], 'mark_type': 'Bar', 'size': 'Measure Names'}])
+    bindings = editor.root.xpath("//worksheet[@name='Bars']/table/panes/pane/encodings/size/@column")
+    assert len(bindings) == 1 and bindings[0].endswith('].[:Measure Names]')
+    assert not editor.root.xpath("//datasources/datasource/column[@caption='Measure Names']")
+
+
 def test_shape_and_colour_palettes_share_ordinal_calculation_identity(editor):
     editor.add_calculated_field('Event', 'IF SUM([Sales])>100 THEN 1 ELSE 0 END', datatype='integer', role='dimension', field_type='ordinal')
     editor.add_worksheet('Events')
