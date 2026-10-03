@@ -2394,6 +2394,8 @@ class TWBEditor(ParametersMixin, ConnectionsMixin, ChartsMixin, DashboardsMixin)
                 fields = sheet.get("filter_fields", [])
                 if not isinstance(fields, list) or not fields or any(not isinstance(f, str) or not f for f in fields):
                     raise ValueError("Tooltip sheet needs explicit filter_fields")
+                if len(fields) != 1:
+                    raise ValueError("Tooltip embedding currently supports one explicit filter field")
                 if len(set(fields)) != len(fields):
                     raise ValueError("Tooltip filter fields must be unique")
                 instances = [resolve_field(field) for field in fields]

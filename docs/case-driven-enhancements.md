@@ -29,7 +29,8 @@ source extracts. A failed add leaves the current source unchanged.
 `{"sheet": {"name": "Details", "filter_fields": ["Hotel"], "maxwidth": 300, "maxheight": 300}}`.
 This authors the native Sheet token, hidden sheet-link group and target action
 filter. Explicit filter fields prevent accidental unfiltered tooltip lists.
-Source and target must use the same datasource. This is an artifact contract;
+Source and target must use the same datasource. One explicit filter field is
+currently supported; compound scopes are rejected. This is an artifact contract;
 REST worksheet exports verify target data, without claiming hover execution.
 
 The distance colour and size legends can now use `reverse=True`, matching the
@@ -52,7 +53,8 @@ axis-unit width settings. Layered pane `mark_sizing` accepts the validated nativ
 keys `mark-sizing-setting`, `mark-alignment`, `use-custom-mark-size` (boolean),
 and `custom-mark-size-in-axis-units` (positive finite number). Underscore spellings
 are normalized. Existing `mark_sizing_off` remains supported; the two settings
-cannot be combined.
+cannot be combined. Spatial map layers also display explicitly requested labels
+instead of unconditionally suppressing them (WW10 buffer counts).
 
 All additions have synthetic regressions in
 `tests/test_independent_sources_tooltips_and_controls.py`, covering independent

@@ -1239,6 +1239,9 @@ class DashboardsMixin:
                           and all(z in t.iterancestors("zone") for t in targets)), None)
         if container is None or container.getparent() is zones:
             raise ValueError("Toggle targets require a dedicated floating layout-flow container")
+        contained_sheets = {z.get("name") for z in container.iter("zone") if z.get("name")}
+        if contained_sheets != set(target_worksheets):
+            raise ValueError("Toggle targets must include every worksheet in their container")
         window = next((w for w in self.root.findall("windows/window") if w.get("name") == dashboard_name and w.get("class") == "dashboard"), None)
         if window is None or window.find("simple-id") is None:
             raise ValueError("Dashboard window identity is missing")

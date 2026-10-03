@@ -71,7 +71,7 @@ def test_embedded_sheet_tooltip_creates_native_field_filter(editor, tmp_path):
     assert etree.parse(str(path)).find("document-format-change-manifest/VizInTooltipHideWorksheet") is not None
 
 
-@pytest.mark.parametrize('sheet', [{"name": "Missing", "filter_fields": ["Category"]}, {"name": "Source", "filter_fields": []}, {"name": "Source", "filter_fields": ["Category"], "maxwidth": -1}])
+@pytest.mark.parametrize('sheet', [{"name": "Missing", "filter_fields": ["Category"]}, {"name": "Source", "filter_fields": []}, {"name": "Source", "filter_fields": ["Category"], "maxwidth": -1}, {"name": "Source", "filter_fields": ["Category","Region"]}])
 def test_invalid_tooltip_sheet_rejected(editor, sheet):
     editor.add_worksheet("Source")
     editor.configure_chart("Source", rows=["Category"])
@@ -104,6 +104,8 @@ def test_native_toggle_targets_shared_container_and_window(editor, tmp_path):
     assert etree.parse(str(path)).xpath("//button/toggle-action")
     with pytest.raises(ValueError):
         editor.add_dashboard_toggle_button("Dashboard", ["Main"])
+    with pytest.raises(ValueError):
+        editor.add_dashboard_toggle_button("Dashboard", ["Selector"])
 
 
 def test_axis_unit_bar_sizing_and_breakdown(editor):
@@ -154,3 +156,11 @@ def test_continuous_colour_and_size_can_be_reversed(editor):
     assert len(encodings) == 2 and all(e.get('reverse') == 'true' for e in encodings)
     with pytest.raises(ValueError):
         editor.configure_worksheet_style('Points', size_style={'field':'SUM(Sales)','reverse':'true'})
+
+
+def test_map_layers_show_explicit_labels_only(editor):
+    editor.add_calculated_field('Point', 'MAKEPOINT(51.5,-0.1)', datatype='spatial', role='measure', field_type='nominal')
+    editor.add_worksheet('Map')
+    editor.configure_chart('Map', mark_type='Map', geographic_field='Point', map_layers=[{'geometry':'Point','detail':'Category','label':'SUM(Sales)'},{'geometry':'Point','detail':'Category'}])
+    panes = editor.root.xpath("//worksheet[@name='Map']/table/panes/pane[@id]")
+    assert [p.find("style/style-rule/format[@attr='mark-labels-show']").get('value') for p in panes] == ['true','false']

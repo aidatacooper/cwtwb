@@ -1986,7 +1986,7 @@ class MapChartBuilder(BaseChartBuilder):
 
             fmt_show = etree.SubElement(sr, "format")
             fmt_show.set("attr", "mark-labels-show")
-            fmt_show.set("value", "false")
+            fmt_show.set("value", "true" if l_label else "false")
 
         # Ensure <panes> is placed before <rows>/<cols> in the table
         rows_el = table.find("rows")
