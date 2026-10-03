@@ -193,6 +193,7 @@ def test_shape_and_colour_palettes_share_ordinal_calculation_identity(editor):
     pane = editor.root.xpath("//worksheet[@name='Events']/table/panes/pane")[0]
     assert pane.find('encodings/shape').get('column') == pane.find('encodings/color').get('column')
     shape_encoding = editor.root.xpath("//datasources/datasource/style/style-rule/encoding[@attr='shape']")[0]
+    assert shape_encoding.get('type') == 'shape'
     assert [(m.find('bucket').text, m.get('to')) for m in shape_encoding.findall('map')] == [('0', ':filled/diamond'), ('1', ':filled/diamond'), ('%null%', ':filled/right-triangle')]
 
 

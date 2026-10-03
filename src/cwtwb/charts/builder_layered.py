@@ -627,7 +627,7 @@ class LayeredChartBuilder(BaseChartBuilder):
                 for old in list(rule.findall("encoding")):
                     if old.get("attr") == "shape" and old.get("field") == shape.instance_name:
                         rule.remove(old)
-                encoding = etree.SubElement(rule, "encoding", attr="shape", field=shape.instance_name, type="palette")
+                encoding = etree.SubElement(rule, "encoding", attr="shape", field=shape.instance_name, type="shape")
                 # Shape identities, like colour identities, include the actual
                 # worksheet instance and its table calculation addressing.
                 palette_instance = self._datasource.find(f"column-instance[@name='{shape.instance_name}']")

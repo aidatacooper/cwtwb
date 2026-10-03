@@ -21,6 +21,9 @@ to qualified datasource column references, matching `field` and `level_break`.
 Synthetic tests cover ordinary and layered charts without private field access.
 Repeated ordinary axis expressions also receive distinct pane indices, keeping
 both timeline layers and both KPI panes visible and independently exportable.
+Cloud rendering also requires categorical shape encodings to use `type="shape"`,
+not the color palette encoding type. The ordinal/null shape regression checks
+this native type so triangles and diamonds do not silently fall back to circles.
 
 The reorder timeline distinguishes a customer's initial order from later
 orders using a triangle/diamond shape palette and colours zero/one/null event

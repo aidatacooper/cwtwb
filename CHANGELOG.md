@@ -17,6 +17,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Resolve table calculation level-address field captions for Cloud parsing (2020 WW09).
 - Keep repeated ordinary layered axes distinct and mixed set/filter action names unique
   (2020 WW09/WW12); declare the native single-select set-action feature.
+- Emit the native categorical shape encoding type for layered shapes (2020 WW09).
 
 - Native per-pane trendline model and style dictionaries in layered charts,
   including validated fit options and excluded factors (2020 WW03).
