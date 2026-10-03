@@ -2913,9 +2913,13 @@ class TWBEditor(ParametersMixin, ConnectionsMixin, ChartsMixin, DashboardsMixin)
             for vp_name in named:
                 viewpoint = etree.SubElement(viewpoints_el, "viewpoint")
                 viewpoint.set("name", vp_name)
-                if worksheet_options and worksheet_options.get(vp_name, {}).get("fit") in ("entire", "entire-view"):
+                fit = (worksheet_options or {}).get(vp_name, {}).get("fit")
+                zoom_type = {"entire": "entire-view", "entire-view": "entire-view",
+                             "width": "fit-width", "fit-width": "fit-width",
+                             "height": "fit-height", "fit-height": "fit-height"}.get(fit)
+                if zoom_type:
                     zoom = etree.SubElement(viewpoint, "zoom")
-                    zoom.set("type", "entire-view")
+                    zoom.set("type", zoom_type)
             active = etree.SubElement(win, "active")
             active.set("id", "-1")
 

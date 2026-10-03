@@ -23,6 +23,10 @@ native aggregate instead of imposing a sum or average of displayed margins.
 `set_measure_name_aliases("Viz", {"Margin": "Margin"})` writes aliases against
 the worksheet's actual qualified measure instances, including table calculations,
 so native headers do not append addressing descriptions or truncate long captions.
+Expanded WW18 Cloud tables also exposed a missing native viewpoint zoom:
+dashboard worksheet zones with `fit="width"` or `fit="height"` now emit
+`fit-width` or `fit-height` on their dashboard window viewpoint, alongside the
+layout-cache sizing. This keeps columns readable at the actual zone width.
 WW19 requires date/datetime set members: `add_set` accepts ISO values or naive
 Python date objects and emits native temporal literals. Invalid members fail
 before mutation.

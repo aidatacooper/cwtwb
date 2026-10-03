@@ -59,6 +59,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Dashboard worksheet width/height fitting emits native viewpoint zoom,
+  preventing clipped and overlapping table columns (2020 WW18/WW24).
+
 - Bottom-N sets select the lower tail of a descending ranking; set tooltips keep
   native In/Out instances instead of inventing physical ATTR fields (2020 WW20/WW21).
 - Axis-unit bar alignment accepts native left/right values (2020 WW23).
