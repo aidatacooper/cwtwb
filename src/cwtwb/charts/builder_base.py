@@ -486,7 +486,7 @@ class BaseChartBuilder:
                     xml_key = key.replace("_", "-")
                     if xml_key in ("order", "sort"):
                         continue
-                    if xml_key in ("field", "level-break"):
+                    if xml_key in ("field", "level-break", "level-address"):
                         attributes[xml_key] = column_reference(str(value))
                     elif xml_key == "ordering-field":
                         ordering_instance = self._instance_for_expression(instances, str(value))

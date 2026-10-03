@@ -15,6 +15,11 @@ checks that no physical Measure Names field is introduced.
 
 ## 2020 WW09: categorical order-event shapes
 
+Cloud publishing exposed a qualified-name parse error in nested order-date
+calculations. Table calculation overrides now resolve `level_address` captions
+to qualified datasource column references, matching `field` and `level_break`.
+Synthetic tests cover ordinary and layered charts without private field access.
+
 The reorder timeline distinguishes a customer's initial order from later
 orders using a triangle/diamond shape palette and colours zero/one/null event
 categories. Layered panes now support `shape` and `shape_map`, and numeric

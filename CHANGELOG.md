@@ -14,6 +14,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Layered pane breakdown, virtual Measure Names palettes, categorical shapes,
   axis-unit mark sizing and continuous palette reversal (2020 WW07/WW09/WW12).
 - Layered native Measure Names size bindings for overlaid bars (2020 WW07).
+- Resolve table calculation level-address field captions for Cloud parsing (2020 WW09).
 
 - Native per-pane trendline model and style dictionaries in layered charts,
   including validated fit options and excluded factors (2020 WW03).

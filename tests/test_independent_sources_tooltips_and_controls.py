@@ -138,6 +138,20 @@ def test_measure_names_palette_uses_actual_measure_instances(editor):
     assert not editor.root.xpath("//datasources/datasource/column[@caption='Measure Names']")
 
 
+@pytest.mark.parametrize('layered', [False, True])
+def test_table_calc_level_address_resolves_public_field_caption(editor, layered):
+    editor.add_calculated_field('Previous Sales', 'LOOKUP(SUM([Sales]),-1)', table_calc='Rows')
+    editor.add_worksheet('Previous')
+    overrides = {'Previous Sales': [{'ordering_type': 'Field', 'level_address': 'Order Date', 'order': ['Order Date']}]}
+    if layered:
+        editor.configure_layered_chart('Previous', rows=['Order Date'], panes=[{'axis': 'Previous Sales'}], table_calc_overrides=overrides)
+    else:
+        editor.configure_chart('Previous', mark_type='Line', rows=['Order Date'], columns=['Previous Sales'], table_calc_overrides=overrides)
+    addresses = editor.root.xpath("//worksheet[@name='Previous']//table-calc/@level-address")
+    expected_column = editor.field_registry.parse_expression('Order Date').column_local_name
+    assert addresses and all(value.startswith('[federated.') and value.endswith('.'+expected_column) for value in addresses)
+
+
 def test_measure_names_sizes_use_virtual_binding(editor):
     editor.add_calculated_field('Forecast', 'SUM([Sales])*1.1')
     editor.add_worksheet('Bars')
