@@ -1067,6 +1067,7 @@ class ConnectionsMixin:
         *,
         conn_name: str,
         tables: list[dict[str, Any]],
+        relationships: Optional[List[dict]] = None,
     ) -> None:
         """Rebuild datasource metadata for an Excel workbook with multiple sheets."""
 
@@ -1148,11 +1149,12 @@ class ConnectionsMixin:
             relation = etree.SubElement(collection, "relation")
             relation.set("connection", conn_name)
             relation.set("name", table_name)
-            relation.set("table", f"[{table_name}$]")
+            relation.set("table", table.get("physical_table", f"[{table_name}$]"))
             relation.set("type", "table")
             columns = etree.SubElement(relation, "columns")
             columns.attrib.clear()
-            columns.set("gridOrigin", str(table.get("grid_origin", "A1:A1:no:A1:A1:0")))
+            if "physical_table" not in table:
+                columns.set("gridOrigin", str(table.get("grid_origin", "A1:A1:no:A1:A1:0")))
             columns.set("header", "yes")
             columns.set("outcome", str(table.get("outcome", "2")))
             for ordinal, field in enumerate(table_fields):
@@ -1214,7 +1216,23 @@ class ConnectionsMixin:
             )
 
         # Infer relationships from shared field names, preferring the primary table.
-        if table_objects:
+        if relationships is not None:
+            by_name = {table["name"]: table for table in table_objects}
+            for specification in relationships:
+                left = by_name[specification["left"]]
+                right = by_name[specification["right"]]
+                left_fields = {field["name"]: field["local_name"] for field in left["fields"]}
+                right_fields = {field["name"]: field["local_name"] for field in right["fields"]}
+                relationship = etree.SubElement(relationships_el, "relationship")
+                keys = specification["keys"]
+                expression = etree.SubElement(relationship, "expression", op="AND" if len(keys) > 1 else "=")
+                for left_key, right_key in keys:
+                    predicate = etree.SubElement(expression, "expression", op="=") if len(keys) > 1 else expression
+                    etree.SubElement(predicate, "expression", op=left_fields[left_key])
+                    etree.SubElement(predicate, "expression", op=right_fields[right_key])
+                etree.SubElement(relationship, "first-end-point", {"object-id": left["id"]})
+                etree.SubElement(relationship, "second-end-point", {"object-id": right["id"]})
+        elif table_objects:
             primary = table_objects[0]
             primary_field_map = {field["name"]: field["local_name"] for field in primary["fields"]}
             for secondary in table_objects[1:]:
@@ -1789,6 +1807,7 @@ class ConnectionsMixin:
         filepath: str,
         table_name: str = "Extract",
         tables: Optional[List[dict]] = None,
+        relationships: Optional[List[dict]] = None,
     ) -> str:
         """Configure the datasource to use a local Hyper extract connection.
 
@@ -1802,7 +1821,17 @@ class ConnectionsMixin:
             For multi-table hyper files.  Each dict must have a ``"name"``
             key and may have an optional ``"columns"`` list of column-name
             strings.  The first entry is the *primary* table.
+        relationships : list[dict] | None
+            Explicit logical relationships using ``left``, ``right`` table
+            names and ``keys`` physical-field pairs. In this mode every table
+            is inspected with its real Hyper datatypes; ``table`` optionally
+            specifies its physical Extract table separately from ``name``.
+            No physical joins or inferred first-match keys are created.
         """
+        logical_tables = None
+        if relationships is not None:
+            from .hyper_relationships import prepare_logical_tables
+            logical_tables = prepare_logical_tables(filepath, tables, relationships)
         inspected_fields = (
             _inspect_hyper_fields(filepath, table_name)
             if not tables
@@ -1842,6 +1871,12 @@ class ConnectionsMixin:
         hyper_conn.set("sslmode", "")
         hyper_conn.set("tablename", "Extract")
         hyper_conn.set("username", "")
+
+        if logical_tables is not None:
+            self._rebuild_excel_multi_table_metadata(
+                conn_name=conn_name, tables=logical_tables, relationships=relationships,
+            )
+            return f"Configured Hyper logical relationships to {filepath}"
 
         # Remove existing relation(s)
         for old_rel in fed_conn.findall("relation"):

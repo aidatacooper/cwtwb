@@ -319,8 +319,10 @@ class BaseChartBuilder:
                     col_el.set("role", fi.role)
                     col_el.set("type", fi.field_type)
                     src_col = self._datasource.find(f"column[@name='{fi.local_name}']")
-                    if src_col is not None and src_col.get("semantic-role"):
-                        col_el.set("semantic-role", src_col.get("semantic-role"))
+                    if src_col is not None:
+                        for attribute in ("semantic-role", "fiscal-year-start"):
+                            if src_col.get(attribute):
+                                col_el.set(attribute, src_col.get(attribute))
                 if col_el is not None:
                     column_elements.append(col_el)
             if not ci.is_direct and ci.instance_name not in seen_instances:

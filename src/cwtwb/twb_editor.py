@@ -1823,6 +1823,21 @@ class TWBEditor(ParametersMixin, ConnectionsMixin, ChartsMixin, DashboardsMixin)
                 node.attrib.pop("semantic-role", None)
         return f"Set geographic role for '{field}'"
 
+    def set_shape_palette(self, field: str, shapes: dict[str, str], palette: str = "Custom") -> str:
+        """Embed local shape assets and map categorical field members to them."""
+        from .shape_assets import set_shape_palette
+        return set_shape_palette(self, field, shapes, palette=palette)
+
+    def initialize_dashboard_filter_action(self, dashboard_name: str, action_name: str, members: dict[str, list]) -> str:
+        """Initialize a native filter action's target membership without a fixed filter."""
+        from .action_filter_initialization import initialize_dashboard_filter_action
+        return initialize_dashboard_filter_action(self, dashboard_name, action_name, members)
+
+    def set_field_fiscal_year_start(self, field: str, month: int) -> str:
+        """Set a date field's native fiscal year starting month (1 through 12)."""
+        from .field_date_properties import set_field_fiscal_year_start
+        return set_field_fiscal_year_start(self, field, month)
+
     def set_field_format(self, field: str, default_format: str) -> str:
         """Set a real or calculated field's Tableau display format.
 

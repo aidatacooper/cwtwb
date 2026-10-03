@@ -35,6 +35,10 @@ class CapabilitySpec:
 
 
 CAPABILITY_SPECS: tuple[CapabilitySpec, ...] = (
+    CapabilitySpec(key="initial-filter-action-members", kind="action", level="advanced", canonical="initialize_dashboard_filter_action", rationale="Initialize existing action targets with native action-filter members that subsequent events can replace."),
+    CapabilitySpec(key="custom-shape-assets", kind="encoding", level="advanced", canonical="set_shape_palette", rationale="Embed local shape assets and map categorical members to a native datasource shape palette."),
+    CapabilitySpec(key="field-fiscal-year", kind="feature", level="advanced", canonical="set_field_fiscal_year_start", rationale="Set native date-field fiscal metadata on the datasource and worksheet dependencies."),
+    CapabilitySpec(key="hyper-logical-relationships", kind="connection", level="advanced", canonical="set_hyper_connection", rationale="Inspect typed Hyper tables and relate independent logical grains using explicit composite equality keys, without physical fact joins."),
     CapabilitySpec(key="measure-name-aliases", kind="feature", level="advanced", canonical="set_measure_name_aliases", rationale="Alias actual worksheet measure instances, preserving table calculation identities and native headers."),
     CapabilitySpec(key="native-source-blending", kind="connection", level="advanced", canonical="configure_datasource_blend", aliases=("import_blended_field",), rationale="Link independently aggregated extracted sources at the worksheet grain without joining their fact rows."),
     CapabilitySpec(key="dynamic-set-union", kind="feature", level="advanced", canonical="add_combined_set", rationale="Union existing same-grain native sets while preserving their dynamic membership."),

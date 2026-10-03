@@ -332,6 +332,24 @@ def set_field_format(field: str, default_format: str) -> str:
 
 
 @server.tool()
+def set_shape_palette(field: str, shapes: dict[str, str], palette: str = "Custom") -> str:
+    """Embed local shape assets and map categorical members to the native palette."""
+    return get_editor().set_shape_palette(field, shapes, palette=palette)
+
+
+@server.tool()
+def initialize_dashboard_filter_action(dashboard_name: str, action_name: str, members: dict[str, list]) -> str:
+    """Initialize an existing native filter action's targets with overridable members."""
+    return get_editor().initialize_dashboard_filter_action(dashboard_name, action_name, members)
+
+
+@server.tool()
+def set_field_fiscal_year_start(field: str, month: int) -> str:
+    """Set the native fiscal year starting month on a date field and dependencies."""
+    return get_editor().set_field_fiscal_year_start(field, month)
+
+
+@server.tool()
 def set_date_options(start_of_week: str = "sunday") -> str:
     """Set datasource weekday origin for date-part headers and week calculations."""
     return get_editor().set_date_options(start_of_week=start_of_week)
@@ -876,6 +894,7 @@ def set_hyper_connection(
     filepath: str,
     table_name: str = "Extract",
     tables: list[dict] | None = None,
+    relationships: list[dict] | None = None,
 ) -> str:
     """Configure the workbook datasource to use a local Hyper extract connection."""
 
@@ -884,6 +903,7 @@ def set_hyper_connection(
         filepath=filepath,
         table_name=table_name,
         tables=tables,
+        relationships=relationships,
     )
 
 

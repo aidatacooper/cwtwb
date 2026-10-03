@@ -9,6 +9,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Embedded PNG shape palettes and native field fiscal-year metadata (2020 WW25/WW26).
+- Native filter action initialization with overridable target membership (2020 WW25).
+- Typed Hyper logical relationships with explicit composite equality keys,
+  independent table grains and atomic validation (2020 WW28).
+
 - Native worksheet datasource blending with aggregate proxies, dynamic same-grain
   set unions, and automatic scrolling Phone layouts (2020 WW16/WW17/WW21).
 - Full discrete date range completion, temporal set members, Automatic subtotal

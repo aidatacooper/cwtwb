@@ -31,7 +31,7 @@ def _apply_connection(editor, connection: dict[str, Any] | None) -> list[str]:
     if kind == "csv":
         return [editor.set_csv_connection(connection["path"], delimiter=connection.get("delimiter", ""), charset=connection.get("charset", "utf-8-sig"), fields=connection.get("fields"))]
     if kind == "hyper":
-        return [editor.set_hyper_connection(connection["path"], table_name=connection.get("table", "Extract"), tables=connection.get("tables"))]
+        return [editor.set_hyper_connection(connection["path"], table_name=connection.get("table", "Extract"), tables=connection.get("tables"), relationships=connection.get("relationships"))]
     if kind == "mysql":
         return [editor.set_mysql_connection(server=connection["server"], dbname=connection["dbname"], username=connection["username"], table_name=connection["table"], port=str(connection.get("port", "3306")))]
     if kind == "tableauserver":
@@ -43,6 +43,16 @@ def _apply_parameters(editor, spec: dict[str, Any]) -> list[str]:
     messages: list[str] = []
     for item in _as_list(spec.get("parameters")):
         messages.append(editor.add_parameter(**item))
+    return messages
+
+
+def _apply_field_properties(editor, spec: dict[str, Any]) -> list[str]:
+    messages = []
+    for item in _as_list(spec.get("field_properties")):
+        if "fiscal_year_start" in item:
+            messages.append(editor.set_field_fiscal_year_start(item["field"], item["fiscal_year_start"]))
+    for item in _as_list(spec.get("shape_palettes")):
+        messages.append(editor.set_shape_palette(**item))
     return messages
 
 
@@ -174,6 +184,8 @@ def _apply_dashboards(editor, spec: dict[str, Any]) -> list[str]:
         )
         for action in _as_list(item.get("actions")):
             messages.append(editor.add_dashboard_action(dashboard_name=item["name"], **action))
+        for initial in _as_list(item.get("filter_action_initializations")):
+            messages.append(editor.initialize_dashboard_filter_action(item["name"], **initial))
         if item.get("automatic_phone_layout"):
             options = item["automatic_phone_layout"]
             messages.append(editor.enable_automatic_phone_layout(
@@ -200,6 +212,7 @@ def run(args: Any) -> int:
     messages.extend(_apply_connection(editor, spec.get("connection")))
     messages.extend(_apply_parameters(editor, spec))
     messages.extend(_apply_calculated_fields(editor, spec))
+    messages.extend(_apply_field_properties(editor, spec))
     messages.extend(_apply_hierarchies(editor, spec))
     messages.extend(_apply_worksheets(editor, spec))
     messages.extend(_apply_dashboards(editor, spec))

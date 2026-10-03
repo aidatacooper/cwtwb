@@ -131,6 +131,7 @@ def build_parser() -> argparse.ArgumentParser:
     hyper.add_argument("--data", required=True, help="Hyper file path.")
     hyper.add_argument("--table", default="Extract", help="Hyper table name.")
     hyper.add_argument("--tables", help="JSON/YAML Hyper tables metadata file.")
+    hyper.add_argument("--relationships", help="JSON/YAML explicit logical relationships and key pairs.")
     _add_modify_output_options(hyper)
     hyper.set_defaults(func=connection_set_hyper)
 

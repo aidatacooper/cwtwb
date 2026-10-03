@@ -1,5 +1,54 @@
 # Case-driven SDK enhancements
 
+## 2020 WW25–29: assets, fiscal dates and independent logical tables
+
+WW25 requires categorical image marks authored without an original workbook.
+`set_shape_palette("Type", {"Crust": "inputs/crust.png"}, palette="Custom")`
+embeds PNG assets and writes the native categorical shape palette. Asset names
+are unambiguous and repeated calls are idempotent. Synthetic fixtures use small
+generated images; the case locks the extracted author images as inputs. Its
+menu-triggered set add/remove actions reuse the existing public action API.
+`initialize_dashboard_filter_action("Dashboard", "Type Selection", {"Type": ["Size"]})`
+initializes a native action filter tied to the existing action and its targets.
+The initial members can be replaced by later action events; an ordinary fixed
+Type filter would instead intersect subsequent choices and make other types
+empty. Synthetic tests check the native group, target filter and action identity
+together, including idempotent updates and invalid inputs before mutation.
+
+WW26 requires an October fiscal year. `set_field_fiscal_year_start("Date", 10)`
+sets native date metadata on the active datasource and existing worksheet
+dependencies; later charts inherit the same property. This changes fiscal date
+interpretation, not the dates themselves. Synthetic tests cover date types,
+valid month boundaries, invalid inputs and existing/future chart dependencies.
+
+WW28 has daily actual sales and monthly segment/category targets. A physical
+join would multiply goals and lose goal-only periods. The optional
+`relationships` argument to `set_hyper_connection` inspects real Hyper field
+types and creates independent logical objects with explicit equality keys:
+
+```python
+editor.set_hyper_connection(
+    "inputs/facts-and-targets.hyper",
+    tables=[{"name": "Actual", "table": "Transactions"},
+            {"name": "Goals", "table": "Targets"}],
+    relationships=[{"left": "Actual", "right": "Goals", "keys": [
+        ["Segment", "Segment"], ["Category", "Category"], ["Month", "Month"]]}],
+)
+```
+
+Physical tables reside in the `Extract` schema. Repeated secondary dimension
+names are qualified by logical table, for example `Month (Goals)`. Explicit
+key fields and datatypes must match, and the graph must be connected before
+mutation. The legacy connection path remains available when `relationships`
+is omitted. Synthetic tests cover three equality predicates, atomic invalid
+inputs, run-spec/MCP forwarding, and a packaged extract with multiple actual
+rows per target and a target-only month. No physical join is generated.
+
+WW27 nested customer distribution calculations and WW29 intermediate heatmap
+labels reuse existing addressing, set action and native total APIs. Cloud
+validation distinguishes stored states and full worksheet exports from action
+contracts; it does not claim browser clicks or hover execution.
+
 ## 2020 WW15–24: dates, independent grains and native layouts
 
 WW15 exposed missing interior weekdays in an exact-date grid.

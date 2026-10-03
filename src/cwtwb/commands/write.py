@@ -59,6 +59,7 @@ def connection_set_hyper(args: Any) -> int:
         args.data,
         table_name=args.table,
         tables=load_data_file(args.tables) if args.tables else None,
+        relationships=load_data_file(args.relationships) if getattr(args, "relationships", None) else None,
     )
     save_message = editor.save(output, validate=not args.no_save_validation)
     payload = {"output": str(output), "messages": [message, save_message]}
