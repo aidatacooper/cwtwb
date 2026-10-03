@@ -87,12 +87,16 @@ class BaseChartBuilder:
         raise NotImplementedError("Subclasses must implement build().")
 
     @staticmethod
-    def _format_filter_value(value) -> str:
+    def _format_filter_value(value, column_instance=None) -> str:
         """Format a filter member value for Tableau XML.
 
-        Boolean values (true/false) are written unquoted.  All other values
-        are wrapped in double quotes to match Tableau's expected format.
+        Boolean and discrete date-part values are written unquoted. Other
+        values retain the existing categorical string serialization.
         """
+        if column_instance is not None and column_instance.derivation in {"Year", "Quarter", "Month", "Day", "Week", "Weekday"}:
+            # Discrete date parts have numeric domains even when the source
+            # column is a date. Quoted years are rejected by Tableau Cloud.
+            return str(int(value))
         s = str(value).strip().lower()
         if s in ("true", "false"):
             return s
@@ -105,7 +109,7 @@ class BaseChartBuilder:
         field = self.field_registry._find_field(column_instance.column_local_name)
         if field.datatype == "boolean" or field.calculation_class == "set":
             return str(value).strip().lower()
-        if field.datatype in {"integer", "real"}:
+        if column_instance.derivation in {"Year", "Quarter", "Month", "Day", "Week", "Weekday"} or field.datatype in {"integer", "real"}:
             from decimal import Decimal, InvalidOperation
             try:
                 number = Decimal(str(value))
@@ -213,7 +217,7 @@ class BaseChartBuilder:
             fi = self.field_registry._find_field(text)
         except KeyError:
             return None
-        if fi.calculation_class == "categorical-bin":
+        if fi.calculation_class in {"categorical-bin", "set"}:
             return self.field_registry.parse_expression(text)
         parsed = self.field_registry.parse_expression(text)
         if parsed.derivation == "User":
@@ -891,7 +895,7 @@ class BaseChartBuilder:
                     gf = etree.SubElement(filter_el, "groupfilter")
                     gf.set("function", "member")
                     gf.set("level", ci.instance_name)
-                    gf.set("member", self._format_filter_value(values[0]))
+                    gf.set("member", self._format_filter_value(values[0], ci))
                     gf.set(f"{USER_NS}ui-domain", f.get("ui_domain", "relevant"))
                     gf.set(f"{USER_NS}ui-enumeration", "inclusive")
                     gf.set(f"{USER_NS}ui-marker", "enumerate")
@@ -905,7 +909,7 @@ class BaseChartBuilder:
                         member_el = etree.SubElement(gf, "groupfilter")
                         member_el.set("function", "member")
                         member_el.set("level", ci.instance_name)
-                        member_el.set("member", self._format_filter_value(v))
+                        member_el.set("member", self._format_filter_value(v, ci))
                 else:
                     gf = etree.SubElement(filter_el, "groupfilter")
                     gf.set("function", "level-members")

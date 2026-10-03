@@ -588,7 +588,7 @@ class LayeredChartBuilder(BaseChartBuilder):
                     raise ValueError("Use mark_sizing or mark_sizing_off, not both")
                 if "mark-sizing-setting" in sizing and sizing["mark-sizing-setting"] not in {"marks-scaling-on", "marks-scaling-off"}:
                     raise ValueError("Invalid mark sizing setting")
-                if "mark-alignment" in sizing and sizing["mark-alignment"] not in {"mark-alignment-center", "mark-alignment-start", "mark-alignment-end"}:
+                if "mark-alignment" in sizing and sizing["mark-alignment"] not in {"mark-alignment-center", "mark-alignment-start", "mark-alignment-end", "mark-alignment-left", "mark-alignment-right"}:
                     raise ValueError("Invalid mark alignment")
                 if "use-custom-mark-size" in sizing:
                     if not isinstance(sizing["use-custom-mark-size"], bool):

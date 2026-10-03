@@ -360,6 +360,12 @@ def enable_domain_completion(
 
 
 @server.tool()
+def configure_worksheet_domain_range(worksheet_name: str, fields: list[str]) -> str:
+    """Complete missing dates for discrete exact-date fields; [] disables completion."""
+    return get_editor().configure_worksheet_domain_range(worksheet_name, fields)
+
+
+@server.tool()
 def configure_subtotals(
     worksheet_name: str,
     measure_fields: list[str],
@@ -1472,6 +1478,38 @@ def add_hyper_datasource(name: str, filepath: str, table_name: str = "Extract") 
 def select_datasource(name: str) -> str:
     """Select the source for subsequent field and worksheet authoring."""
     return get_editor().select_datasource(name)
+
+
+@server.tool()
+def import_blended_field(alias: str, secondary_datasource: str, field: str) -> str:
+    """Define a primary aggregate proxy for a secondary source field."""
+    return get_editor().import_blended_field(alias, secondary_datasource, field)
+
+
+@server.tool()
+def configure_datasource_blend(worksheet_name: str, secondary_datasource: str,
+                               link_fields: dict[str, str], secondary_fields: list) -> str:
+    """Link independently aggregated sources in a worksheet without a join."""
+    return get_editor().configure_datasource_blend(
+        worksheet_name, secondary_datasource, link_fields, secondary_fields)
+
+
+@server.tool()
+def add_combined_set(set_name: str, set_names: list[str]) -> str:
+    """Union existing native sets at the same dimension grain."""
+    return get_editor().add_combined_set(set_name, set_names)
+
+
+@server.tool()
+def set_measure_name_aliases(worksheet_name: str, mapping: dict[str, str]) -> str:
+    """Alias actual Measure Names members, including table calculation measures."""
+    return get_editor().set_measure_name_aliases(worksheet_name, mapping)
+
+
+@server.tool()
+def enable_automatic_phone_layout(dashboard_name: str, worksheet_height: int = 280) -> str:
+    """Derive a scrolling Phone layout from the default dashboard objects."""
+    return get_editor().enable_automatic_phone_layout(dashboard_name, worksheet_height)
 
 
 @server.tool()

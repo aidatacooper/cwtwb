@@ -35,6 +35,10 @@ class CapabilitySpec:
 
 
 CAPABILITY_SPECS: tuple[CapabilitySpec, ...] = (
+    CapabilitySpec(key="measure-name-aliases", kind="feature", level="advanced", canonical="set_measure_name_aliases", rationale="Alias actual worksheet measure instances, preserving table calculation identities and native headers."),
+    CapabilitySpec(key="native-source-blending", kind="connection", level="advanced", canonical="configure_datasource_blend", aliases=("import_blended_field",), rationale="Link independently aggregated extracted sources at the worksheet grain without joining their fact rows."),
+    CapabilitySpec(key="dynamic-set-union", kind="feature", level="advanced", canonical="add_combined_set", rationale="Union existing same-grain native sets while preserving their dynamic membership."),
+    CapabilitySpec(key="automatic-phone-layout", kind="dashboard_zone", level="advanced", canonical="enable_automatic_phone_layout", rationale="Derive a vertically scrolling automatic Phone device layout from the default dashboard objects."),
     CapabilitySpec(key="independent-hyper-datasources", kind="connection", level="advanced", canonical="add_hyper_datasource", rationale="Author independent extracted sources and switch the active field registry without replacing existing worksheets."),
     CapabilitySpec(key="viz-in-tooltip", kind="feature", level="advanced", canonical="configure_custom_tooltip", rationale="Embed worksheets in formatted tooltips with explicit source-field filtering and native target action filters."),
     CapabilitySpec(key="toggle-button", kind="dashboard_zone", level="advanced", canonical="add_dashboard_toggle_button", rationale="Native show/hide events target a dedicated floating layout container."),
@@ -497,6 +501,15 @@ CAPABILITY_SPECS: tuple[CapabilitySpec, ...] = (
             "Use enable_domain_completion after configuring the worksheet; "
             "the view grain must still provide the combinations to densify.",
         ),
+    ),
+    CapabilitySpec(
+        key="domain-range",
+        kind="feature",
+        level="advanced",
+        canonical="Full Date Domain Range",
+        aliases=("show-full-range", "missing dates"),
+        rationale="Supports native date-range completion including wholly absent date columns.",
+        notes=("Use configure_worksheet_domain_range with discrete exact-date fields present in the view.",),
     ),
     CapabilitySpec(
         key="subtotal",

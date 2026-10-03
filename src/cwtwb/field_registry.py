@@ -440,6 +440,9 @@ class FieldRegistry:
             )
             if _AGGREGATE_FUNCTION_RE.search(outer_formula):
                 return True
+            if any(name not in {self.datasource_name, "Parameters"}
+                   for name in re.findall(r"\[([^\]]+)\]\.\[[^\]]+\]", outer_formula)):
+                return True
             refs = re.findall(r"\[([^\]]+)\]", outer_formula)
             for ref in refs:
                 if ref in self._fields:

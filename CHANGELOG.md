@@ -9,6 +9,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Native worksheet datasource blending with aggregate proxies, dynamic same-grain
+  set unions, and automatic scrolling Phone layouts (2020 WW16/WW17/WW21).
+- Full discrete date range completion, temporal set members, Automatic subtotal
+  aggregation, and reference lines on virtual Measure Values axes (2020 WW15–WW19).
+- Measure Names aliases bound to actual worksheet calculation instances (2020 WW18).
+- Native set add/remove action feature flags and numeric date-part color palettes
+  (2020 WW20/WW22/WW23).
+
 - Emit independently positioned floating containers as dashboard peers, preserving
   native legend/control body heights instead of clipping them in a tiled root
   (2020 WW10).
@@ -50,6 +58,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Categorical groups can omit their fallback with `default_value=None` (2019 WW46).
 
 ### Fixed
+
+- Bottom-N sets select the lower tail of a descending ranking; set tooltips keep
+  native In/Out instances instead of inventing physical ATTR fields (2020 WW20/WW21).
+- Axis-unit bar alignment accepts native left/right values (2020 WW23).
+- Discrete date-part filters and pane palettes use numeric domain members,
+  avoiding rejected quoted year filters on Cloud (2020 WW21).
 
 - Parameter control layout zones honor `show_title=False` (2020 WW02).
 

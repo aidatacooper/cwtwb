@@ -1,5 +1,57 @@
 # Case-driven SDK enhancements
 
+## 2020 WW15–24: dates, independent grains and native layouts
+
+WW15 exposed missing interior weekdays in an exact-date grid.
+`configure_worksheet_domain_range("Viz", ["[Date]"])` declares native
+`show-full-range` for fields already in the view. It cannot invent leading or
+trailing dates beyond the data domain; the case also locks a zero-filled daily
+calendar derived from its original extract and checks every daily aggregate.
+
+WW16 and WW17 require data blending, rather than joining monthly targets into
+daily facts. `import_blended_field("Plan", "Targets", "SUM(Target)")` creates
+a qualified aggregate proxy in the active primary source.
+`configure_datasource_blend("Viz", "Targets", {"Month": "Month"}, ["SUM(Target)"])`
+declares secondary dependencies and native links. Linked captions and datatypes
+must match. Independent Hyper sources remain independently packaged; synthetic
+tests use deliberately different fact grains. Table-calculation addressing must
+still be configured for each actual worksheet orientation.
+
+WW18 needs weighted profit margins in native subtotals.
+`configure_subtotals(..., aggregation="Automatic")` preserves the calculation's
+native aggregate instead of imposing a sum or average of displayed margins.
+`set_measure_name_aliases("Viz", {"Margin": "Margin"})` writes aliases against
+the worksheet's actual qualified measure instances, including table calculations,
+so native headers do not append addressing descriptions or truncate long captions.
+WW19 requires date/datetime set members: `add_set` accepts ISO values or naive
+Python date objects and emits native temporal literals. Invalid members fail
+before mutation.
+
+WW20 and WW22 exposed set add/remove action serialization and invalid ATTR set
+tooltip instances. Add/remove modes now emit native membership elements and
+required feature declarations; assign mode retains its existing contract.
+Set tooltips resolve native In/Out instances. These are artifact contracts;
+REST exports do not execute browser clicks.
+
+WW21 combines dynamic Top-N and Bottom-N sets with
+`add_combined_set("Both", ["Top", "Bottom"])`, preserving native membership.
+Bottom-N now selects the bottom end of a descending ranking.
+`enable_automatic_phone_layout("Dashboard", worksheet_height=280)` derives
+the automatic Phone layout from the default dashboard's leaf objects, preserves
+their IDs and gives sheets a fixed height in a vertical scrolling container.
+Phone behavior is checked in the artifact; desktop REST rendering alone does
+not prove mobile browser rendering.
+
+WW23 needs numeric year palette buckets and axis-unit bars aligned left.
+Temporal date-part palettes retain numeric members rather than quoted physical
+dates. Layered mark sizing accepts native left/right alignment. Reference lines
+can also bind the virtual Multiple Values axis without a physical fake column.
+WW21 Cloud publishing also rejected quoted year filter members. Discrete
+date-part filters and pane palettes now use numeric members consistently; six
+synthetic date-part cases cover years, quarters, months, days, weeks and weekdays.
+All new authoring APIs have public SDK and MCP entry points and capability entries;
+worksheet blends and automatic Phone layouts are also available in run specs.
+
 ## 2020 WW07: overlaid measures and virtual palettes
 
 The parameter-driven forecast view needs Sales and Forecast bars to overlap,

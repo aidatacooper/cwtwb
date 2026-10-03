@@ -738,7 +738,16 @@ def add_dashboard_set_action(
     if single_select is not None:
         element = etree.Element("single-select", value=str(single_select).lower())
         action_el.find("params").addprevious(element)
-    if selection_mode is not None:
+    if selection_mode in {"add", "remove"}:
+        manifest = editor.root.find("document-format-change-manifest")
+        for feature in ("GroupActionAddRemove", "SetMembershipControl"):
+            if manifest.find(feature) is None:
+                etree.SubElement(manifest, feature)
+        element = etree.Element("add-or-remove-marks", value=selection_mode)
+        action_el.find("params").addprevious(element)
+    elif selection_mode == "assign":
+        # Legacy assignment uses the parameter form; newer additive set
+        # membership controls require the schema-gated direct element.
         etree.SubElement(action_el.find("params"), "param", name="add-or-remove-marks", value=selection_mode)
     return f"Added set action '{action_caption}' to '{dashboard_name}'"
 
@@ -1093,6 +1102,11 @@ def set_local_ok(fi) -> bool:
 
 class DashboardsMixin:
     """Mixin providing dashboard creation and action methods for TWBEditor."""
+
+    def enable_automatic_phone_layout(self, dashboard_name: str, worksheet_height: int = 280) -> str:
+        """Generate an automatic phone stack from the default dashboard objects."""
+        from .device_layouts import enable_automatic_phone_layout
+        return enable_automatic_phone_layout(self, dashboard_name, worksheet_height)
 
     def _remove_existing_dashboard(self, dashboard_name: str) -> None:
         """Remove any existing dashboard/window entries with the same name."""

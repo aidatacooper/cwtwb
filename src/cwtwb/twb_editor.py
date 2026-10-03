@@ -20,6 +20,7 @@ import os
 import re
 import zipfile
 from dataclasses import asdict, dataclass
+from datetime import date, datetime
 from pathlib import Path
 from typing import Any, Optional
 
@@ -477,6 +478,29 @@ class TWBEditor(ParametersMixin, ConnectionsMixin, ChartsMixin, DashboardsMixin)
         datasource.set("caption", name)
         self.root.find("datasources").append(datasource)
         return self.select_datasource(datasource.get("name"))
+
+    def import_blended_field(self, alias: str, secondary_datasource: str, field: str) -> str:
+        """Expose a secondary aggregate, such as SUM(Target), in the active source."""
+        from .blending import import_blended_field
+        return import_blended_field(self, alias, secondary_datasource, field)
+
+    def set_measure_name_aliases(self, worksheet_name: str, mapping: dict[str, str]) -> str:
+        """Alias the worksheet's actual Measure Names members, including table calcs."""
+        from .measure_aliases import set_measure_name_aliases
+        return set_measure_name_aliases(self, worksheet_name, mapping)
+
+    def add_combined_set(self, set_name: str, set_names: list[str]) -> str:
+        """Create a native union of existing dynamic sets on the same dimension."""
+        from .combined_sets import add_combined_set
+        return add_combined_set(self, set_name, set_names)
+
+    def configure_datasource_blend(
+        self, worksheet_name: str, secondary_datasource: str,
+        link_fields: dict[str, str], secondary_fields: list,
+    ) -> str:
+        """Link same-caption dimensions without joining or duplicating source rows."""
+        from .blending import configure_datasource_blend
+        return configure_datasource_blend(self, worksheet_name, secondary_datasource, link_fields, secondary_fields)
 
     def _init_fields(self) -> None:
         """Parse field info from metadata-records and column definitions."""
@@ -946,8 +970,8 @@ class TWBEditor(ParametersMixin, ConnectionsMixin, ChartsMixin, DashboardsMixin)
             if top_n is not None or basis_field:
                 raise ValueError("Explicit set members cannot be combined with ranking")
             for member in members:
-                if not isinstance(member, (str, bool, int, float)):
-                    raise ValueError("Set members must be strings, booleans, or finite numbers")
+                if not isinstance(member, (str, bool, int, float, date)):
+                    raise ValueError("Set members must be strings, dates, booleans, or finite numbers")
                 if isinstance(member, float) and not math.isfinite(member):
                     raise ValueError("Set members must be finite")
         if not set_name:
@@ -976,6 +1000,36 @@ class TWBEditor(ParametersMixin, ConnectionsMixin, ChartsMixin, DashboardsMixin)
             raise ValueError(f"Set '{set_name}' already exists in the datasource")
 
         level_local = self._resolve_field_local(dimension_field)
+        member_literals = []
+        if members:
+            datatype = self.field_registry._find_field(dimension_field).datatype
+            for member in members:
+                if datatype in {"date", "datetime"}:
+                    try:
+                        if datatype == "datetime":
+                            value = datetime.fromisoformat(member) if isinstance(member, str) else member
+                            if isinstance(value, date) and not isinstance(value, datetime):
+                                value = datetime.combine(value, datetime.min.time())
+                            if not isinstance(value, datetime) or value.tzinfo is not None:
+                                raise ValueError("Expected a naive datetime")
+                            literal = "#" + value.isoformat(sep=" ") + "#"
+                        else:
+                            value = date.fromisoformat(member) if isinstance(member, str) else member
+                            if not isinstance(value, date) or isinstance(value, datetime):
+                                raise ValueError("Expected a date")
+                            literal = "#" + value.isoformat() + "#"
+                    except (TypeError, ValueError) as exc:
+                        raise ValueError(f"Invalid {datatype} set member: {member!r}") from exc
+                elif isinstance(member, date):
+                    raise ValueError("Date set members require a date or datetime dimension")
+                elif isinstance(member, bool):
+                    literal = "true" if member else "false"
+                elif isinstance(member, str):
+                    escaped = member.replace("\\", "\\\\").replace('"', '\\"').replace("#", "\\#").replace("%", "\\%")
+                    literal = '"' + escaped + '"'
+                else:
+                    literal = str(member)
+                member_literals.append(literal)
 
         group = etree.Element(
             "group",
@@ -990,18 +1044,11 @@ class TWBEditor(ParametersMixin, ConnectionsMixin, ChartsMixin, DashboardsMixin)
 
         is_empty = top_n is None or str(top_n).strip() == "" or not basis_field
         if members is not None and members:
-            def literal(member):
-                if isinstance(member, bool):
-                    return "true" if member else "false"
-                if isinstance(member, str):
-                    escaped = member.replace("\\", "\\\\").replace('"', '\\"').replace("#", "\\#").replace("%", "\\%")
-                    return '"' + escaped + '"'
-                return str(member)
             parent = group
             if len(members) > 1:
                 parent = etree.SubElement(group, "groupfilter", function="union")
-            for member in members:
-                etree.SubElement(parent, "groupfilter", function="member", level=level_local, member=literal(member))
+            for literal in member_literals:
+                etree.SubElement(parent, "groupfilter", function="member", level=level_local, member=literal)
         elif is_empty:
             gfilter = etree.SubElement(group, "groupfilter")
             gfilter.set("function", "empty-level")
@@ -1031,7 +1078,9 @@ class TWBEditor(ParametersMixin, ConnectionsMixin, ChartsMixin, DashboardsMixin)
             end.set("{http://www.tableausoftware.com/xml/user}ui-top-by-field", "true")
 
             order = etree.SubElement(end, "groupfilter")
-            order.set("direction", direction)
+            # The end selects the high or low tail of a descending ranking.
+            # Reversing both the ranking and its end would select the top twice.
+            order.set("direction", "DESC")
             order.set(
                 "expression",
                 basis_local if aggregation == "None" else f"{aggregation}({basis_local})",
@@ -1955,6 +2004,12 @@ class TWBEditor(ParametersMixin, ConnectionsMixin, ChartsMixin, DashboardsMixin)
             f"Enabled domain completion on '{worksheet_name}' using '{field_name}'"
         )
 
+    def configure_worksheet_domain_range(self, worksheet_name: str, fields: list[str]) -> str:
+        """Complete missing values over discrete exact-date fields in a worksheet."""
+        from .domain_range import configure_worksheet_domain_range
+
+        return configure_worksheet_domain_range(self, worksheet_name, fields)
+
     def configure_subtotals(
         self,
         worksheet_name: str,
@@ -1974,11 +2029,12 @@ class TWBEditor(ParametersMixin, ConnectionsMixin, ChartsMixin, DashboardsMixin)
             "sum": "Sum",
             "total": "Sum",
             "none": "None",
+            "automatic": "Automatic",
         }
         visual_total = aggregation_map.get(aggregation.strip().casefold())
         if visual_total is None:
             raise ValueError(
-                "Unsupported subtotal aggregation. Use Average, Minimum, Sum, or None."
+                "Unsupported subtotal aggregation. Use Average, Minimum, Sum, None, or Automatic."
             )
         if not measure_fields:
             raise ValueError("measure_fields must contain at least one field.")
@@ -2011,7 +2067,7 @@ class TWBEditor(ParametersMixin, ConnectionsMixin, ChartsMixin, DashboardsMixin)
                 parts = old_name.strip("[]").split(":")
                 if len(parts) >= 3:
                     parts = [part for part in parts if not part.startswith("vt")]
-                    if visual_total != "None":
+                    if visual_total not in {"None", "Automatic"}:
                         parts.insert(-1, "vt" + visual_total.lower())
                     new_name = "[" + ":".join(parts) + "]"
                     if new_name != old_name:
@@ -2024,7 +2080,10 @@ class TWBEditor(ParametersMixin, ConnectionsMixin, ChartsMixin, DashboardsMixin)
                             if node.text and old_ref in node.text:
                                 node.text = node.text.replace(old_ref, new_ref)
                         instance.set("name", new_name)
-                instance.set("visual-totals", visual_total)
+                if visual_total == "Automatic":
+                    instance.attrib.pop("visual-totals", None)
+                else:
+                    instance.set("visual-totals", visual_total)
             configured_measures += 1
 
         subtotal_fields = subtotal_fields or []
@@ -2123,6 +2182,8 @@ class TWBEditor(ParametersMixin, ConnectionsMixin, ChartsMixin, DashboardsMixin)
             )
 
         def ensure_instance(expression: str) -> ColumnInstance:
+            if expression.strip("[]") in {"Multiple Values", "Measure Values"}:
+                return ColumnInstance("[Multiple Values]", "None", "[Multiple Values]", ci_type="quantitative", is_direct=True)
             normalized = self.field_registry.default_view_expression(expression)
             ci = self.field_registry.parse_expression(normalized)
             if "(" not in expression:
@@ -3336,7 +3397,9 @@ class TWBEditor(ParametersMixin, ConnectionsMixin, ChartsMixin, DashboardsMixin)
                 text = str(bucket_val)
                 if field_info.datatype == "boolean" or field_info.calculation_class == "set":
                     b.text = text.lower()
-                elif field_info.datatype in ("integer", "real"):
+                elif ci.derivation in {"Year", "Quarter", "Month", "Day", "Week", "Weekday"} or field_info.datatype in ("integer", "real"):
+                    # Date-part instances expose numeric domain members even
+                    # though their underlying physical field is a date.
                     b.text = text
                 elif text.startswith('"') and text.endswith('"'):
                     b.text = text
