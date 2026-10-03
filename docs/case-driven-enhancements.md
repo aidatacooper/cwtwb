@@ -500,3 +500,17 @@ clear dashboard corner instead of covering marks. Synthetic tests cover both
 native zone types, shared field references, custom captions, pane bindings, and
 invalid pane identities. The case repository checks the actual Cloud rendering
 and metric scope separately.
+
+
+The WW10 Cloud review exposed clipped size-scale entries with the default legend
+font. `configure_worksheet_style("Hotels", legend_style={"font-size": 8})` now
+sets native legend formats under the worksheet table style. Attribute names
+normalize underscores, updates replace matching attributes, and unrelated
+legend formats and table backgrounds remain intact. Python and MCP expose the
+same validated dictionary. Synthetic regressions cover font updates, preserved
+formatting, invalid payloads and MCP forwarding.
+
+The native legend custom-caption metadata can be ignored by Tableau Cloud, even
+when present in the workbook. It does not guarantee the requested caption will
+render. For a reliable compact heading, use `show_title=False` on the legend and
+a separate text layout node; retain enough legend height for the full scale.

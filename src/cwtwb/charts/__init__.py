@@ -288,6 +288,7 @@ class ChartsMixin:
         cell_formats: Optional[list] = None,
         header_formats: Optional[list] = None,
         table_formats: Optional[list] = None,
+        legend_style: Optional[dict] = None,
         axis_style: Optional[dict] = None,
         map_style: Optional[dict] = None,
         color_style: Optional[dict] = None,
@@ -299,6 +300,8 @@ class ChartsMixin:
         """Apply worksheet-level styling after chart configuration."""
         if pane_formats is not None and (not isinstance(pane_formats, list) or any(not isinstance(item, dict) for item in pane_formats)):
             raise ValueError("pane_formats requires a list of format specifications")
+        if legend_style is not None and (not isinstance(legend_style, dict) or any(not isinstance(key, str) or not key.strip() or value is None or isinstance(value, (dict, list, tuple, set)) for key, value in legend_style.items())):
+            raise ValueError("legend_style requires nonempty attribute names and scalar values")
         if table_formats is not None:
             if not isinstance(table_formats, list) or any(not isinstance(item, dict) or "attr" not in item or "value" not in item or not isinstance(item["attr"], str) or not item["attr"].strip() or item["value"] is None or set(item) - {"attr", "value", "scope"} or item.get("scope") not in (None, "rows", "cols") for item in table_formats):
                 raise ValueError("table_formats requires attr/value entries with optional rows/cols scope")
@@ -442,6 +445,7 @@ class ChartsMixin:
             pane_formats=pane_formats,
             resolved_header_formats=resolved_header_formats,
             table_formats=table_formats,
+            legend_style=legend_style,
             resolved_axis_style=resolved_axis_style,
         )
         for specification, reference in dynamic_axis_titles:

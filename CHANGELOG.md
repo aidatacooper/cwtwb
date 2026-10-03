@@ -9,6 +9,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Worksheet `legend_style` controls native legend font formatting so compact
+  size legends retain all scale labels (2020 WW10).
+
 - Native dashboard size legends and custom color/size legend captions with
   explicit pane bindings (2020 WW10).
 

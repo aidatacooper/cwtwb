@@ -360,7 +360,7 @@ CAPABILITY_SPECS: tuple[CapabilitySpec, ...] = (
         level="advanced",
         canonical="Size Legend",
         aliases=("size zone", "size legend"),
-        rationale="Native mark-size legend with caption and pane binding.",
+        rationale="Native mark-size legend with caption and pane binding; configure_worksheet_style legend_style controls native legend text formatting.",
     ),
     CapabilitySpec(
         key="filter-action",

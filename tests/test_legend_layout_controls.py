@@ -27,3 +27,33 @@ def test_color_and_size_legends_bind_same_field_with_distinct_native_types():
 def test_invalid_legend_pane_identity_rejected(pane):
     with pytest.raises(ValueError, match="pane_index"):
         FlexNode({"type": "size", "pane_index": pane})
+
+
+def test_legend_style_upserts_fonts_and_preserves_table_background():
+    editor = TWBEditor("")
+    editor.add_worksheet("Plot")
+    editor.configure_worksheet_style("Plot", background_color="#f5f5f5", legend_style={"font_size": 8, "font-color": "#333333"})
+    editor.configure_worksheet_style("Plot", legend_style={"font-size": 9})
+    nodes = editor.root.xpath("//worksheet[@name='Plot']/table/style/style-rule[@element='legend']/format")
+    assert {node.get("attr"): node.get("value") for node in nodes} == {"font-size": "9", "font-color": "#333333"}
+    assert len(nodes) == 2
+    assert editor.root.xpath("//worksheet[@name='Plot']/table/style/style-rule[@element='table']/format[@attr='background-color']/@value") == ["#f5f5f5"]
+
+@pytest.mark.parametrize("invalid", ["bad", [], {"": 8}, {1: 8}, {"font-size": None}, {"font-size": [8]}, {"font-size": {"value": 8}}])
+def test_legend_style_invalid_rejected_before_mutation(invalid):
+    editor = TWBEditor("")
+    editor.add_worksheet("Plot")
+    with pytest.raises(ValueError, match="legend_style"):
+        editor.configure_worksheet_style("Plot", legend_style=invalid)
+    assert not editor.root.xpath("//worksheet[@name='Plot']/table/style/style-rule[@element='legend']")
+
+def test_legend_style_mcp_signature_and_forwarding(monkeypatch):
+    import inspect
+    from cwtwb.mcp import tools_workbook
+    editor = TWBEditor("")
+    editor.add_worksheet("Plot")
+    assert inspect.signature(TWBEditor.configure_worksheet_style).parameters["legend_style"].default is None
+    assert inspect.signature(tools_workbook.configure_worksheet_style).parameters["legend_style"].default is None
+    monkeypatch.setattr(tools_workbook, "get_editor", lambda: editor)
+    tools_workbook.configure_worksheet_style("Plot", legend_style={"font-size": 8})
+    assert editor.root.xpath("//worksheet[@name='Plot']/table/style/style-rule[@element='legend']/format[@attr='font-size']/@value") == ["8"]
