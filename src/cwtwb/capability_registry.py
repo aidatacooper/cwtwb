@@ -81,7 +81,7 @@ CAPABILITY_SPECS: tuple[CapabilitySpec, ...] = (
         level="recipe",
         canonical="Formatted Table",
         aliases=("formatted table", "table formatting"),
-        rationale="Multi-pane axis-and-label recipe for row-level table formatting.",
+        rationale="Multi-pane axis-and-label recipe with scoped header and table band formatting.",
     ),
     CapabilitySpec(
         key="gantt-bar",
@@ -353,6 +353,14 @@ CAPABILITY_SPECS: tuple[CapabilitySpec, ...] = (
         canonical="Color Legend",
         aliases=("color zone", "legend"),
         rationale="Dashboard legend placement is above the base worksheet primitive.",
+    ),
+    CapabilitySpec(
+        key="size-zone",
+        kind="dashboard_zone",
+        level="advanced",
+        canonical="Size Legend",
+        aliases=("size zone", "size legend"),
+        rationale="Native mark-size legend with caption and pane binding.",
     ),
     CapabilitySpec(
         key="filter-action",

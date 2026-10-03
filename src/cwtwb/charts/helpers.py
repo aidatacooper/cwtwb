@@ -191,6 +191,7 @@ def apply_worksheet_style(
     resolved_cell_formats: list[dict] | None = None,
     pane_formats: list[dict] | None = None,
     resolved_header_formats: list[dict] | None = None,
+    table_formats: list[dict] | None = None,
     resolved_axis_style: dict | None = None,
 ) -> None:
     """Apply worksheet-level styling: background, axis/grid/border visibility."""
@@ -235,6 +236,20 @@ def apply_worksheet_style(
         fmt = etree.SubElement(rule, "format")
         fmt.set("attr", "background-color")
         fmt.set("value", background_color)
+
+    if table_formats:
+        rule = next((item for item in table_style.findall("style-rule") if item.get("element") == "table"), None)
+        if rule is None:
+            rule = etree.SubElement(table_style, "style-rule", element="table")
+        for specification in table_formats:
+            attr = str(specification["attr"]).replace("_", "-")
+            scope = specification.get("scope")
+            for old in list(rule.findall("format")):
+                if old.get("attr") == attr and old.get("scope") == scope:
+                    rule.remove(old)
+            fmt = etree.SubElement(rule, "format", attr=attr, value=str(specification["value"]))
+            if scope:
+                fmt.set("scope", scope)
 
     if hide_axes:
         # Find existing axis rule (e.g. from dual-axis builder) or create new

@@ -457,3 +457,46 @@ WW51 Cloud diagnostics isolated empty queries to redundantly encoding a temporal
 shelf field as a tooltip mark. Chart builders now retain the formatted tooltip
 reference while omitting a duplicate encoding for an expression already present
 on rows or columns. A synthetic month/year regression covers that distinction.
+
+
+## 2020 WW11: grouped row banding
+
+The below-average workbook groups customer rows by region and state. Its native
+banding level and size must follow those groups rather than alternate individual
+customer rows. `configure_worksheet_style(..., table_formats=[...])` accepts
+`attr`, `value`, and optional `scope="rows"` or `"cols"`. For example:
+
+```python
+editor.configure_worksheet_style("Customers", table_formats=[
+    {"attr": "band-level", "value": 3, "scope": "rows"},
+    {"attr": "band-size", "value": 1, "scope": "rows"},
+])
+```
+
+Formats are replaced by attribute and scope, preserving other table formats,
+including background color. Underscores in attribute names normalize to hyphens.
+Synthetic tests cover independent row/column scopes, repeated updates, preserved
+backgrounds, invalid inputs and Python/MCP forwarding. Rich label runs retain the
+existing native `fontsize` spelling; case label dictionaries using `font_size`
+should correct their key instead of adding a case-specific SDK interface.
+
+
+## 2020 WW10: compact color and size legends
+
+The hotel distance view needs both a color scale and a size scale. The original
+SDK could create a color legend, but not its native size counterpart. A wide
+legend caption also covered hotel labels in the replication. Dashboard layout
+now accepts `type="size"` alongside `type="color"`, with a short custom `caption`
+and optional positive integer `pane_index` to bind the appropriate chart pane:
+
+```python
+{"type": "size", "worksheet": "Hotels", "field": "SUM(Distance)",
+ "caption": "Distance (m)", "pane_index": 1}
+```
+
+Both legends use the worksheet encoding reference and retain normal floating
+layout positioning and title visibility. Cases can place narrow controls in a
+clear dashboard corner instead of covering marks. Synthetic tests cover both
+native zone types, shared field references, custom captions, pane bindings, and
+invalid pane identities. The case repository checks the actual Cloud rendering
+and metric scope separately.

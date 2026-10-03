@@ -9,6 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Native dashboard size legends and custom color/size legend captions with
+  explicit pane bindings (2020 WW10).
+
+- Scoped worksheet `table_formats` with attribute/scope upserts preserving the
+  background, enabling hierarchical grouped row bands (2020 WW11).
+
 - Independent Hyper datasource authoring/selection, filtered worksheet tooltip
   embedding and native container show/hide buttons (2020 WW10/WW12).
 - Layered pane breakdown, virtual Measure Names palettes, categorical shapes,

@@ -90,6 +90,7 @@ VALID_LAYOUT_NODE_TYPES = {
     "filter",
     "paramctrl",
     "color",
+    "size",
     "navigation_button",
     "empty",
 }

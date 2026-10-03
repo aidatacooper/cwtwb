@@ -56,6 +56,9 @@ class FlexNode:
         self.worksheet = d.get("worksheet")
         self.field = d.get("field")
         self.mode = d.get("mode", "")
+        self.pane_index = d.get("pane_index")
+        if self.pane_index is not None and (isinstance(self.pane_index, bool) or not isinstance(self.pane_index, int) or self.pane_index < 1):
+            raise ValueError("pane_index must be a positive integer")
         self.show_title = d.get("show_title", True)
         self.show_apply = d.get("show_apply")
         self.values = d.get("values")
@@ -240,7 +243,7 @@ def render_flex_node(
         _render_filter(node, zone, context)
     elif node.type == "paramctrl":
         _render_paramctrl(node, zone, context)
-    elif node.type == "color":
+    elif node.type in ("color", "size"):
         _render_color(node, zone, context)
     elif node.type == "navigation_button":
         _render_navigation_button(node, zone, context)
@@ -545,8 +548,11 @@ def _render_color(
     zone: etree._Element,
     context: dict[str, Any],
 ) -> None:
-    """Render a color legend/control zone bound to a worksheet field."""
-    zone.set("type-v2", "color")
+    """Render a native color/size legend bound to a worksheet encoding."""
+    zone.set("type-v2", node.type)
+    _render_control_caption(node, zone)
+    if node.pane_index is not None:
+        zone.set("pane-specification-id", str(node.pane_index))
     if node.worksheet:
         zone.set("name", node.worksheet)
     if not node.show_title:
