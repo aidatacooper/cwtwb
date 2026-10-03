@@ -57,3 +57,50 @@ def test_legend_style_mcp_signature_and_forwarding(monkeypatch):
     monkeypatch.setattr(tools_workbook, "get_editor", lambda: editor)
     tools_workbook.configure_worksheet_style("Plot", legend_style={"font-size": 8})
     assert editor.root.xpath("//worksheet[@name='Plot']/table/style/style-rule[@element='legend']/format[@attr='font-size']/@value") == ["8"]
+
+
+@pytest.mark.parametrize("direction", ["floating", "vertical"])
+def test_absolute_flow_container_is_dashboard_peer_only_under_floating_parent(direction):
+    editor = TWBEditor("")
+    editor.add_calculated_field("Distance", "1")
+    editor.add_worksheet("Plot")
+    editor.configure_chart("Plot", mark_type="Circle", columns=["SUM(Distance)"], size="SUM(Distance)")
+    editor.add_dashboard("Floating", width=700, height=700, layout={
+        "type": "container", "direction": direction, "children": [
+            {"type": "worksheet", "name": "Plot"},
+            {"type": "container", "direction": "vertical", "absolute": {"x": 1000, "y": 60000, "w": 24000, "h": 35000}, "children": [
+                {"type": "text", "text": "Distance", "fixed_size": 16},
+                {"type": "size", "worksheet": "Plot", "field": "SUM(Distance)", "pane_index": 1, "fixed_size": 176},
+            ]},
+        ],
+    })
+    zones = editor.root.find("dashboards/dashboard[@name='Floating']/zones")
+    flow = zones.find(".//zone[@type-v2='layout-flow'][@x='1000']")
+    assert flow is not None
+    assert (flow.getparent() is zones) is (direction == "floating")
+    assert flow.get("param") == "vert" and flow.get("h") == "35000"
+    assert [child.get("type-v2") for child in flow.findall("zone")] == ["text", "size"]
+    size = flow.find("zone[@type-v2='size']")
+    assert size.get("fixed-size") == "176" and size.get("pane-specification-id") == "1"
+    assert size.getparent() is flow
+
+
+def test_nonabsolute_flow_container_remains_nested_in_floating_root():
+    editor = TWBEditor("")
+    editor.add_dashboard("Nested", width=700, height=700, layout={"type": "container", "direction": "floating", "children": [
+        {"type": "container", "direction": "vertical", "children": [{"type": "text", "text": "Tiled"}]},
+    ]})
+    zones = editor.root.find("dashboards/dashboard[@name='Nested']/zones")
+    assert len(zones.findall("zone")) == 1
+    root = zones.find("zone")
+    assert root.get("type-v2") == "layout-basic"
+    flow = root.find("zone")
+    assert flow.get("type-v2") == "layout-flow" and flow.find("zone/formatted-text/run").text == "Tiled"
+
+
+def test_toggle_still_rejects_tiled_root_flow_container():
+    editor = TWBEditor("")
+    editor.add_worksheet("Plot")
+    editor.add_dashboard("Tiled", width=700, height=700, layout={"type": "container", "direction": "vertical", "children": [{"type": "worksheet", "name": "Plot"}]})
+    with pytest.raises(ValueError, match="dedicated floating"):
+        editor.add_dashboard_toggle_button("Tiled", ["Plot"])

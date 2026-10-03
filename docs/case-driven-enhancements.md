@@ -514,3 +514,17 @@ The native legend custom-caption metadata can be ignored by Tableau Cloud, even
 when present in the workbook. It does not guarantee the requested caption will
 render. For a reliable compact heading, use `show_title=False` on the legend and
 a separate text layout node; retain enough legend height for the full scale.
+
+
+A further WW10 capture showed that increasing the enclosing legend height did
+not increase its visible body: a native control flow container nested inside
+`layout-basic` was constrained during Cloud layout. Independently positioned
+container children of a floating parent now serialize as peers directly under
+`dashboard/zones`, matching native floating container structure. Their controls
+remain children of the flow container and retain configured geometry and fixed
+sizes. The public layout API is unchanged. Synthetic tests verify elevation only
+for absolute containers under floating parents, preservation of nested controls,
+and unchanged nesting for ordinary tiled or nonabsolute flow containers.
+
+Native show/hide buttons accept the elevated dedicated flow container while
+continuing to reject the dashboard tiled root and incomplete target sheet lists.

@@ -9,6 +9,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Emit independently positioned floating containers as dashboard peers, preserving
+  native legend/control body heights instead of clipping them in a tiled root
+  (2020 WW10).
+
 - Worksheet `legend_style` controls native legend font formatting so compact
   size legends retain all scale labels (2020 WW10).
 

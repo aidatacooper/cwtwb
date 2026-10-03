@@ -364,9 +364,11 @@ def _render_container(
         zone.set("layout-strategy-id", node.layout_strategy)
     for child in node.children:
         target_parent = zone
-        if node.direction == "floating" and child.type == "navigation_button":
-            # Floating dashboard objects are peers of the tiled root zone.
-            # Nesting navigation objects inside layout-basic clips the button.
+        if (node.direction == "floating" or node.type == "floating") and (
+            child.type == "navigation_button" or (child.type == "container" and child.absolute)
+        ):
+            # Independently positioned floating containers and navigation objects
+            # are dashboard peers; layout-basic nesting clips native control bodies.
             ancestor = zone.getparent()
             while ancestor is not None and ancestor.tag != "zones":
                 ancestor = ancestor.getparent()

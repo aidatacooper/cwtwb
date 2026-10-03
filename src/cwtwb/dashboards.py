@@ -1240,7 +1240,7 @@ class DashboardsMixin:
         container = next((z for z in targets[0].iterancestors("zone")
                           if z.get("type-v2", z.get("type")) == "layout-flow"
                           and all(z in t.iterancestors("zone") for t in targets)), None)
-        if container is None or container.getparent() is zones:
+        if container is None or (container.getparent() is zones and container is zones.find("zone")):
             raise ValueError("Toggle targets require a dedicated floating layout-flow container")
         contained_sheets = {z.get("name") for z in container.iter("zone") if z.get("name")}
         if contained_sheets != set(target_worksheets):
