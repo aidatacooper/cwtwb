@@ -10,7 +10,9 @@ test covers all three settings and workbook save/load.
 
 ## 2020 WW03: native statistical trend lines
 
-The scatter views compare actual sales per order with native linear fits. A
+The order-time views encode distinct order counts with circles by hour and day
+or weekday, overlay earliest-to-latest hour ranges with Gantt marks, and add
+native linear fits. A
 straight line drawn as marks would not preserve Tableau's model semantics.
 Layered pane dictionaries now accept `trendline` and `trendline_style` for native
 linear, polynomial, log, exponential and power fits, confidence bands, intercept
