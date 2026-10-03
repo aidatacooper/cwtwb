@@ -15,6 +15,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   axis-unit mark sizing and continuous palette reversal (2020 WW07/WW09/WW12).
 - Layered native Measure Names size bindings for overlaid bars (2020 WW07).
 - Resolve table calculation level-address field captions for Cloud parsing (2020 WW09).
+- Keep repeated ordinary layered axes distinct and mixed set/filter action names unique
+  (2020 WW09/WW12); declare the native single-select set-action feature.
 
 - Native per-pane trendline model and style dictionaries in layered charts,
   including validated fit options and excluded factors (2020 WW03).

@@ -19,6 +19,8 @@ Cloud publishing exposed a qualified-name parse error in nested order-date
 calculations. Table calculation overrides now resolve `level_address` captions
 to qualified datasource column references, matching `field` and `level_break`.
 Synthetic tests cover ordinary and layered charts without private field access.
+Repeated ordinary axis expressions also receive distinct pane indices, keeping
+both timeline layers and both KPI panes visible and independently exportable.
 
 The reorder timeline distinguishes a customer's initial order from later
 orders using a triangle/diamond shape palette and colours zero/one/null event
@@ -56,6 +58,12 @@ parameter action. Targets must share a non-root container and position uses
 dashboard pixels. The SDK does not claim that REST image export clicks buttons.
 
 ## 2020 WW12: bars sized in axis units
+
+Mixing a set action with a filter action exposed duplicate `[Action1]` identities.
+All action kinds now participate in allocation, and single-select set actions
+declare `GroupActionSingleSelect`. A public API probe published without the set
+action but failed with the duplicated identities even without the toggle button;
+the final case capture validates the corrected combined workbook.
 
 Daily, weekly and monthly selected-period bars need native mark scaling and
 axis-unit width settings. Layered pane `mark_sizing` accepts the validated native

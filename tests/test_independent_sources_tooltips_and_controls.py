@@ -138,6 +138,31 @@ def test_measure_names_palette_uses_actual_measure_instances(editor):
     assert not editor.root.xpath("//datasources/datasource/column[@caption='Measure Names']")
 
 
+@pytest.mark.parametrize('set_first', [False, True])
+def test_mixed_set_and_filter_actions_have_unique_names(editor, set_first):
+    editor.add_set('Picked Categories', 'Category', members=['Furniture'])
+    editor.add_worksheet('Categories')
+    editor.configure_chart('Categories', mark_type='Bar', rows=['Category'], columns=['SUM(Sales)'])
+    editor.add_dashboard('Dashboard', worksheet_names=['Categories'])
+    def add_set():
+        editor.add_dashboard_set_action('Dashboard', 'Categories', 'Picked Categories', single_select=True)
+    def add_filter():
+        editor.add_dashboard_action('Dashboard', 'filter', source_sheet='Categories', target_sheet='Categories', fields=['Category'])
+    for add in ([add_set, add_filter] if set_first else [add_filter, add_set]):add()
+    assert editor.root.xpath('./actions/*/@name') == ['[Action1]', '[Action2]']
+    assert editor.root.find('./document-format-change-manifest/GroupActionSingleSelect') is not None
+
+
+@pytest.mark.parametrize('axis', ['SUM(Sales)', 'MIN(Zero)'])
+def test_repeated_ordinary_layered_axes_get_distinct_pane_indices(editor, axis):
+    editor.add_calculated_field('Zero', '0', datatype='integer')
+    editor.add_worksheet('Layers')
+    editor.configure_layered_chart('Layers', axis_shelf='cols', panes=[{'axis': axis, 'mark_type': 'Circle'}, {'axis': axis, 'mark_type': 'Line'}])
+    panes = editor.root.xpath("//worksheet[@name='Layers']/table/panes/pane")
+    assert panes[0].get('x-axis-name') == panes[1].get('x-axis-name')
+    assert panes[0].get('x-index') is None and panes[1].get('x-index') == '1'
+
+
 @pytest.mark.parametrize('layered', [False, True])
 def test_table_calc_level_address_resolves_public_field_caption(editor, layered):
     editor.add_calculated_field('Previous Sales', 'LOOKUP(SUM([Sales]),-1)', table_calc='Rows')

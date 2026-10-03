@@ -561,6 +561,7 @@ def add_dashboard_action(
         len(actions_el.findall("action"))
         + len(actions_el.findall("nav-action"))
         + len(actions_el.findall("edit-parameter-action"))
+        + len(actions_el.findall("edit-group-action"))
         + 1
     )
     action_caption = caption or f"{_ACTION_LABELS[normalized_type]} Action {action_index}"
@@ -718,7 +719,7 @@ def add_dashboard_set_action(
         "edit-group-action",
         nsmap={"user": "http://www.tableausoftware.com/xml/user"},
     )
-    _ensure_group_action_manifest(editor)
+    _ensure_group_action_manifest(editor, single_select is not None)
     _append_action(actions_el, action_el)
     action_el.set("caption", action_caption)
     action_el.set("name", f"[Action{action_index}]")
@@ -759,7 +760,7 @@ def _ensure_parameter_action_manifest(editor) -> None:
                 manifest.append(feature)
 
 
-def _ensure_group_action_manifest(editor) -> None:
+def _ensure_group_action_manifest(editor, single_select: bool = False) -> None:
     """Enable the schema-gated ``edit-group-action`` workbook element."""
 
     manifest = editor.root.find("document-format-change-manifest")
@@ -767,13 +768,14 @@ def _ensure_group_action_manifest(editor) -> None:
         manifest = etree.Element("document-format-change-manifest")
         editor.root.insert(0, manifest)
 
-    if manifest.find("GroupAction") is None:
-        feature = etree.Element("GroupAction")
-        schema_viewer = manifest.find("SchemaViewerObjectModel")
-        if schema_viewer is not None:
-            schema_viewer.addprevious(feature)
-        else:
-            manifest.append(feature)
+    for name in ("GroupAction", "GroupActionSingleSelect") if single_select else ("GroupAction",):
+        if manifest.find(name) is None:
+            feature = etree.Element(name)
+            schema_viewer = manifest.find("SchemaViewerObjectModel")
+            if schema_viewer is not None:
+                schema_viewer.addprevious(feature)
+            else:
+                manifest.append(feature)
 
 
 def _parameter_action_source_reference(editor, source_field: str) -> str:

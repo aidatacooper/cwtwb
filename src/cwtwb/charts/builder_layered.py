@@ -514,7 +514,7 @@ class LayeredChartBuilder(BaseChartBuilder):
             if axis:
                 axis_ref = self._field_ref(instances, axis, ds_name)
                 pane.set(axis_attribute, axis_ref)
-                if axis in {_SPECIAL_MULTIPLE_VALUES, *_GENERATED_FIELDS}:
+                if axis in {_SPECIAL_MULTIPLE_VALUES, *_GENERATED_FIELDS} or axis_ref in axis_refs:
                     pane.set("y-index" if self.axis_shelf == "rows" else "x-index", str(axis_refs.count(axis_ref)))
                 axis_refs.append(axis_ref)
             pane_view = etree.SubElement(pane, "view")
