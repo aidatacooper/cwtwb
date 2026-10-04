@@ -53,6 +53,8 @@ def _apply_field_properties(editor, spec: dict[str, Any]) -> list[str]:
             messages.append(editor.set_field_fiscal_year_start(item["field"], item["fiscal_year_start"]))
     for item in _as_list(spec.get("shape_palettes")):
         messages.append(editor.set_shape_palette(**item))
+    for item in _as_list(spec.get("compound_color_palettes")):
+        messages.append(editor.set_compound_color_palette(**item))
     return messages
 
 
@@ -75,6 +77,10 @@ def _apply_calculated_fields(editor, spec: dict[str, Any]) -> list[str]:
             )
         )
     return messages
+
+
+def _apply_sets(editor, spec: dict[str, Any]) -> list[str]:
+    return [editor.add_set(**item) for item in _as_list(spec.get("sets"))]
 
 
 def _apply_hierarchies(editor, spec: dict[str, Any]) -> list[str]:
@@ -165,6 +171,8 @@ def _apply_worksheets(editor, spec: dict[str, Any]) -> list[str]:
             messages.append(editor.configure_datasource_blend(name, **blend))
         for label in _as_list(item.get("custom_labels")):
             messages.append(editor.configure_custom_label(name, **label))
+        for band in _as_list(item.get("reference_bands")):
+            messages.append(editor.add_reference_band(name, **band))
     return messages
 
 
@@ -219,6 +227,7 @@ def run(args: Any) -> int:
     messages.extend(_apply_connection(editor, spec.get("connection")))
     messages.extend(_apply_parameters(editor, spec))
     messages.extend(_apply_calculated_fields(editor, spec))
+    messages.extend(_apply_sets(editor, spec))
     messages.extend(_apply_field_properties(editor, spec))
     messages.extend(_apply_hierarchies(editor, spec))
     messages.extend(_apply_worksheets(editor, spec))

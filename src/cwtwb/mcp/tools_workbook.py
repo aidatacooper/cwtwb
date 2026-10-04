@@ -293,6 +293,7 @@ def add_set(
     direction: str = "DESC",
     internal_name: str = "",
     members: Optional[list] = None,
+    use_all: bool = False,
 ) -> str:
     """Create a Tableau set (datasource filter-group) for membership logic.
 
@@ -310,6 +311,7 @@ def add_set(
         direction=direction,
         internal_name=internal_name or None,
         members=members,
+        use_all=use_all,
     )
 
 
@@ -430,6 +432,26 @@ def add_reference_line(
         pane_index=pane_index,
     )
     return result + _skill_hint("configure_chart")
+
+
+@server.tool()
+def set_compound_color_palette(fields: list[str], mappings: list[dict]) -> str:
+    """Map ordered categorical tuples to colors, including Measure Names."""
+    return get_editor().set_compound_color_palette(fields, mappings)
+
+
+@server.tool()
+def add_reference_band(
+    worksheet_name: str, axis_field: str, lower_value: int | float,
+    upper_value: int | float, scope: str = "per-pane", pane_index: int = 0,
+    fill_color: str = "#f5f5f5", lower_label: str = "", upper_label: str = "",
+) -> str:
+    """Add a constant native filled band on an existing quantitative axis."""
+    return get_editor().add_reference_band(
+        worksheet_name, axis_field=axis_field, lower_value=lower_value,
+        upper_value=upper_value, scope=scope, pane_index=pane_index,
+        fill_color=fill_color, lower_label=lower_label, upper_label=upper_label,
+    )
 
 
 @server.tool()

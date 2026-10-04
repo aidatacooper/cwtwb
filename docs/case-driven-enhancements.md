@@ -1,5 +1,46 @@
 # Case-driven SDK enhancements
 
+## 2020 WW47-51: live set domains, compound colors and reference bands
+
+WW47 shades the high-value tail of a clustered histogram with a native reference
+band rather than a dashboard overlay. `add_reference_band` pairs two constant
+reference lines on an existing quantitative axis, assigns unique identifiers,
+and records their fill through a native `refband` style rule. Endpoints, labels,
+scope and the target pane are explicit; invalid requests leave the worksheet
+unchanged. Synthetic fixtures check paired identifiers, coexistence with
+ordinary reference lines, fills, labels and saved workbooks without author data.
+
+WW49's three slicer sets select the live domain of parameter-dependent calculated
+dimensions. Enumerating today's values would lose the source's behavior when
+the slicer parameter changes. `add_set(use_all=True)` emits native
+`level-members` with all-domain enumeration and registers ordinary set
+membership for formulas and set controls. All-members, explicit members and
+ranking modes are mutually exclusive. Regression fixtures use a small
+parameter-dependent dimension and a native set control. The case's REST
+parameter states do not claim that set-membership events were executed.
+
+WW50 colors layered measure marks jointly by Measure Names and profitability.
+Its white cost point must remain smaller than the gray outer cost point.
+`configure_worksheet_style(size_style={"type": "catsize", ...})` supports native
+categorical size intervals and the virtual Measure Names field, preserving the
+caller-authored measure order. Existing `rangesize` defaults are unchanged.
+Size payloads are validated before any other worksheet style changes, with
+synthetic checks for nominal virtual fields and atomic invalid requests.
+
+`set_compound_color_palette(fields, mappings)` preserves the ordered fields and
+serializes typed tuple members as native `multibucket` mappings. Measure Names
+values resolve from public measure expressions; booleans remain boolean
+literals instead of display strings. Other palettes remain intact, repeated
+configuration replaces only the same compound field palette, and invalid
+tuples fail before mutation. The case retains the separately colored line
+layer. Synthetic tests cover multiple measures, typed tuples, replacement,
+atomic rejection, MCP forwarding and run-spec integration. The three cases
+record failures from the actual immutable Git baseline before SDK changes.
+
+WW48's axis-unit bar widths and WW51's opposite signed counts use existing
+public chart/style APIs; their data and native layout checks remain independent
+of these three new primitives.
+
 ## 2020 WW42-46: date domains, filter controls and independent colors
 
 WW42's blended monthly calendar needs three rich label runs with independent

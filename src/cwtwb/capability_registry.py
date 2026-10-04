@@ -35,6 +35,9 @@ class CapabilitySpec:
 
 
 CAPABILITY_SPECS: tuple[CapabilitySpec, ...] = (
+    CapabilitySpec(key="categorical-size-style", kind="encoding", level="advanced", canonical="configure_worksheet_style", aliases=("catsize",), rationale="Configure native categorical size intervals, including virtual Measure Names, without replacing measure order."),
+    CapabilitySpec(key="compound-color-palettes", kind="encoding", level="advanced", canonical="set_compound_color_palette", rationale="Map ordered categorical tuples, including Measure Names and boolean members, to a native multibucket color palette."),
+    CapabilitySpec(key="reference-band", kind="feature", level="advanced", canonical="add_reference_band", aliases=("reference band",), rationale="Pair two constant reference lines on an existing quantitative axis with native fill and independent endpoint labels."),
     CapabilitySpec(key="custom-mark-labels", kind="feature", level="advanced", canonical="configure_custom_label", rationale="Author rich literal/field label runs on an existing pane, retaining native table-calculation instances and tooltip content."),
     CapabilitySpec(key="preserved-device-layout", kind="dashboard_zone", level="advanced", canonical="copy_default_device_layout", rationale="Keep default canvas geometry, hidden groups and shared object identities in a custom Phone or Tablet layout."),
     CapabilitySpec(key="continuous-date-grains", kind="feature", level="advanced", canonical="configure_layered_chart", aliases=("QUARTERTRUNC", "MONTHTRUNC", "YEARTRUNC"), rationale="Native continuous date truncations preserve month, quarter and year axis grains across years."),
@@ -560,7 +563,7 @@ CAPABILITY_SPECS: tuple[CapabilitySpec, ...] = (
             "Use add_set(name, dimension_field, basis_field=..., top_n=...) for "
             "top-N sets and add_set(name, dimension_field) for an empty set. "
             "Sets serialize as <group user:ui-builder='filter-group'> nodes."
-            ' members initializes explicit typed membership; members and top-N ranking are mutually exclusive.'
+            ' members initializes explicit typed membership; use_all=True selects the live dimension domain. Explicit, all-members and ranking modes are mutually exclusive.'
         ),
     ),
     CapabilitySpec(
@@ -681,4 +684,3 @@ def format_capability_catalog(level_filter: Optional[str] = None) -> str:
         for spec in level_items:
             lines.append(f"- {spec.kind}: {spec.canonical}")
     return "\n".join(lines)
-

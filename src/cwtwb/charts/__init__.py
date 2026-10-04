@@ -460,6 +460,9 @@ class ChartsMixin:
             else:
                 resolved_panes_style = [resolved_pane_style(value) for value in panes_style]
 
+        from ..native_encodings import size_style_attributes
+        resolved_size_style = size_style_attributes(size_style, style_instance, style_reference) if size_style else None
+
         apply_worksheet_style(
             table,
             background_color=background_color,
@@ -519,27 +522,9 @@ class ChartsMixin:
                         if old.get("attr") == attr and old.get("scope") == scope:
                             rule.remove(old)
                     etree.SubElement(rule, "format", attr=attr, scope=scope, value=str(value))
-        if size_style:
-            if not isinstance(size_style, dict) or not size_style.get("field"):
-                raise ValueError("size_style requires a field")
-            allowed = {"field", "min", "max", "min_size", "max_size", "min-size", "max-size", "type", "reverse"}
-            if set(size_style) - allowed or size_style.get("type", "rangesize") != "rangesize":
-                raise ValueError("size_style supports rangesize field/min/max/min_size/max_size")
-            import math
-            for key, value in size_style.items():
-                if key == "reverse":
-                    if not isinstance(value, bool):
-                        raise ValueError("size_style reverse must be boolean")
-                elif key not in ("field", "type"):
-                    try:
-                        number = float(value)
-                    except (ValueError, TypeError):
-                        raise ValueError(f"size_style {key} must be numeric") from None
-                    if isinstance(value, bool) or not math.isfinite(number) or (key.replace("_", "-") in ("min-size", "max-size") and number < 0):
-                        raise ValueError(f"size_style {key} must be a finite numeric size")
+        if resolved_size_style is not None:
             from lxml import etree
-            attributes = {"attr": "size", "type": "rangesize", "field-type": "quantitative", "field": style_reference(self.field_registry.parse_expression(size_style["field"]))}
-            attributes.update({key.replace("_", "-"): str(value).lower() if isinstance(value, bool) else str(value) for key, value in size_style.items() if key not in ("field", "type")})
+            attributes = resolved_size_style
             style = table.find("style")
             rule = style.find("style-rule[@element='mark']")
             if rule is None:

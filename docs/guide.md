@@ -4,6 +4,37 @@ This page collects the detailed documentation that does not belong in the README
 
 ## Python API
 
+### Dynamic sets, compound colors and native reference bands
+
+`add_set("Selected", "Dynamic dimension", use_all=True)` selects the live
+dimension domain, including values introduced by parameter changes. It cannot
+be combined with explicit `members` or top-N ranking.
+
+```python
+editor.set_compound_color_palette(
+    ["Measure Names", "AGG(Is Positive)"],
+    [{"values": ["SUM(Value)", True], "color": "#245c36"},
+     {"values": ["SUM(Value)", False], "color": "#84394a"}],
+)
+editor.configure_worksheet_style(
+    "Plot", size_style={"type": "catsize", "field": "Measure Names",
+                       "min_size": 0.8, "max_size": 1},
+)
+editor.add_reference_band(
+    "Plot", axis_field="SUM(Value)", lower_value=10, upper_value=20,
+    fill_color="#f5f5f5", upper_label="High range",
+)
+```
+
+Compound mappings use ordered typed tuples. Measure Names members are public
+measure expressions, boolean members are booleans, and categorical strings are
+escaped as Tableau literals. Reference bands use an already configured
+quantitative axis; scope, pane, fill and endpoint labels are explicit. Categorical
+size ranges preserve measure ordering; `rangesize` remains the default.
+MCP exposes the same public APIs. Run-spec accepts top-level `sets` and
+`compound_color_palettes`, plus worksheet `reference_bands`; worksheet style
+entries accept the same `size_style` dictionary.
+
 ### As Python Library
 
 Use `TWBEditor(...)` to start from a template and rebuild workbook content. Use `TWBEditor.open_existing(...)` when you want to keep existing worksheets and dashboards and reconfigure a sheet in place.

@@ -935,6 +935,7 @@ class TWBEditor(ParametersMixin, ConnectionsMixin, ChartsMixin, DashboardsMixin)
         direction: str = "DESC",
         internal_name: Optional[str] = None,
         members: Optional[list] = None,
+        use_all: bool = False,
     ) -> str:
         """Create a Tableau set as a datasource ``<group filter-group>`` node.
 
@@ -959,11 +960,18 @@ class TWBEditor(ParametersMixin, ConnectionsMixin, ChartsMixin, DashboardsMixin)
                 empty/top-N behavior. Explicit membership cannot be combined
                 with ranking and accepts string, boolean and finite numeric
                 Tableau literals.
+            use_all: Select every member of the dimension's live domain. This
+                remains dynamic when a calculated dimension or its parameters
+                change, and cannot be combined with members or ranking.
 
         Returns:
             Confirmation message.
         """
         set_name = str(set_name).strip()
+        if not isinstance(use_all, bool):
+            raise ValueError("use_all must be boolean")
+        if use_all and (members is not None or top_n is not None or basis_field):
+            raise ValueError("use_all cannot be combined with members or ranking")
         if members is not None:
             if not isinstance(members, list):
                 raise ValueError("members must be a list")
@@ -999,6 +1007,8 @@ class TWBEditor(ParametersMixin, ConnectionsMixin, ChartsMixin, DashboardsMixin)
         if existing is not None:
             raise ValueError(f"Set '{set_name}' already exists in the datasource")
 
+        if use_all:
+            self.field_registry._find_field(dimension_field)
         level_local = self._resolve_field_local(dimension_field)
         member_literals = []
         if members:
@@ -1043,7 +1053,11 @@ class TWBEditor(ParametersMixin, ConnectionsMixin, ChartsMixin, DashboardsMixin)
         )
 
         is_empty = top_n is None or str(top_n).strip() == "" or not basis_field
-        if members is not None and members:
+        if use_all:
+            gfilter = etree.SubElement(group, "groupfilter", function="level-members", level=level_local)
+            gfilter.set("{http://www.tableausoftware.com/xml/user}ui-enumeration", "all")
+            gfilter.set("{http://www.tableausoftware.com/xml/user}ui-marker", "enumerate")
+        elif members is not None and members:
             parent = group
             if len(members) > 1:
                 parent = etree.SubElement(group, "groupfilter", function="union")
@@ -1117,6 +1131,8 @@ class TWBEditor(ParametersMixin, ConnectionsMixin, ChartsMixin, DashboardsMixin)
             calculation_class="set",
         )
 
+        if use_all:
+            return f"Added all-members set '{set_name}' over '{dimension_field}'"
         if members is not None:
             return f"Added explicit set '{set_name}' with {len(members)} members over '{dimension_field}'"
         if is_empty:
@@ -3464,6 +3480,33 @@ class TWBEditor(ParametersMixin, ConnectionsMixin, ChartsMixin, DashboardsMixin)
 
         return f"Set color palette for '{field}'"
 
+    def set_compound_color_palette(self, fields: list[str], mappings: list[dict]) -> str:
+        """Map ordered categorical tuples to colors, including Measure Names.
+
+        Each mapping contains ``values`` in field order and a hexadecimal
+        ``color``. Measure Names members are public measure expressions; boolean
+        members are Python booleans. Existing palettes for other fields remain.
+        """
+        from .native_encodings import set_compound_color_palette
+
+        return set_compound_color_palette(self, fields, mappings)
+
+    def add_reference_band(
+        self, worksheet_name: str, *, axis_field: str,
+        lower_value: int | float, upper_value: int | float,
+        scope: str = "per-pane", pane_index: int = 0,
+        fill_color: str = "#f5f5f5", lower_label: str = "", upper_label: str = "",
+    ) -> str:
+        """Add a constant native filled band on an existing quantitative axis."""
+        from .native_encodings import add_reference_band
+
+        return add_reference_band(
+            self, worksheet_name, axis_field=axis_field,
+            lower_value=lower_value, upper_value=upper_value, scope=scope,
+            pane_index=pane_index, fill_color=fill_color,
+            lower_label=lower_label, upper_label=upper_label,
+        )
+
     def set_worksheet_rich_title(
         self,
         worksheet_name: str,
@@ -3546,5 +3589,3 @@ class TWBEditor(ParametersMixin, ConnectionsMixin, ChartsMixin, DashboardsMixin)
                     node.set(attr_key, val.replace(suffix, ""))
 
         self._init_fields()
-
-

@@ -9,6 +9,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Native categorical size styles (`size_style.type='catsize'`) support virtual
+  Measure Names, retaining categorical order and validating before style mutation
+  (2020 WW50).
+
+- Dynamic all-members sets (`add_set(use_all=True)`), compound categorical color
+  palettes and native constant reference bands, with Python, MCP and run-spec
+  support (2020 WW47, WW49 and WW50).
+
 - `configure_custom_label` adds rich literal/field mark-label runs to existing
   panes, preserving table-calculation context and tooltips, with Python, MCP
   and run-spec support (2020 WW42).
