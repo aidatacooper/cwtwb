@@ -74,6 +74,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Preserve native temporal grains in table-calculation addresses and use
+  datasource columns for ordinary dimension ordering fields (2020 WW41).
 - Exclude qualified custom parameter references from physical datasource
   dependency scanning, including arbitrary public internal IDs (2020 WW41).
 - Reject malformed chart filter dictionaries before replacing a worksheet,

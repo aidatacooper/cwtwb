@@ -22,9 +22,9 @@ Invalid set references, worksheets and modes fail before an existing dashboard
 is replaced. Synthetic tests retain explicit members and validate packaged XML.
 REST parameter/filter exports do not execute set membership selection.
 
-The county map also exposed an executed calculation failure: unsuffixed native
-instances fell back to datasource addressing and rendered Alaska/Hawaii county
-percentiles as 100%. Independent Cloud diagnostic exports held the input and
+The county map also exposed an executed calculation failure: unsuffixed or
+colliding native instances rendered Alaska/Hawaii county percentiles as 100%.
+Independent Cloud diagnostic exports held the input and
 formulas fixed: a local calculation instance restored all 34 county ranks;
 geographic metadata and single-pane changes did not. Layered charts now accept
 `table_calc_context=True` with explicit `table_calc_overrides` to declare local
@@ -64,12 +64,24 @@ Layered styles declare the required dependency even when the range field differs
 from the axis. Synthetic fixtures cover both pane-style collection forms,
 aggregate calculations, idempotency and unknown-field rejection.
 
-WW41 also produced entirely empty Cloud views when a supported custom parameter
-internal ID was misclassified as a physical datasource column. Dependency
+Investigation of WW41's empty Cloud views also exposed a supported custom
+parameter internal ID being misclassified as a physical datasource column.
+Correcting this dependency error alone did not resolve the complete case.
+Dependency
 scanning now excludes qualified `[Parameters].[CustomID]` tokens rather than
 assuming names start with `Parameter `. Parameter dependencies remain in the
 Parameters datasource. Synthetic basic, dual-axis and layered fixtures cover
 custom IDs referenced through multiple aggregate calculations.
+
+A separate complete-workbook probe isolated explicit table-calculation
+addressing: dropping overrides made the quarter view nonempty but computed the
+wrong reference values. Temporal `order` expressions now retain their native
+date-grain instance instead of referring to the raw date column. With the full
+public builder and overrides retained, Cloud exports restored all 48 quarterly
+values and per-category quarter averages. `ordering_field` resolves ordinary
+dimensions to datasource columns and aggregates to calculation instances,
+matching the distinct native reference forms. Eight synthetic regressions cover
+six temporal grains and both ordering-field forms without author fixtures.
 
 WW30–33 also exposed misspelled filter dictionaries being silently omitted.
 Chart dispatch now requires each filter to have a nonempty `column` expression

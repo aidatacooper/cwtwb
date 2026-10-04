@@ -485,7 +485,7 @@ class BaseChartBuilder:
                 column_instance.remove(old)
             def column_reference(expression: str) -> str:
                 parsed = self.field_registry.parse_expression(expression)
-                reference = parsed.instance_name if parsed.derivation == "InOut" else parsed.column_local_name
+                reference = parsed.instance_name if parsed.derivation in {"InOut", *_TEMPORAL_DERIVATIONS, "Day-Trunc", "Month-Trunc", "Quarter-Trunc", "Year-Trunc"} else parsed.column_local_name
                 return f"[{ds_name}].{reference}"
 
             for specification in specifications:
@@ -500,7 +500,8 @@ class BaseChartBuilder:
                         ordering_instance = self._instance_for_expression(instances, str(value))
                         if ordering_instance is None:
                             raise ValueError(f"Could not resolve table-calc ordering field: {value}")
-                        attributes[xml_key] = self.field_registry.resolve_full_reference(ordering_instance.instance_name)
+                        reference = ordering_instance.column_local_name if ordering_instance.derivation == "None" else ordering_instance.instance_name
+                        attributes[xml_key] = self.field_registry.resolve_full_reference(reference)
                     else:
                         if isinstance(value, (dict, list)):
                             raise ValueError(f"Table-calc attribute {key} must be a scalar")

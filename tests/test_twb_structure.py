@@ -703,7 +703,7 @@ class TestLayeredCharts:
         table_calcs = sales_instance.findall("table-calc")
         assert len(table_calcs) == 3
         assert table_calcs[1].get("field").endswith(".[Profit (Orders)]")
-        assert "none:Category" in table_calcs[2].get("ordering-field")
+        assert table_calcs[2].get("ordering-field").endswith(".[Category (Orders)]")
         palette_map = editor._datasource.find(
             ".//style-rule[@element='mark']/encoding[@attr='color']/map"
         )
