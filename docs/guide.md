@@ -650,3 +650,24 @@ Cross-dashboard filter actions use `target_dashboard="Detail"` and
 `clear_behavior="show-none"` (or show-all / keep-current). Native control-panel
 buttons use `target_parameters=["Metric", "Deviation"]`; the targets must identify
 every parameter control in their shared layout container.
+
+Future continuous date periods can be declared with
+`configure_worksheet_time_series("Trend", "YEARTRUNC(Date)", periods=5,
+period_type="year")`. This extends Tableau's native date domain and enables
+calculations on densified marks; it does not create synthetic fact rows.
+
+Map layers accept `inert=True` for noninteractive background marks; another
+layer can retain normal selection and tooltips. Quantitative mark sizing can use
+`size_style={"type": "centersize", "field": "SUM(Profit)", "min_size": 0,
+"max_size": 1}` to preserve native zero-centered sizing.
+
+`add_dashboard_extension("Dashboard", manifest, settings, x=0, y=0,
+width=25000, height=100000)` declares a native extension object in normalized
+0..100000 dashboard coordinates. The structured manifest includes `id`,
+`version`, `url`, `name`, `description` and `author` metadata. Optional
+`name_resource_id` and `resources={"name": {"en_US": "Extension name"}}`
+retain localized resources; `icon` is base64 text. Settings strings remain
+unchanged and other JSON-compatible values are serialized. This authoring API
+does not execute extensions or change Tableau site policies. The same APIs are
+available through MCP; declarative worksheet specifications accept `time_series`
+and dashboard specifications accept an `extensions` list.

@@ -50,9 +50,9 @@ def size_style_attributes(spec, resolve_instance, resolve_reference):
         "reverse",
     }
     mode = spec.get("type", "rangesize")
-    if set(spec) - allowed or mode not in {"rangesize", "catsize"}:
+    if set(spec) - allowed or mode not in {"rangesize", "catsize", "centersize"}:
         raise ValueError(
-            "size_style supports rangesize or catsize field/min_size/max_size"
+            "size_style supports rangesize, catsize or centersize field/min_size/max_size"
         )
     if mode == "catsize" and ({"min", "max"} & spec.keys()):
         raise ValueError("Categorical sizes do not use numeric domain limits")

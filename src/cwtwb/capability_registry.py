@@ -35,6 +35,10 @@ class CapabilitySpec:
 
 
 CAPABILITY_SPECS: tuple[CapabilitySpec, ...] = (
+    CapabilitySpec(key="dashboard-extension", kind="dashboard_zone", level="advanced", canonical="add_dashboard_extension", rationale="Declare native extension manifests, localized resources, settings and dashboard bounds without a workbook template."),
+    CapabilitySpec(key="extended-time-series", kind="feature", level="advanced", canonical="configure_worksheet_time_series", rationale="Extend continuous date shelves into future periods with native calculations on densified marks."),
+    CapabilitySpec(key="centered-size-style", kind="encoding", level="advanced", canonical="configure_worksheet_style", aliases=("centersize",), rationale="Render quantitative mark sizes centered on zero while retaining signed field values."),
+    CapabilitySpec(key="inert-map-layer", kind="feature", level="advanced", canonical="configure_chart", rationale="Disable mark interaction independently for a background map layer."),
     CapabilitySpec(key="categorical-size-style", kind="encoding", level="advanced", canonical="configure_worksheet_style", aliases=("catsize",), rationale="Configure native categorical size intervals, including virtual Measure Names, without replacing measure order."),
     CapabilitySpec(key="compound-color-palettes", kind="encoding", level="advanced", canonical="set_compound_color_palette", rationale="Map ordered categorical tuples, including Measure Names and boolean members, to a native multibucket color palette."),
     CapabilitySpec(key="reference-band", kind="feature", level="advanced", canonical="add_reference_band", aliases=("reference band",), rationale="Pair constant or field-backed reference lines on an existing quantitative axis with native fill and independent endpoint labels."),

@@ -1265,6 +1265,18 @@ class DashboardsMixin:
         )
         return f"Created dashboard '{dashboard_name}'"
 
+    def add_dashboard_extension(
+        self, dashboard_name: str, manifest: dict, settings: dict | None = None, *,
+        x: int = 0, y: int = 0, width: int = 100000, height: int = 100000,
+    ) -> str:
+        """Declare a native extension with bounds normalized to 0..100000."""
+        from .dashboard_extensions import add_dashboard_extension
+
+        return add_dashboard_extension(
+            self, dashboard_name, manifest, settings,
+            x=x, y=y, width=width, height=height,
+        )
+
     def add_dashboard_toggle_button(
         self, dashboard_name: str, target_worksheets: list[str] | None = None, *,
         target_parameters: list[str] | None = None,

@@ -1657,6 +1657,10 @@ class MapChartBuilder(BaseChartBuilder):
         self.map_fields = map_fields
         self.filters = filters
         self.map_layers = map_layers
+        for layer in map_layers or []:
+            for option in ("inert",):
+                if option in layer and not isinstance(layer[option], bool):
+                    raise ValueError(f"Map layer {option} must be boolean")
         self.map_partition = map_partition
 
     # ------------------------------------------------------------------
@@ -1874,6 +1878,8 @@ class MapChartBuilder(BaseChartBuilder):
                 pane.set("generated-title", f"{layer_title} ({idx + 1})" if idx > 1
                          else layer_title)
             pane.set("id", str(idx + 1))
+            if "inert" in layer_cfg:
+                pane.set("inert", str(layer_cfg["inert"]).lower())
             pane.set("x-axis-name", f"[{ds_name}].[Longitude (generated)]")
             if idx > 0:
                 pane.set("x-index", str(idx))

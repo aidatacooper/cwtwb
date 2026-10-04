@@ -120,7 +120,7 @@ _IMPORT_PATCHES: list[tuple[bytes, bytes]] = [
 _xsd_schemas: dict[str, etree.XMLSchema] = {}
 _xsd_load_errors: dict[str, str] = {}
 _WORKBOOK_TAIL_COMPATIBILITY_RE = re.compile(
-    r"Element 'workbook': Missing child element\(s\)\. Expected is one of \((?P<expected>[^)]+)\)\."
+    r"Element 'workbook': Missing child element\(s\)\. Expected is (?:one of )?\((?P<expected>[^)]+)\)\."
 )
 _KNOWN_WORKBOOK_TAIL_CHILDREN = {
     "datagraph",
@@ -223,7 +223,7 @@ def _is_known_workbook_tail_compatibility_issue(error: str) -> bool:
     # <datasources>. Remaining top-level "missing child" failures are caused by
     # Tableau's XSD expecting optional tail containers that Desktop itself may
     # omit in otherwise openable workbooks.
-    if "Element 'workbook': Missing child element(s)." in error:
+    if "Element 'workbook': Missing child element(s)." in error and "Expected is one of " in error:
         return True
     expected = {
         token.strip()

@@ -156,6 +156,8 @@ def _apply_worksheets(editor, spec: dict[str, Any]) -> list[str]:
             )
         if item.get("style"):
             messages.append(editor.configure_worksheet_style(name, **item["style"]))
+        if item.get("time_series"):
+            messages.append(editor.configure_worksheet_time_series(name, **item["time_series"]))
         if item.get("measure_name_aliases"):
             messages.append(editor.set_measure_name_aliases(name, item["measure_name_aliases"]))
         if item.get("domain_completion"):
@@ -197,6 +199,8 @@ def _apply_dashboards(editor, spec: dict[str, Any]) -> list[str]:
         )
         for action in _as_list(item.get("actions")):
             messages.append(editor.add_dashboard_action(dashboard_name=item["name"], **action))
+        for extension in _as_list(item.get("extensions")):
+            messages.append(editor.add_dashboard_extension(item["name"], **extension))
         for initial in _as_list(item.get("filter_action_initializations")):
             messages.append(editor.initialize_dashboard_filter_action(item["name"], **initial))
         if item.get("automatic_phone_layout"):

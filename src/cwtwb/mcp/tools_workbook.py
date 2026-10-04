@@ -988,6 +988,28 @@ def add_dashboard(
 
 
 @server.tool()
+def add_dashboard_extension(
+    dashboard_name: str, manifest: dict, settings: dict | None = None,
+    x: int = 0, y: int = 0, width: int = 100000, height: int = 100000,
+) -> str:
+    """Add a native dashboard extension with structured manifest and settings."""
+    return get_editor().add_dashboard_extension(
+        dashboard_name, manifest, settings, x=x, y=y, width=width, height=height,
+    )
+
+
+@server.tool()
+def configure_worksheet_time_series(
+    worksheet_name: str, field: str, periods: int, period_type: str = "year",
+    calculations_on_densified_marks: bool = True,
+) -> str:
+    """Extend a continuous date domain and allow calculations on added periods."""
+    return get_editor().configure_worksheet_time_series(
+        worksheet_name, field, periods, period_type, calculations_on_densified_marks,
+    )
+
+
+@server.tool()
 def add_dashboard_action(
     dashboard_name: str,
     action_type: str,

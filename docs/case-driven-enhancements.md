@@ -1,5 +1,33 @@
 # Case-driven SDK enhancements
 
+## 2021 WW04-08: layered maps, extended date domains and dashboard extensions
+
+WW04 uses a noninteractive state background beneath interactive city marks.
+`configure_chart(map_layers=[...])` now accepts the native `inert` boolean per
+layer, while `configure_worksheet_style(size_style={"type": "centersize", ...})`
+preserves a zero-centered quantitative size encoding without changing signed
+profit facts. Synthetic tests check independent pane behavior and invalid flags.
+
+WW05 calculates native Gaussian-process predictions with `MODEL_QUANTILE` on
+five future annual periods. `configure_worksheet_time_series` extends an existing
+continuous date shelf through native `extend-time-series` metadata and controls
+calculations on densified marks. It does not insert fabricated input rows or
+substitute a Python statistical model. Regressions cover date binding, multiple
+extensions, upsert, validation and facade/MCP/declarative dispatch.
+
+WW07's Image Map Filter and WW08's Brush Filter require real sandboxed dashboard
+extensions. `add_dashboard_extension` constructs native dashboard-object/add-in
+zones, structured manifests, localized resources, instance settings and referenced
+view counts. Settings retain strings or serialize JSON-compatible values.
+Repeated instances share one consistent manifest and use distinct zone/instance
+identities. Invalid metadata, URLs, bounds and settings fail before mutation.
+The public API declares the native extension contract; it does not execute the
+extension's web application. Case REST exports and artifact checks state their
+actual coverage, without claiming browser clicks or brushing.
+
+WW06's eight-measure formatted table reuses existing APIs for Multiple Values,
+separate color domains, calculation addressing and number formats.
+
 ## 2021 WW01-03: dynamic control bands and dashboard transitions
 
 WW03's control chart uses table-calculated lower and upper limits that change

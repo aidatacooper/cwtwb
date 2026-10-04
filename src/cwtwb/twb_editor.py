@@ -403,7 +403,14 @@ class TWBEditor(ParametersMixin, ConnectionsMixin, ChartsMixin, DashboardsMixin)
         else:
             ext = _etree.Element("external")
             _etree.SubElement(ext, "shapes")
-        self.root.append(ext)
+        following = next((child for child in self.root if child.tag in {
+            "referenced-extensions", "explain-data", "data-orientation",
+            "tab-agent-config", "accelerator-details", "workbook-optimizer",
+        }), None)
+        if following is None:
+            self.root.append(ext)
+        else:
+            following.addprevious(ext)
 
     def _remove_empty_top_level_container(self, tag: str) -> None:
         """Drop empty top-level containers that violate Tableau's schema."""
@@ -3000,6 +3007,18 @@ class TWBEditor(ParametersMixin, ConnectionsMixin, ChartsMixin, DashboardsMixin)
             if ws.get("name") == name:
                 return ws
         raise ValueError(f"Worksheet '{name}' not found")
+
+    def configure_worksheet_time_series(
+        self, worksheet_name: str, field: str, periods: int, period_type: str = "year",
+        calculations_on_densified_marks: bool = True,
+    ) -> str:
+        """Extend a continuous date shelf through native future periods."""
+        from .time_series import configure_worksheet_time_series
+
+        return configure_worksheet_time_series(
+            self, worksheet_name, field, periods, period_type,
+            calculations_on_densified_marks,
+        )
 
     def list_worksheets(self) -> list[str]:
         """List worksheet names in workbook order."""
