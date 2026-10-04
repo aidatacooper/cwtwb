@@ -508,6 +508,7 @@ def add_dashboard_action(
     field_mappings: dict[str, str] | None = None,
     source_sheets: list[str] | None = None,
     target_sheets: list[str] | None = None,
+    target_dashboard: str = "",
 ) -> str:
     """Add an interaction action to a dashboard."""
 
@@ -517,6 +518,19 @@ def add_dashboard_action(
         raise ValueError(
             f"Unsupported action_type '{action_type}'. Use '{supported}'."
         )
+
+    if target_dashboard and normalized_type != "filter":
+        raise ValueError("target_dashboard is supported only for filter actions")
+    if normalized_type == "filter" and clear_behavior not in {"keep-current", "show-all", "show-none"}:
+        raise ValueError("Filter clear_behavior must be keep-current, show-all, or show-none")
+    if target_dashboard and target_sheets is not None:
+        raise ValueError("target_dashboard and target_sheets are mutually exclusive")
+    destination_dashboard = None
+    if target_dashboard:
+        destination_dashboard = next((d for d in editor.root.findall("dashboards/dashboard")
+                                      if d.get("name") == target_dashboard), None)
+        if destination_dashboard is None:
+            raise ValueError("Target dashboard does not exist")
 
     fields = fields or []
     if field_mappings is not None:
@@ -549,10 +563,18 @@ def add_dashboard_action(
     resolved_source = source_sheet or (source_sheets[0] if source_sheets else "")
     resolved_target = target_sheet or (target_sheets[0] if target_sheets else "")
     editor._find_worksheet(resolved_source)
+    if resolved_source not in dashboard_sheets:
+        raise ValueError("Source worksheet must occur on the source dashboard")
+    if destination_dashboard is not None:
+        destination_sheets = _collect_dashboard_worksheets(editor, destination_dashboard)
+        if resolved_target and resolved_target not in destination_sheets:
+            raise ValueError("Target worksheet must occur on the target dashboard")
+        if not destination_sheets:
+            raise ValueError("Target dashboard must contain worksheets")
     _validate_action_targets(
         editor,
         action_type=normalized_type,
-        target_sheet=resolved_target,
+        target_sheet=resolved_target or (_collect_dashboard_worksheets(editor, destination_dashboard)[0] if destination_dashboard is not None else ""),
         url=url,
         source_field=source_field,
         target_parameter=target_parameter,
@@ -643,6 +665,8 @@ def add_dashboard_action(
             exclude_sheets,
             field_mappings=field_mappings,
             target_sheet=resolved_target,
+            target_dashboard=target_dashboard,
+            clear_behavior=clear_behavior,
         )
     elif normalized_type == "highlight":
         _configure_highlight_action(
@@ -953,6 +977,8 @@ def _configure_filter_action(
     exclude_sheets: list[str],
     field_mappings: dict[str, str] | None = None,
     target_sheet: str = "",
+    target_dashboard: str = "",
+    clear_behavior: str = "keep-current",
 ) -> None:
     """Populate XML for a filter action, including link payload and command params."""
 
@@ -972,7 +998,7 @@ def _configure_filter_action(
             source_ref = f"[{ds_name}].{source_ci.column_local_name}" if field_mappings else source_ci.column_local_name
             field_expressions.append(f"{encoded_ds}.{encoded_col}~s0=<{source_ref}~na>")
 
-        destination = quote(target_sheet) if field_mappings else dashboard_name
+        destination = quote(target_dashboard) if target_dashboard else (quote(target_sheet) if field_mappings else dashboard_name)
         expr_str = f"tsl:{destination}?" + "&".join(field_expressions)
         link_el.set("expression", expr_str)
         link_el.set("include-null", "true")
@@ -982,7 +1008,7 @@ def _configure_filter_action(
     cmd_el = etree.SubElement(action_el, "command")
     cmd_el.set("command", "tsc:tsl-filter")
 
-    if exclude_sheets and not field_mappings:
+    if exclude_sheets and not field_mappings and not target_dashboard:
         param_ex = etree.SubElement(cmd_el, "param")
         param_ex.set("name", "exclude")
         param_ex.set("value", ",".join(exclude_sheets))
@@ -994,7 +1020,9 @@ def _configure_filter_action(
 
     param_tgt = etree.SubElement(cmd_el, "param")
     param_tgt.set("name", "target")
-    param_tgt.set("value", target_sheet if field_mappings else dashboard_name)
+    param_tgt.set("value", target_dashboard or (target_sheet if field_mappings else dashboard_name))
+    if clear_behavior != "keep-current":
+        etree.SubElement(cmd_el, "param", name="on-empty", value={"show-none": "none", "show-all": "all"}[clear_behavior])
 
 
 def _configure_highlight_action(
@@ -1238,7 +1266,8 @@ class DashboardsMixin:
         return f"Created dashboard '{dashboard_name}'"
 
     def add_dashboard_toggle_button(
-        self, dashboard_name: str, target_worksheets: list[str], *,
+        self, dashboard_name: str, target_worksheets: list[str] | None = None, *,
+        target_parameters: list[str] | None = None,
         caption_shown: str = "Hide", caption_hidden: str = "Show",
         initially_hidden: bool = False, position: dict | None = None,
     ) -> str:
@@ -1248,8 +1277,15 @@ class DashboardsMixin:
         layout-flow container; no parameter or filter action substitutes for
         the native button event.
         """
-        if not target_worksheets or len(set(target_worksheets)) != len(target_worksheets):
+        target_worksheets = target_worksheets or []
+        target_parameters = target_parameters or []
+        if not target_worksheets and not target_parameters:
             raise ValueError("Toggle targets must be nonempty and unique")
+        for names in (target_worksheets, target_parameters):
+            if not isinstance(names, list) or any(not isinstance(name, str) or not name for name in names) or len(set(names)) != len(names):
+                raise ValueError("Toggle targets must be nonempty and unique")
+        if any(name not in self._parameters for name in target_parameters):
+            raise ValueError("Toggle parameter target is not registered")
         if not isinstance(initially_hidden, bool):
             raise ValueError("initially_hidden must be boolean")
         dashboards = [d for d in self.root.findall("dashboards/dashboard") if d.get("name") == dashboard_name]
@@ -1263,6 +1299,13 @@ class DashboardsMixin:
             if len(matches) != 1:
                 raise ValueError("Each toggle target must occur once on the dashboard")
             targets.append(matches[0])
+        for name in target_parameters:
+            parameter_reference = f"[Parameters].{self._parameters[name]['internal_name']}"
+            matches = [z for z in zones.iter("zone") if z.get("type-v2", z.get("type")) == "paramctrl"
+                       and z.get("param") == parameter_reference]
+            if len(matches) != 1:
+                raise ValueError("Each toggle parameter target must occur once on the dashboard")
+            targets.append(matches[0])
         container = next((z for z in targets[0].iterancestors("zone")
                           if z.get("type-v2", z.get("type")) == "layout-flow"
                           and all(z in t.iterancestors("zone") for t in targets)), None)
@@ -1271,6 +1314,9 @@ class DashboardsMixin:
         contained_sheets = {z.get("name") for z in container.iter("zone") if z.get("name")}
         if contained_sheets != set(target_worksheets):
             raise ValueError("Toggle targets must include every worksheet in their container")
+        controls = [z for z in container.iter("zone") if z.get("type-v2", z.get("type")) == "paramctrl"]
+        if set(controls) != {z for z in targets if z.get("type-v2", z.get("type")) == "paramctrl"}:
+            raise ValueError("Toggle targets must include every parameter control in their container")
         window = next((w for w in self.root.findall("windows/window") if w.get("name") == dashboard_name and w.get("class") == "dashboard"), None)
         if window is None or window.find("simple-id") is None:
             raise ValueError("Dashboard window identity is missing")
@@ -1292,7 +1338,7 @@ class DashboardsMixin:
         if initially_hidden:
             for item in container.iter("zone"):
                 item.set("hidden-by-user", "true")
-        return f"Added toggle button for {', '.join(target_worksheets)}"
+        return f"Added toggle button for {', '.join(target_worksheets + target_parameters)}"
 
     def link_worksheet_filters(self, field: str, worksheet_names: list[str]) -> str:
         """Share one existing categorical filter across selected worksheets.
@@ -1348,6 +1394,7 @@ class DashboardsMixin:
         field_mappings: dict[str, str] | None = None,
         source_sheets: list[str] | None = None,
         target_sheets: list[str] | None = None,
+        target_dashboard: str = "",
     ) -> str:
         """Add an interaction action to a dashboard."""
         return add_dashboard_action(
@@ -1368,6 +1415,7 @@ class DashboardsMixin:
             field_mappings,
             source_sheets=source_sheets,
             target_sheets=target_sheets,
+            target_dashboard=target_dashboard,
         )
 
     def add_dashboard_set_action(

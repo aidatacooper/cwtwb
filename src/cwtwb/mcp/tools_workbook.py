@@ -442,15 +442,19 @@ def set_compound_color_palette(fields: list[str], mappings: list[dict]) -> str:
 
 @server.tool()
 def add_reference_band(
-    worksheet_name: str, axis_field: str, lower_value: int | float,
-    upper_value: int | float, scope: str = "per-pane", pane_index: int = 0,
+    worksheet_name: str, axis_field: str, lower_value: int | float | None = None,
+    upper_value: int | float | None = None, scope: str = "per-pane", pane_index: int = 0,
     fill_color: str = "#f5f5f5", lower_label: str = "", upper_label: str = "",
+    lower_field: str | None = None, upper_field: str | None = None,
+    lower_formula: str = "min", upper_formula: str = "max",
 ) -> str:
-    """Add a constant native filled band on an existing quantitative axis."""
+    """Add a constant or field-backed native filled band on an existing axis."""
     return get_editor().add_reference_band(
         worksheet_name, axis_field=axis_field, lower_value=lower_value,
         upper_value=upper_value, scope=scope, pane_index=pane_index,
         fill_color=fill_color, lower_label=lower_label, upper_label=upper_label,
+        lower_field=lower_field, upper_field=upper_field,
+        lower_formula=lower_formula, upper_formula=upper_formula,
     )
 
 
@@ -1001,6 +1005,7 @@ def add_dashboard_action(
     field_mappings: dict[str, str] | None = None,
     source_sheets: list[str] | None = None,
     target_sheets: list[str] | None = None,
+    target_dashboard: str = "",
 ) -> str:
     """Add a filter, highlight, URL, navigation, or parameter dashboard action.
 
@@ -1027,6 +1032,7 @@ def add_dashboard_action(
         field_mappings=field_mappings,
         source_sheets=source_sheets,
         target_sheets=target_sheets,
+        target_dashboard=target_dashboard,
     )
 
 
@@ -1590,10 +1596,11 @@ def configure_custom_tooltip(worksheet_name: str, runs: list[dict], pane_index: 
 
 @server.tool()
 def add_dashboard_toggle_button(
-    dashboard_name: str, target_worksheets: list[str], caption_shown: str = "Hide",
+    dashboard_name: str, target_worksheets: list[str] | None = None, caption_shown: str = "Hide",
     caption_hidden: str = "Show", initially_hidden: bool = False, position: dict | None = None,
+    target_parameters: list[str] | None = None,
 ) -> str:
     """Show/hide a dedicated dashboard sheet container with a native button."""
     return get_editor().add_dashboard_toggle_button(dashboard_name, target_worksheets,
         caption_shown=caption_shown, caption_hidden=caption_hidden,
-        initially_hidden=initially_hidden, position=position)
+        initially_hidden=initially_hidden, position=position, target_parameters=target_parameters)

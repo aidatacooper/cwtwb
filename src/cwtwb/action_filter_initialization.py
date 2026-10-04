@@ -105,19 +105,20 @@ def initialize_dashboard_filter_action(
     target_name = options.get("target")
     if editor.root.find(f"worksheets/worksheet[@name='{target_name}']") is not None:
         names = [target_name]
-    elif target_name == dashboard_name:
+    elif any(d.get("name") == target_name for d in editor.root.findall("dashboards/dashboard")):
+        target_dashboard = next(d for d in editor.root.findall("dashboards/dashboard") if d.get("name") == target_name)
         excluded = set(options.get("exclude", "").split(","))
         names = list(
             dict.fromkeys(
                 z.get("name")
-                for z in dashboard.findall(".//zone")
+                for z in target_dashboard.findall(".//zone")
                 if z.get("name")
                 and z.get("type-v2") in {None, "NONE"}
                 and z.get("name") not in excluded
             )
         )
     else:
-        raise ValueError("Action target must be this dashboard or a worksheet")
+        raise ValueError("Action target must be a dashboard or a worksheet")
     if not names:
         raise ValueError("Filter action has no target worksheets")
     caption = "Action (" + ",".join(display_names) + ")"

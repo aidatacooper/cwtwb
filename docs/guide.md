@@ -640,3 +640,13 @@ Set membership layout nodes support `mode="dropdown"` (the default) and
 both the dashboard zone and matching worksheet card.
 Set control `show_apply=True` enables its native Apply button; `False` hides it.
 Omitting the option preserves Tableau defaults. Non-boolean values are rejected.
+
+Dynamic reference bands use `add_reference_band("Chart", axis_field="SUM(Value)",
+lower_field="AGG(LowerLimit)", upper_field="AGG(UpperLimit)")`. Endpoint
+aggregations default to min/max; a constant and a field may be combined, but
+one endpoint cannot specify both. Configure the worksheet's table-calculation
+partitioning before adding its field-backed band.
+Cross-dashboard filter actions use `target_dashboard="Detail"` and
+`clear_behavior="show-none"` (or show-all / keep-current). Native control-panel
+buttons use `target_parameters=["Metric", "Deviation"]`; the targets must identify
+every parameter control in their shared layout container.

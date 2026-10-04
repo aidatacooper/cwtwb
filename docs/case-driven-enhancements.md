@@ -1,5 +1,35 @@
 # Case-driven SDK enhancements
 
+## 2021 WW01-03: dynamic control bands and dashboard transitions
+
+WW03's control chart uses table-calculated lower and upper limits that change
+with the displayed year, metric and standard-deviation parameter. The released
+constant-only `add_reference_band` could not retain that behavior. The public
+API now accepts `lower_field` and `upper_field`, with independent endpoint
+aggregations (default min/max), alongside existing numeric endpoints. Each
+endpoint selects exactly one field or constant. Quantitative fields and their
+calculation metadata are registered in the worksheet dependencies, native
+paired reference-line identifiers and fills are retained, and invalid requests
+leave the workbook unchanged. Author-free regressions cover saved XML, mixed
+endpoints, calculation metadata, atomic failures, MCP and run-spec forwarding.
+
+The same case navigates from Summary to Detail through a native filter action.
+`add_dashboard_action(target_dashboard=...)` now binds the destination dashboard,
+while filter `clear_behavior` explicitly supports show-all, show-none and the
+existing keep-current default. Initialization applies filters to the destination
+worksheets rather than the source dashboard. `add_dashboard_toggle_button`
+accepts `target_parameters` to show or hide a complete parameter-control
+container; worksheet targets remain supported. Synthetic tests check native
+commands, destination validation, clear behavior, target bindings and atomic
+rejection. Runtime browser clicks are outside the case's REST/artifact acceptance.
+
+WW01's comparison table calculations and WW02's cohort lifetime-value matrix
+use existing public APIs. Their verifiers calculate every comparison and every
+cohort cell independently from extracted facts, including null boundaries and
+internal sparse quarters. Full matrix exports are checked separately from
+auxiliary Data sheets. All builders start from an empty workbook; author
+workbooks supply analysis and extracted data only.
+
 ## 2020 WW47-51: live set domains, compound colors and reference bands
 
 WW47 shades the high-value tail of a clustered histogram with a native reference

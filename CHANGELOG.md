@@ -9,6 +9,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Reference bands accept quantitative field endpoints and independent min/max
+  aggregations, preserving native table-calculation dependencies (2021 WW03).
+- Filter actions support a destination dashboard and explicit clear behavior;
+  native show/hide buttons can target parameter-control containers (2021 WW03).
+
 - Native set controls accept `checkdropdown` for multiple selection and boolean
   `show_apply` for an explicit Apply button (2020 WW49). Both modes preserve
   worksheet card bindings, and invalid requests fail before mutation.

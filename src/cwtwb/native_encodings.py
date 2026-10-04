@@ -1,4 +1,4 @@
-"""Native compound palettes and constant reference bands."""
+"""Native compound palettes and constant or field-backed reference bands."""
 
 import copy
 import json
@@ -230,15 +230,19 @@ def add_reference_band(
     worksheet_name,
     *,
     axis_field,
-    lower_value,
-    upper_value,
+    lower_value=None,
+    upper_value=None,
+    lower_field=None,
+    upper_field=None,
+    lower_formula="min",
+    upper_formula="max",
     scope="per-pane",
     pane_index=0,
     fill_color="#f5f5f5",
     lower_label="",
     upper_label="",
 ):
-    """Add two paired constant reference lines with a native filled band."""
+    """Add paired constant or field-backed lines with a native filled band."""
     if scope not in {"per-pane", "per-cell", "per-table"}:
         raise ValueError("Invalid reference band scope")
     if (
@@ -247,18 +251,26 @@ def add_reference_band(
         or pane_index < 0
     ):
         raise ValueError("pane_index must be a nonnegative integer")
+    for value, field in ((lower_value, lower_field), (upper_value, upper_field)):
+        if (value is None) == (field is None):
+            raise ValueError("Each endpoint requires exactly one value or field")
+        if value is not None and (
+            isinstance(value, bool)
+            or not isinstance(value, (int, float))
+            or not math.isfinite(value)
+        ):
+            raise ValueError("Band limits must be finite numbers")
+        if field is not None and (not isinstance(field, str) or not field.strip()):
+            raise ValueError("Band fields must be nonempty expressions")
     if (
-        any(
-            isinstance(v, bool)
-            or not isinstance(v, (int, float))
-            or not math.isfinite(v)
-            for v in (lower_value, upper_value)
-        )
-        or lower_value >= upper_value
+        lower_value is not None
+        and upper_value is not None
+        and lower_value >= upper_value
     ):
-        raise ValueError(
-            "Band limits must be finite numbers with lower_value < upper_value"
-        )
+        raise ValueError("lower_value must be less than upper_value")
+    for formula in (lower_formula, upper_formula):
+        if formula not in {"min", "max", "average", "sum", "median"}:
+            raise ValueError("Unsupported band endpoint aggregation")
     _color(fill_color)
     if not isinstance(lower_label, str) or not isinstance(upper_label, str):
         raise TypeError("Band labels must be strings")
@@ -300,25 +312,52 @@ def add_reference_band(
         + 1
     )
     reference = registry.resolve_full_reference(ci.instance_name)
-    for index, (value, label) in enumerate(
-        ((lower_value, lower_label), (upper_value, upper_label))
+    endpoints = []
+    for value, field, formula in (
+        (lower_value, lower_field, lower_formula),
+        (upper_value, upper_field, upper_formula),
     ):
-        line = etree.Element(
-            "reference-line",
-            {
-                "axis-column": reference,
-                "enable-instant-analytics": "true",
-                "formula": "constant",
-                "id": ids[index],
-                "paired-id": ids[1 - index],
-                "scope": scope,
-                "symmetric": "false",
-                "value": str(value),
-                "value-column": reference,
-                "z-order": str(z_order),
-                "label-type": "custom" if label else "none",
-            },
+        if field is None:
+            endpoints.append(("constant", reference, value))
+            continue
+        bound = _instance(registry, field)
+        if bound.ci_type != "quantitative":
+            raise ValueError("Band field endpoints must be quantitative")
+        source_column = editor._datasource.find(
+            f"column[@name='{bound.column_local_name}']"
         )
+        if (
+            source_column is not None
+            and dependency.find(f"column[@name='{bound.column_local_name}']") is None
+        ):
+            dependency.append(copy.deepcopy(source_column))
+        if dependency.find(f"column-instance[@name='{bound.instance_name}']") is None:
+            element = _instance_element(bound)
+            if source_column is not None:
+                for table_calc in source_column.findall("calculation/table-calc"):
+                    element.append(copy.deepcopy(table_calc))
+            dependency.append(element)
+        endpoints.append(
+            (formula, registry.resolve_full_reference(bound.instance_name), None)
+        )
+    for index, ((formula, value_reference, value), label) in enumerate(
+        zip(endpoints, (lower_label, upper_label))
+    ):
+        attributes = {
+            "axis-column": reference,
+            "enable-instant-analytics": "true",
+            "formula": formula,
+            "id": ids[index],
+            "paired-id": ids[1 - index],
+            "scope": scope,
+            "symmetric": "false",
+            "value-column": value_reference,
+            "z-order": str(z_order),
+            "label-type": "custom" if label else "none",
+        }
+        if value is not None:
+            attributes["value"] = str(value)
+        line = etree.Element("reference-line", attributes)
         if label:
             line.set("label", label)
         anchor = next(

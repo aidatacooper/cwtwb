@@ -3493,16 +3493,20 @@ class TWBEditor(ParametersMixin, ConnectionsMixin, ChartsMixin, DashboardsMixin)
 
     def add_reference_band(
         self, worksheet_name: str, *, axis_field: str,
-        lower_value: int | float, upper_value: int | float,
+        lower_value: int | float | None = None, upper_value: int | float | None = None,
+        lower_field: str | None = None, upper_field: str | None = None,
+        lower_formula: str = "min", upper_formula: str = "max",
         scope: str = "per-pane", pane_index: int = 0,
         fill_color: str = "#f5f5f5", lower_label: str = "", upper_label: str = "",
     ) -> str:
-        """Add a constant native filled band on an existing quantitative axis."""
+        """Add a constant or field-backed native filled band on an existing axis."""
         from .native_encodings import add_reference_band
 
         return add_reference_band(
             self, worksheet_name, axis_field=axis_field,
-            lower_value=lower_value, upper_value=upper_value, scope=scope,
+            lower_value=lower_value, upper_value=upper_value,
+            lower_field=lower_field, upper_field=upper_field,
+            lower_formula=lower_formula, upper_formula=upper_formula, scope=scope,
             pane_index=pane_index, fill_color=fill_color,
             lower_label=lower_label, upper_label=upper_label,
         )
