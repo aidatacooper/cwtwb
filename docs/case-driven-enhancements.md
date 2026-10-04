@@ -8,6 +8,13 @@ omitting it preserves the default. Invalid values fail before replacing a
 dashboard. The same case exposed missing dashboard dependencies for expressions
 such as `YEAR(Date)`: filter dependencies now include the resolved base column
 and the actual year instance, rather than looking up an expression as a column.
+Its monthly window also distinguishes the Cols view instance from ordinary
+column references. Table calculation override `order` entries and `field`,
+`level_address`, or `level_break` attributes accept
+`{"field": "Cols", "reference": "instance"}` or `"column"`. String entries
+retain their existing semantics. Instance selectors resolve the actual bound
+view instance, including local contexts; malformed selectors fail before a
+worksheet is changed. Synthetic fixtures cover ordinal and exact-date fields.
 
 WW44 completes a source date domain while Year, Quarter, Month and Day instances
 are on the shelves. `configure_worksheet_domain_range` now recognizes those

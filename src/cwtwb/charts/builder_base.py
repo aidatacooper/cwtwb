@@ -483,7 +483,17 @@ class BaseChartBuilder:
                 )
             for old in list(column_instance.findall("table-calc")):
                 column_instance.remove(old)
-            def column_reference(expression: str) -> str:
+            def column_reference(expression) -> str:
+                if isinstance(expression, dict):
+                    parsed = self.field_registry.parse_expression(expression["field"])
+                    if expression["reference"] == "instance":
+                        bound = self._instance_for_expression(instances, expression["field"])
+                        if bound is None:
+                            raise ValueError("Table-calc instance reference must identify a bound field")
+                        reference = bound.instance_name
+                    else:
+                        reference = parsed.column_local_name
+                    return f"[{ds_name}].{reference}"
                 parsed = self.field_registry.parse_expression(expression)
                 reference = parsed.instance_name if parsed.derivation in {"InOut", *_TEMPORAL_DERIVATIONS, "Day-Trunc", "Month-Trunc", "Quarter-Trunc", "Year-Trunc"} else parsed.column_local_name
                 return f"[{ds_name}].{reference}"
@@ -495,7 +505,7 @@ class BaseChartBuilder:
                     if xml_key in ("order", "sort"):
                         continue
                     if xml_key in ("field", "level-break", "level-address"):
-                        attributes[xml_key] = column_reference(str(value))
+                        attributes[xml_key] = column_reference(value)
                     elif xml_key == "ordering-field":
                         ordering_instance = self._instance_for_expression(instances, str(value))
                         if ordering_instance is None:
@@ -507,7 +517,7 @@ class BaseChartBuilder:
                             raise ValueError(f"Table-calc attribute {key} must be a scalar")
                         attributes[xml_key] = str(value)
                 order = specification.get("order", [])
-                if not isinstance(order, list) or any(not isinstance(field, str) for field in order):
+                if not isinstance(order, list) or any(not isinstance(field, (str, dict)) for field in order):
                     raise ValueError("Table-calc order must be a list of field expressions")
                 sort = specification.get("sort")
                 sort_attributes = None

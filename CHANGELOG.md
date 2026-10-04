@@ -9,6 +9,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Explicit table-calculation column/instance reference selectors distinguish
+  address levels and ordered fields while retaining string compatibility (2020 WW42).
+
 - Independent Measure Values color domains for Text/Square charts and layered
   panes, with virtual field binding retained through Python, MCP and run-spec
   (2020 WW45). Filter layout nodes accept boolean `show_slider` (2020 WW42).

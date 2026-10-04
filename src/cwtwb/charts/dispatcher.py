@@ -40,6 +40,29 @@ def _validate_filter_columns(filters: Optional[list[dict]]) -> None:
         if not isinstance(item, dict) or not isinstance(item.get("column"), str) or not item["column"].strip():
             raise ValueError("Each filter requires a nonempty 'column' field expression")
 
+
+def _validate_table_calc_references(overrides) -> None:
+    """Validate explicit selectors before a builder changes the worksheet."""
+    for specifications in (overrides or {}).values():
+        for specification in specifications:
+            order = specification.get("order", [])
+            references = list(order) if isinstance(order, list) else []
+            references.extend(
+                specification[key]
+                for key in ("field", "level_break", "level-break", "level_address", "level-address")
+                if key in specification
+            )
+            for reference in references:
+                if not isinstance(reference, dict):
+                    continue
+                if (
+                    set(reference) != {"field", "reference"}
+                    or not isinstance(reference.get("field"), str)
+                    or not reference["field"].strip()
+                    or reference.get("reference") not in ("instance", "column")
+                ):
+                    raise ValueError("Table-calc reference requires field and reference='instance' or 'column'")
+
 from ..capability_registry import CapabilityLevel, get_capability
 from .builder_base import BasicChartBuilder, MapChartBuilder, PieChartBuilder, TextChartBuilder
 from .builder_dual_axis import DualAxisChartBuilder
@@ -260,6 +283,7 @@ def configure_chart(
     """Route chart configuration to the correct builder."""
 
     _validate_filter_columns(filters)
+    _validate_table_calc_references(table_calc_overrides)
 
     if not isinstance(separate_measure_domains, bool):
         raise ValueError("separate_measure_domains must be boolean")
@@ -382,6 +406,7 @@ def configure_dual_axis(
     """Route dual-axis configuration to the dedicated builder."""
 
     _validate_filter_columns(filters)
+    _validate_table_calc_references(table_calc_overrides)
 
     _ = decide_dual_axis_builder()
     builder = DualAxisChartBuilder(
@@ -445,6 +470,7 @@ def configure_layered_chart(
     """Build an explicitly declared multi-pane worksheet."""
 
     _validate_filter_columns(filters)
+    _validate_table_calc_references(table_calc_overrides)
 
     from .builder_layered import LayeredChartBuilder
 
