@@ -35,6 +35,7 @@ class CapabilitySpec:
 
 
 CAPABILITY_SPECS: tuple[CapabilitySpec, ...] = (
+    CapabilitySpec(key="custom-mark-labels", kind="feature", level="advanced", canonical="configure_custom_label", rationale="Author rich literal/field label runs on an existing pane, retaining native table-calculation instances and tooltip content."),
     CapabilitySpec(key="preserved-device-layout", kind="dashboard_zone", level="advanced", canonical="copy_default_device_layout", rationale="Keep default canvas geometry, hidden groups and shared object identities in a custom Phone or Tablet layout."),
     CapabilitySpec(key="continuous-date-grains", kind="feature", level="advanced", canonical="configure_layered_chart", aliases=("QUARTERTRUNC", "MONTHTRUNC", "YEARTRUNC"), rationale="Native continuous date truncations preserve month, quarter and year axis grains across years."),
     CapabilitySpec(key="label-range-fields", kind="feature", level="advanced", canonical="configure_worksheet_style", aliases=("mark-labels-range-field",), rationale="Resolve public min/max label field expressions to qualified worksheet instances in layered and pane mark styles."),
@@ -680,5 +681,4 @@ def format_capability_catalog(level_filter: Optional[str] = None) -> str:
         for spec in level_items:
             lines.append(f"- {spec.kind}: {spec.canonical}")
     return "\n".join(lines)
-
 

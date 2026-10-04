@@ -9,6 +9,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- `configure_custom_label` adds rich literal/field mark-label runs to existing
+  panes, preserving table-calculation context and tooltips, with Python, MCP
+  and run-spec support (2020 WW42).
+
 - Explicit table-calculation column/instance reference selectors distinguish
   address levels and ordered fields while retaining string compatibility (2020 WW42).
 

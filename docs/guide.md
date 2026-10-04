@@ -56,6 +56,38 @@ agents can call `list_capabilities` or `describe_capability` to confirm its
 support level and read `cwtwb://skills/chart_builder` or
 `cwtwb://skills/dashboard_designer` for the expected authoring sequence.
 
+### Rich Labels on Existing Panes
+
+`configure_custom_label(worksheet_name, runs, *, pane_index=0)` sets formatted
+mark labels after a chart has been configured. Every run defines either literal
+`text` or a public `field` expression. Supported native rich attributes are
+`fontsize`, `fontname`, `fontcolor`, `fontalignment`, `bold`, `italic`, and
+`underline`; field runs also accept a literal `prefix`. A separate newline run
+uses Tableau's paragraph separator. Existing pane table-calculation instances,
+including explicit addressing contexts, and existing tooltips are preserved.
+The active datasource must match the worksheet. Pane indices count every pane
+from zero, including a native dual-axis default pane; its first visible axis is
+therefore normally index 1.
+
+```python
+editor.configure_custom_label(
+    "Monthly Calendar",
+    [
+        {"field": "Month Name", "fontsize": 16, "fontcolor": "#898989"},
+        {"text": "\n"},
+        {"field": "Monthly Hours", "fontsize": 16},
+        {"text": "\n"},
+        {"text": "HOURS", "fontsize": 9},
+    ],
+    pane_index=1,
+)
+```
+
+MCP exposes the same operation. A run-spec worksheet accepts `custom_labels`
+entries containing `runs` and optional `pane_index`, applied after its chart and
+blend configuration. Invalid runs, unknown fields and invalid pane indices
+leave the worksheet unchanged.
+
 ### Clone and Refactor an Existing Worksheet
 
 Use worksheet clone/refactor when you want to duplicate an existing visual module and rebind only the cloned worksheet to a different core measure. This is especially useful for KPI cards such as turning a Sales KPI worksheet into an independent Profit KPI worksheet while preserving the original sheet.

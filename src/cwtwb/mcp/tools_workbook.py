@@ -1555,6 +1555,12 @@ def copy_default_device_layout(dashboard_name: str, device_name: str = "Phone") 
 
 
 @server.tool()
+def configure_custom_label(worksheet_name: str, runs: list[dict], pane_index: int = 0) -> str:
+    """Set rich literal/field mark labels while preserving pane calculation context."""
+    return get_editor().configure_custom_label(worksheet_name, runs, pane_index=pane_index)
+
+
+@server.tool()
 def configure_custom_tooltip(worksheet_name: str, runs: list[dict], pane_index: int = 0) -> str:
     """Set formatted text/field runs or embedded sheets with explicit filter_fields."""
     return get_editor().configure_custom_tooltip(worksheet_name, runs, pane_index=pane_index)

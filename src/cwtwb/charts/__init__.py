@@ -110,6 +110,20 @@ class ChartsMixin:
             table_calc_overrides=table_calc_overrides,
         )
 
+    def configure_custom_label(
+        self, worksheet_name: str, runs: list[dict], *, pane_index: int = 0
+    ) -> str:
+        """Set formatted literal/field mark-label runs on a configured pane.
+
+        ``pane_index`` is zero based and includes native default panes. Field
+        runs retain existing worksheet table-calculation instances and contexts.
+        Rich attributes use native names: fontsize, fontname, fontcolor,
+        fontalignment, bold, italic and underline.
+        """
+        from .custom_labels import configure_custom_label
+
+        return configure_custom_label(self, worksheet_name, runs, pane_index=pane_index)
+
     def configure_dual_axis(
         self,
         worksheet_name: str,

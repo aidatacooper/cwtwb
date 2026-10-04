@@ -163,6 +163,8 @@ def _apply_worksheets(editor, spec: dict[str, Any]) -> list[str]:
             messages.append(editor.configure_subtotals(name, **item["subtotals"]))
         for blend in _as_list(item.get("blends")):
             messages.append(editor.configure_datasource_blend(name, **blend))
+        for label in _as_list(item.get("custom_labels")):
+            messages.append(editor.configure_custom_label(name, **label))
     return messages
 
 

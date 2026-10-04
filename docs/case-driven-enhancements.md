@@ -2,6 +2,25 @@
 
 ## 2020 WW42-46: date domains, filter controls and independent colors
 
+WW42's blended monthly calendar needs three rich label runs with independent
+16/16/9 point formatting. The released SDK exposed rich labels only during
+specific chart construction, and its dual-axis API could not apply those runs
+to an already configured pane. The public `configure_custom_label` now accepts
+literal and field runs, adds label encodings and recursive calculation
+dependencies, and retains the table-calculation instance already bound to the
+target pane. This avoids replacing a contextual monthly window with a new
+unsuffixed instance. It leaves existing tooltip content and other panes intact.
+Invalid run payloads and out-of-range pane indices fail before the workbook
+changes. The synthetic regressions use ordinary calculated fields and configured
+panes without an author workbook; the case records the actual released API gap
+in `evidence/sdk-gap-rich-label-baseline.json`.
+
+Independent Cloud probes also distinguish date shelf geometry from calculation
+addressing: exact dates used only as Detail retain correct monthly sums with
+multiple layered axes, while a quantitative exact-date shelf can become an
+additional axis in that composition. Those probes do not establish a missing
+global default-pane requirement, and no such capability was added for this case.
+
 WW42's Strava calendar uses a compact year slider with the track hidden. A filter
 layout node accepts boolean `show_slider=False`, emitting native `show-slider`;
 omitting it preserves the default. Invalid values fail before replacing a
