@@ -11,6 +11,12 @@ metadata. Synthetic regressions cover one or several excluded members,
 context filters, save/reload and unchanged inclusive selection. Cloud tests
 compare the complete overridden domain with the author workbook separately.
 
+WW07's two related emoji tables retain unmatched facts, so its category totals
+and average explicitly exclude null categories. Categorical filter members
+now serialize Python `None` and the native `%null%` sentinel as `%null%`, rather
+than the string `"None"`. Regressions cover inclusive and exclusive null
+filters and preserve the literal string `"None"` as an ordinary member.
+
 WW04 uses a noninteractive state background beneath interactive city marks.
 `configure_chart(map_layers=[...])` now accepts the native `inert` boolean per
 layer, while `configure_worksheet_style(size_style={"type": "centersize", ...})`

@@ -93,6 +93,8 @@ class BaseChartBuilder:
         Boolean and discrete date-part values are written unquoted. Other
         values retain the existing categorical string serialization.
         """
+        if value is None or value == "%null%":
+            return "%null%"
         if column_instance is not None and column_instance.derivation in {"Year", "Quarter", "Month", "Day", "Week", "Weekday"}:
             # Discrete date parts have numeric domains even when the source
             # column is a date. Quoted years are rejected by Tableau Cloud.

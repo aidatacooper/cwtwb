@@ -9,6 +9,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Categorical filters serialize null members as the native null token instead
+  of a string (2021 WW07).
+
 - Categorical exclusion filters retain their exclusive selection mode when
   overridden through Tableau REST (2021 WW08).
 
