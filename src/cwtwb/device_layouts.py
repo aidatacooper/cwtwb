@@ -6,6 +6,29 @@ import copy
 from lxml import etree
 
 
+def copy_default_device_layout(editor, dashboard_name, device_name="Phone"):
+    """Keep default geometry and identities in a custom Phone or Tablet layout."""
+    if device_name not in {"Phone", "Tablet"}:
+        raise ValueError("device_name must be Phone or Tablet")
+    dashboard = editor.root.find(f"dashboards/dashboard[@name='{dashboard_name}']")
+    if dashboard is None:
+        raise ValueError("Dashboard does not exist")
+    zones = dashboard.find("zones")
+    if zones is None or not zones.findall("zone"):
+        raise ValueError("A device layout requires a populated default dashboard")
+    layouts = dashboard.find("devicelayouts")
+    if layouts is None:
+        layouts = etree.SubElement(dashboard, "devicelayouts")
+    previous = layouts.find(f"devicelayout[@name='{device_name}']")
+    if previous is not None:
+        layouts.remove(previous)
+    device = etree.SubElement(layouts, "devicelayout", name=device_name)
+    # A custom device layout without its own size inherits the default canvas.
+    # IDs remain shared with dashboard actions, toggle buttons and visibility.
+    device.append(copy.deepcopy(zones))
+    return f"Copied default layout to '{device_name}' for '{dashboard_name}'"
+
+
 def enable_automatic_phone_layout(editor, dashboard_name, worksheet_height=280):
     if (
         isinstance(worksheet_height, bool)

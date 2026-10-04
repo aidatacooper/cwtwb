@@ -9,6 +9,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Native set membership dropdowns, compound viz-in-tooltip filters with optional
+  context filtering, and positive-integer stepped color palettes (2020 WW31/WW36/WW38).
+- Custom Phone/Tablet layouts preserving default zone geometry and identities,
+  plus continuous month/quarter/year date grains (2020 WW39/WW41).
+
 - Embedded PNG shape palettes and native field fiscal-year metadata (2020 WW25/WW26).
 - Native filter action initialization with overridable target membership (2020 WW25).
 - Typed Hyper logical relationships with explicit composite equality keys,
@@ -63,6 +68,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Categorical groups can omit their fallback with `default_value=None` (2019 WW46).
 
 ### Fixed
+
+- Reject malformed chart filter dictionaries before replacing a worksheet,
+  preventing silently omitted requested filters (2020 WW30–33).
+- Resolve label min/max range fields to native qualified instances in worksheet
+  and layered-pane styles instead of emitting captions rejected by Cloud (2020 WW41).
 
 - Dashboard worksheet width/height fitting emits native viewpoint zoom,
   preventing clipped and overlapping table columns (2020 WW18/WW24).

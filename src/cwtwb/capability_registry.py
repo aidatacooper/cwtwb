@@ -35,6 +35,10 @@ class CapabilitySpec:
 
 
 CAPABILITY_SPECS: tuple[CapabilitySpec, ...] = (
+    CapabilitySpec(key="preserved-device-layout", kind="dashboard_zone", level="advanced", canonical="copy_default_device_layout", rationale="Keep default canvas geometry, hidden groups and shared object identities in a custom Phone or Tablet layout."),
+    CapabilitySpec(key="continuous-date-grains", kind="feature", level="advanced", canonical="configure_layered_chart", aliases=("QUARTERTRUNC", "MONTHTRUNC", "YEARTRUNC"), rationale="Native continuous date truncations preserve month, quarter and year axis grains across years."),
+    CapabilitySpec(key="label-range-fields", kind="feature", level="advanced", canonical="configure_worksheet_style", aliases=("mark-labels-range-field",), rationale="Resolve public min/max label field expressions to qualified worksheet instances in layered and pane mark styles."),
+    CapabilitySpec(key="set-membership-control", kind="dashboard_zone", level="advanced", canonical="set_control", aliases=("setMembership",), rationale="Render a native set-membership dropdown and matching worksheet card for an existing set."),
     CapabilitySpec(key="initial-filter-action-members", kind="action", level="advanced", canonical="initialize_dashboard_filter_action", rationale="Initialize existing action targets with native action-filter members that subsequent events can replace."),
     CapabilitySpec(key="custom-shape-assets", kind="encoding", level="advanced", canonical="set_shape_palette", rationale="Embed local shape assets and map categorical members to a native datasource shape palette."),
     CapabilitySpec(key="field-fiscal-year", kind="feature", level="advanced", canonical="set_field_fiscal_year_start", rationale="Set native date-field fiscal metadata on the datasource and worksheet dependencies."),
@@ -44,7 +48,7 @@ CAPABILITY_SPECS: tuple[CapabilitySpec, ...] = (
     CapabilitySpec(key="dynamic-set-union", kind="feature", level="advanced", canonical="add_combined_set", rationale="Union existing same-grain native sets while preserving their dynamic membership."),
     CapabilitySpec(key="automatic-phone-layout", kind="dashboard_zone", level="advanced", canonical="enable_automatic_phone_layout", rationale="Derive a vertically scrolling automatic Phone device layout from the default dashboard objects."),
     CapabilitySpec(key="independent-hyper-datasources", kind="connection", level="advanced", canonical="add_hyper_datasource", rationale="Author independent extracted sources and switch the active field registry without replacing existing worksheets."),
-    CapabilitySpec(key="viz-in-tooltip", kind="feature", level="advanced", canonical="configure_custom_tooltip", rationale="Embed worksheets in formatted tooltips with explicit source-field filtering and native target action filters."),
+    CapabilitySpec(key="viz-in-tooltip", kind="feature", level="advanced", canonical="configure_custom_tooltip", rationale="Embed worksheets in formatted tooltips with explicit compound source-field filtering and optional context target action filters."),
     CapabilitySpec(key="toggle-button", kind="dashboard_zone", level="advanced", canonical="add_dashboard_toggle_button", rationale="Native show/hide events target a dedicated floating layout container."),
     CapabilitySpec(key="axis-unit-mark-sizing", kind="encoding", level="advanced", canonical="mark_sizing", rationale="Layered panes support native axis-unit sizing, scaling and alignment."),
     CapabilitySpec(

@@ -400,6 +400,9 @@ class LayeredChartBuilder(BaseChartBuilder):
             include(specification.get("column"))
         all_measure_values: list[str] = []
         for pane_spec in self.panes:
+            for attribute, expression in pane_spec.get("mark_style", {}).items():
+                if attribute.replace("_", "-") == "mark-labels-range-field":
+                    include(expression)
             for key in ("axis", "color", "size", "label", "detail", "path", "shape"):
                 include(pane_spec.get(key))
             for expression in pane_spec.get("color_extra", []):
@@ -611,7 +614,10 @@ class LayeredChartBuilder(BaseChartBuilder):
                     mark.addnext(mark_sizing)
                 else:
                     pane.insert(1, mark_sizing)
-            self._apply_pane_style(pane, pane_spec.get("mark_style", {}))
+            mark_style = {key.replace("_", "-"): value for key, value in pane_spec.get("mark_style", {}).items()}
+            if "mark-labels-range-field" in mark_style:
+                mark_style["mark-labels-range-field"] = self._field_ref(instances, mark_style["mark-labels-range-field"], ds_name)
+            self._apply_pane_style(pane, mark_style)
             self._apply_trendline(pane, pane_spec.get("trendline"), pane_spec.get("trendline_style"), instances, ds_name)
             self._apply_color_map(instances, pane_spec, view)
             if pane_spec.get("shape_map"):

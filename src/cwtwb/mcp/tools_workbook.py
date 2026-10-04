@@ -747,6 +747,9 @@ def configure_worksheet_style(
 ) -> str:
     """Apply worksheet-level styling: background color, axis/grid/border visibility.
 
+    pane_mark_style accepts mark-labels-range-field as a public field expression
+    and resolves its native qualified reference for min/max labels.
+
     For formatting best practices, read: read_resource('cwtwb://skills/formatting')
     """
 
@@ -926,6 +929,7 @@ def add_dashboard(
     Layout options:
     - str (file path): Path to JSON or YAML layout file (recommended for complex layouts)
     - dict: Custom declarative layout tree passed inline
+      Native set dropdown: {"type": "set_control", "field": "Set name", "worksheet": "View", "mode": "dropdown"}
     - "auto" (default): Simple vertical fallback — use layout dict or layout file for mixed layouts
     - "vertical": All worksheets stacked vertically
     - "horizontal": All worksheets side-by-side
@@ -1530,6 +1534,12 @@ def set_measure_name_aliases(worksheet_name: str, mapping: dict[str, str]) -> st
 def enable_automatic_phone_layout(dashboard_name: str, worksheet_height: int = 280) -> str:
     """Derive a scrolling Phone layout from the default dashboard objects."""
     return get_editor().enable_automatic_phone_layout(dashboard_name, worksheet_height)
+
+
+@server.tool()
+def copy_default_device_layout(dashboard_name: str, device_name: str = "Phone") -> str:
+    """Preserve default geometry in a custom Phone/Tablet layout with shared IDs."""
+    return get_editor().copy_default_device_layout(dashboard_name, device_name)
 
 
 @server.tool()

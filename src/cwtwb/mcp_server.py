@@ -56,6 +56,7 @@ from .mcp.tools_workbook import (
     add_calculated_field,
     audit_calculated_fields,
     add_dashboard,
+    copy_default_device_layout,
     add_dashboard_action,
     add_group,
     add_parameter,
@@ -108,6 +109,7 @@ from .mcp.tools_workbook import (
 )
 
 __all__ = [
+    "copy_default_device_layout",
     "main",
     "server",
     "get_mcp_status",

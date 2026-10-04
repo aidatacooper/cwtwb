@@ -29,6 +29,17 @@ __author__ = "Cooper Wenhua <imgwho@gmail.com>"
 from dataclasses import dataclass
 from typing import Optional, Union
 
+
+def _validate_filter_columns(filters: Optional[list[dict]]) -> None:
+    """Reject malformed filters before a builder replaces a worksheet."""
+    if filters is None:
+        return
+    if not isinstance(filters, list):
+        raise ValueError("filters must be a list of dictionaries")
+    for item in filters:
+        if not isinstance(item, dict) or not isinstance(item.get("column"), str) or not item["column"].strip():
+            raise ValueError("Each filter requires a nonempty 'column' field expression")
+
 from ..capability_registry import CapabilityLevel, get_capability
 from .builder_base import BasicChartBuilder, MapChartBuilder, PieChartBuilder, TextChartBuilder
 from .builder_dual_axis import DualAxisChartBuilder
@@ -247,6 +258,8 @@ def configure_chart(
 ) -> str:
     """Route chart configuration to the correct builder."""
 
+    _validate_filter_columns(filters)
+
     decision = decide_chart_builder(mark_type, measure_values=measure_values)
 
     if decision.builder_name == "pie":
@@ -358,6 +371,8 @@ def configure_dual_axis(
 ) -> str:
     """Route dual-axis configuration to the dedicated builder."""
 
+    _validate_filter_columns(filters)
+
     _ = decide_dual_axis_builder()
     builder = DualAxisChartBuilder(
         editor,
@@ -416,6 +431,8 @@ def configure_layered_chart(
     filters: Optional[list[dict]] = None,
 ) -> str:
     """Build an explicitly declared multi-pane worksheet."""
+
+    _validate_filter_columns(filters)
 
     from .builder_layered import LayeredChartBuilder
 

@@ -241,6 +241,8 @@ def render_flex_node(
         _render_text(node, zone, context)
     elif node.type == "filter":
         _render_filter(node, zone, context)
+    elif node.type == "set_control":
+        _render_set_control(node, zone, context)
     elif node.type == "paramctrl":
         _render_paramctrl(node, zone, context)
     elif node.type in ("color", "size"):
@@ -251,7 +253,7 @@ def render_flex_node(
         _render_empty(node, zone)
 
     style_dict = dict(node.style)
-    if node.type in ("filter", "paramctrl"):
+    if node.type in ("filter", "paramctrl", "set_control"):
         if "background-color" not in style_dict and "background_color" not in style_dict:
             style_dict["background-color"] = "#ffffff"
     apply_zone_style(zone, style_dict)
@@ -520,6 +522,63 @@ def _render_filter(
             zone.set("param", node.field)
     elif node.field:
         zone.set("param", node.field)
+
+
+def _set_control_binding(node: FlexNode, editor) -> tuple[str, str]:
+    """Resolve a real set and worksheet, without changing workbook state."""
+    if not node.field or not node.worksheet:
+        raise ValueError("set_control requires field and worksheet")
+    if node.mode not in ("", "dropdown"):
+        raise ValueError("set_control currently supports dropdown mode")
+    worksheet = editor._find_worksheet(node.worksheet)
+    datasource = editor._datasource
+    matches = [g for g in datasource.findall("group")
+               if node.field in (g.get("name"), g.get("caption"),
+                                 g.get("name", "")[1:-1])
+               and g.get("{http://www.tableausoftware.com/xml/user}ui-builder") == "filter-group"]
+    if len(matches) != 1:
+        raise ValueError("set_control field must identify one existing set")
+    ds_name = datasource.get("name")
+    deps = worksheet.find("table/view/datasource-dependencies[@datasource='" + ds_name + "']")
+    if deps is None:
+        raise ValueError("set_control worksheet must use the set datasource")
+    return f"[{ds_name}].{matches[0].get('name')}", node.mode or "dropdown"
+
+
+def validate_set_controls(layout: dict[str, Any], editor) -> None:
+    """Reject invalid set controls before replacing an existing dashboard."""
+    if layout.get("type") == "set_control":
+        _set_control_binding(FlexNode(layout), editor)
+    for child in layout.get("children", []):
+        validate_set_controls(child, editor)
+
+
+def _render_set_control(node: FlexNode, zone: etree._Element,
+                        context: dict[str, Any]) -> None:
+    editor = context["editor"]
+    reference, mode = _set_control_binding(node, editor)
+    zone.set("type-v2", "setMembership")
+    zone.set("name", node.worksheet)
+    zone.set("param", reference)
+    zone.set("mode", mode)
+    if not node.show_title:
+        zone.set("show-title", "false")
+    _render_control_caption(node, zone)
+    manifest = editor.root.find("document-format-change-manifest")
+    if manifest is None:
+        manifest = etree.Element("document-format-change-manifest")
+        editor.root.insert(0, manifest)
+    if manifest.find("SetMembershipControl") is None:
+        etree.SubElement(manifest, "SetMembershipControl")
+    window = editor._find_window(node.worksheet, window_class="worksheet")
+    edge = window.find("cards/edge[@name='right']")
+    existing = edge.find("strip/card[@type='setMembership'][@param='" + reference + "']")
+    if existing is None:
+        strip = edge.find("strip")
+        if strip is None:
+            strip = etree.SubElement(edge, "strip", size="160")
+        existing = etree.SubElement(strip, "card", type="setMembership", param=reference)
+    existing.set("mode", mode)
 
 
 def _render_paramctrl(

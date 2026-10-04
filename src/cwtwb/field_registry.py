@@ -49,6 +49,9 @@ _DERIVATION_MAP: dict[str, str] = {
     "WEEKDAY": "Weekday",
     "MY": "MY",
     "DAYTRUNC": "Day-Trunc",
+    "MONTHTRUNC": "Month-Trunc",
+    "QUARTERTRUNC": "Quarter-Trunc",
+    "YEARTRUNC": "Year-Trunc",
     # Continuous exact-date axis. Tableau stores this as derivation=None with
     # a quantitative key, unlike the discrete date-part derivations above.
     "EXACTDATE": "None",
@@ -76,6 +79,9 @@ _DERIVATION_ABBR: dict[str, str] = {
     "Weekday": "wd",
     "MY": "my",
     "Day-Trunc": "tdy",
+    "Month-Trunc": "tmn",
+    "Quarter-Trunc": "tqr",
+    "Year-Trunc": "tyr",
 }
 
 # Temporal derivations (result type is ordinal key)
@@ -90,7 +96,7 @@ _EXPR_RE = re.compile(
 # Example: [sum:Sales:qk] is the internal reference for SUM(Sales).
 _COLUMN_INSTANCE_RE = re.compile(
     r"^(?:\[[^\]]+\]\.)?\[?"
-    r"(sum|avg|cnt|cntd|min|max|med|attr|clct|none|usr|yr|qr|mn|day|wk|wd|my|tdy)"
+    r"(sum|avg|cnt|cntd|min|max|med|attr|clct|none|usr|yr|qr|mn|day|wk|wd|my|tdy|tmn|tqr|tyr)"
     r":.+:(nk|qk|ok)(?::\d+)?\]?$",
     re.IGNORECASE,
 )
@@ -126,6 +132,9 @@ AGGREGATE_FUNCTION_PREFIXES = (
     "dateparse(",
     "my(",
     "daytrunc(",
+    "monthtrunc(",
+    "quartertrunc(",
+    "yeartrunc(",
     "exactdate(",
 )
 
@@ -425,6 +434,8 @@ class FieldRegistry:
 
         # Look up the field
         fi = self._find_field(field_name)
+        if derivation in {"Month-Trunc", "Quarter-Trunc", "Year-Trunc"} and fi.datatype not in {"date", "datetime"}:
+            raise ValueError("Continuous date truncation requires a date or datetime field")
 
         def _is_aggregated_formula(formula_text: str, depth: int = 0) -> bool:
             if depth > 10 or not formula_text:
@@ -468,7 +479,7 @@ class FieldRegistry:
             ci_type = fi.field_type   # nominal / quantitative — preserve field's own type
         elif derivation in _TEMPORAL_DERIVATIONS:
             ci_type = "ordinal"
-        elif derivation == "Day-Trunc":
+        elif derivation in {"Day-Trunc", "Month-Trunc", "Quarter-Trunc", "Year-Trunc"}:
             ci_type = "quantitative"
         else:
             ci_type = "quantitative"

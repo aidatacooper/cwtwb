@@ -416,6 +416,28 @@ class ChartsMixin:
                         resolved_per_field.append(resolved_pf)
                 resolved_axis_style["per_field"] = resolved_per_field
 
+        def resolved_mark_style(specification):
+            if specification is None:
+                return None
+            resolved = dict(specification)
+            for attribute, expression in specification.items():
+                if attribute.replace("_", "-") == "mark-labels-range-field":
+                    resolved[attribute] = style_reference(style_instance(expression))
+            return resolved
+
+        resolved_panes_style = None
+        if panes_style is not None:
+            def resolved_pane_style(pane_specification):
+                resolved = dict(pane_specification)
+                for key in ("mark_style", "pane_mark_style"):
+                    if key in resolved:
+                        resolved[key] = resolved_mark_style(resolved[key])
+                return resolved
+            if isinstance(panes_style, dict):
+                resolved_panes_style = {key: resolved_pane_style(value) for key, value in panes_style.items()}
+            else:
+                resolved_panes_style = [resolved_pane_style(value) for value in panes_style]
+
         apply_worksheet_style(
             table,
             background_color=background_color,
@@ -437,9 +459,9 @@ class ChartsMixin:
             show_row_totals=show_row_totals,
             pane_cell_style=pane_cell_style,
             pane_datalabel_style=pane_datalabel_style,
-            pane_mark_style=pane_mark_style,
+            pane_mark_style=resolved_mark_style(pane_mark_style),
             pane_trendline_hidden=pane_trendline_hidden,
-            panes_style=panes_style,
+            panes_style=resolved_panes_style,
             resolved_label_formats=resolved_label_formats,
             resolved_cell_formats=resolved_cell_formats,
             pane_formats=pane_formats,
@@ -507,11 +529,16 @@ class ChartsMixin:
         if color_style:
             if not isinstance(color_style, dict) or not color_style.get("field") or not (color_style.get("palette") or color_style.get("colors")):
                 raise ValueError("color_style requires field and either palette or colors")
-            allowed = {"field", "palette", "colors", "center", "min", "max", "include_totals", "include-totals", "reverse"}
+            allowed = {"field", "palette", "colors", "center", "min", "max", "include_totals", "include-totals", "reverse", "num_steps", "num-steps"}
             if set(color_style) - allowed:
                 raise ValueError("Unsupported continuous color style setting")
             if "reverse" in color_style and not isinstance(color_style["reverse"], bool):
                 raise ValueError("color_style reverse must be boolean")
+            if "num_steps" in color_style and "num-steps" in color_style:
+                raise ValueError("Use one num_steps spelling")
+            steps = color_style.get("num_steps", color_style.get("num-steps"))
+            if ("num_steps" in color_style or "num-steps" in color_style) and (isinstance(steps, bool) or not isinstance(steps, int) or steps < 1):
+                raise ValueError("color_style num_steps must be a positive integer")
             from lxml import etree
             attributes = {"attr": "color", "type": "interpolated", "field": style_reference(self.field_registry.parse_expression(color_style["field"]))}
             for key, value in color_style.items():

@@ -2470,10 +2470,11 @@ class TWBEditor(ParametersMixin, ConnectionsMixin, ChartsMixin, DashboardsMixin)
                 fields = sheet.get("filter_fields", [])
                 if not isinstance(fields, list) or not fields or any(not isinstance(f, str) or not f for f in fields):
                     raise ValueError("Tooltip sheet needs explicit filter_fields")
-                if len(fields) != 1:
-                    raise ValueError("Tooltip embedding currently supports one explicit filter field")
                 if len(set(fields)) != len(fields):
                     raise ValueError("Tooltip filter fields must be unique")
+                filter_context = sheet.get("filter_context", False)
+                if not isinstance(filter_context, bool):
+                    raise ValueError("Tooltip filter_context must be boolean")
                 instances = [resolve_field(field) for field in fields]
                 local_names = [self.field_registry.parse_expression(self.field_registry.default_view_expression(f)).column_local_name for f in fields]
                 caption = "Tooltip (" + ",".join(n.strip("[]") for n in local_names) + ")"
@@ -2493,11 +2494,21 @@ class TWBEditor(ParametersMixin, ConnectionsMixin, ChartsMixin, DashboardsMixin)
                 old = target_view.find(f"filter[@column='{reference}']")
                 if old is None:
                     action_filter = etree.Element("filter", {"class": "categorical", "column": reference})
-                    member = etree.SubElement(action_filter, "groupfilter", function="level-members", level=local_names[0])
+                    if len(local_names) == 1:
+                        member = etree.SubElement(action_filter, "groupfilter", function="level-members", level=local_names[0])
+                    else:
+                        member = etree.SubElement(action_filter, "groupfilter", function="crossjoin")
+                        for local_name in local_names:
+                            etree.SubElement(member, "groupfilter", function="level-members", level=local_name)
                     member.set(f"{{{user_ns}}}ui-action-filter", f"[Action - {sheet['name']}]")
                     member.set(f"{{{user_ns}}}ui-enumeration", "all")
                     member.set(f"{{{user_ns}}}ui-marker", "enumerate")
-                    target_view.find("datasource-dependencies").addnext(action_filter)
+                    target_view.findall("datasource-dependencies")[-1].addnext(action_filter)
+                    old = action_filter
+                if filter_context:
+                    old.set("context", "true")
+                elif old.get("context") == "true":
+                    del old.attrib["context"]
                 slices = target_view.find("slices")
                 if slices is None:
                     slices = etree.SubElement(target_view, "slices")

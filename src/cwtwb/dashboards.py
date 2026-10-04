@@ -88,6 +88,7 @@ VALID_LAYOUT_NODE_TYPES = {
     "worksheet",
     "text",
     "filter",
+    "set_control",
     "paramctrl",
     "color",
     "size",
@@ -353,6 +354,7 @@ def add_dashboard_dependencies(editor, db: etree._Element, layout_dict: dict) ->
     """Add dashboard-level datasources and datasource-dependencies."""
     filter_zones: list[dict] = []
     paramctrl_zones: list[dict] = []
+    set_zones: list[dict] = []
 
     def _extract_zones(node: dict) -> None:
         """Collect filter/parameter-control nodes from nested layout config."""
@@ -360,6 +362,8 @@ def add_dashboard_dependencies(editor, db: etree._Element, layout_dict: dict) ->
             filter_zones.append(node)
         elif node.get("type") == "paramctrl":
             paramctrl_zones.append(node)
+        elif node.get("type") == "set_control":
+            set_zones.append(node)
         if node.get("type") == "text":
             for run in node.get("runs", []):
                 if isinstance(run, dict) and "parameter" in run:
@@ -371,7 +375,7 @@ def add_dashboard_dependencies(editor, db: etree._Element, layout_dict: dict) ->
 
     _extract_zones(layout_dict)
 
-    if not filter_zones and not paramctrl_zones:
+    if not filter_zones and not paramctrl_zones and not set_zones:
         return
 
     ds_name = editor._datasource.get("name", "")
@@ -383,7 +387,7 @@ def add_dashboard_dependencies(editor, db: etree._Element, layout_dict: dict) ->
         pds.set("caption", "鍙傛暟")
         pds.set("name", "Parameters")
 
-    if filter_zones:
+    if filter_zones or set_zones:
         fds = etree.SubElement(db_datasources, "datasource")
         caption = editor._datasource.get("caption", ds_name)
         fds.set("caption", caption)
@@ -1103,6 +1107,11 @@ def set_local_ok(fi) -> bool:
 class DashboardsMixin:
     """Mixin providing dashboard creation and action methods for TWBEditor."""
 
+    def copy_default_device_layout(self, dashboard_name: str, device_name: str = "Phone") -> str:
+        """Preserve the default canvas in a custom Phone or Tablet layout."""
+        from .device_layouts import copy_default_device_layout
+        return copy_default_device_layout(self, dashboard_name, device_name)
+
     def enable_automatic_phone_layout(self, dashboard_name: str, worksheet_height: int = 280) -> str:
         """Generate an automatic phone stack from the default dashboard objects."""
         from .device_layouts import enable_automatic_phone_layout
@@ -1156,6 +1165,10 @@ class DashboardsMixin:
         for ws_name in worksheet_names:
             self._find_worksheet(ws_name)
 
+        layout_dict = resolve_dashboard_layout(layout, worksheet_names)
+        from .layout import validate_set_controls
+        validate_set_controls(layout_dict, self)
+
         # Guided authoring can refine a dashboard more than once. Replace any
         # existing dashboard/window pair with the same name so Tableau never
         # sees duplicate dashboard identities.
@@ -1198,7 +1211,6 @@ class DashboardsMixin:
         worksheet_options = {}
         visibility_bindings = []
         if worksheet_names or isinstance(layout, dict) or isinstance(layout, str):
-            layout_dict = resolve_dashboard_layout(layout, worksheet_names)
             validate_layout_worksheets(layout_dict)
             worksheet_options = extract_layout_options(layout_dict)
             visibility_bindings = render_dashboard_layout(

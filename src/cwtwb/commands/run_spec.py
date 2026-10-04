@@ -190,6 +190,8 @@ def _apply_dashboards(editor, spec: dict[str, Any]) -> list[str]:
             options = item["automatic_phone_layout"]
             messages.append(editor.enable_automatic_phone_layout(
                 item["name"], **(options if isinstance(options, dict) else {})))
+        for device_name in _as_list(item.get("copy_default_device_layouts")):
+            messages.append(editor.copy_default_device_layout(item["name"], device_name))
     return messages
 
 

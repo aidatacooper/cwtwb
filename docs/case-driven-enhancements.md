@@ -1,5 +1,60 @@
 # Case-driven SDK enhancements
 
+## 2020 WW30–41: controls, compound tooltips and native date grains
+
+The ten articles in this batch represent WW30, WW31, WW32, WW33 and WW36–41.
+Article dates remain folder dates; official challenge identities are verified
+independently, including an incorrectly labelled WW33 author workbook.
+
+WW31 requires viz-in-tooltip targets filtered by both country and year.
+`configure_custom_tooltip` now accepts multiple explicit `filter_fields`, creates
+matching native crossjoin groups and target action filters, and supports the
+sheet option `filter_context=True` for ranking targets. Filter insertion follows
+all datasource dependencies, including Parameters. Synthetic fixtures verify
+both dimension identities, idempotency, context updates, MCP forwarding and
+schema-valid saves without author workbooks.
+
+WW36 requires an existing set's native membership dropdown. The declarative
+dashboard node `{"type": "set_control", "field": "Selected Categories",
+"worksheet": "Plot", "mode": "dropdown"}` binds the real datasource group,
+adds the matching worksheet card and declares `SetMembershipControl`.
+Invalid set references, worksheets and modes fail before an existing dashboard
+is replaced. Synthetic tests retain explicit members and validate packaged XML.
+REST parameter/filter exports do not execute set membership selection.
+
+WW38 requires a stepped sequential color scale. Worksheet `color_style` accepts
+`num_steps` (or native `num-steps`) as a positive integer for custom or named
+interpolated palettes. Invalid boolean, null, fractional and nonpositive values
+are rejected before writing the encoding.
+
+WW39 authors a mobile-sized default canvas and a matching custom Phone layout.
+`copy_default_device_layout("Dashboard", "Phone")` copies the complete default
+zone tree without changing IDs, coordinates, hidden groups or toggle buttons.
+The device inherits the default canvas size; Tablet is also supported. This is
+distinct from the existing automatic vertically scrolling phone layout.
+Synthetic tests check geometry, shared identities, hidden state and valid saves;
+desktop REST images do not establish rendering in a mobile browser.
+
+WW41 requires continuous quarter axes, rather than discrete quarter date parts
+or arbitrary exact-date ticks. `QUARTERTRUNC(Date)`, `MONTHTRUNC(Date)` and
+`YEARTRUNC(Date)` bind native quantitative truncation instances and require a
+date or datetime field. Synthetic chart saves cover all three grains and both
+date types, and still reject generated instance names as input expressions.
+
+The same case exposed a Cloud publication failure when a min/max label range
+field was serialized as its display caption. `mark-labels-range-field` (or its
+underscore spelling) now resolves a public field expression to the actual
+qualified instance in both layered `mark_style` and worksheet pane styles.
+Layered styles declare the required dependency even when the range field differs
+from the axis. Synthetic fixtures cover both pane-style collection forms,
+aggregate calculations, idempotency and unknown-field rejection.
+
+WW30–33 also exposed misspelled filter dictionaries being silently omitted.
+Chart dispatch now requires each filter to have a nonempty `column` expression
+before any builder replaces the worksheet. The regression covers standard,
+dual-axis and layered APIs, retains an existing worksheet on invalid input,
+and verifies a valid native filter and MCP error propagation.
+
 ## 2020 WW25–29: assets, fiscal dates and independent logical tables
 
 WW25 requires categorical image marks authored without an original workbook.

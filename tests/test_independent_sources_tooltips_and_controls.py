@@ -71,7 +71,7 @@ def test_embedded_sheet_tooltip_creates_native_field_filter(editor, tmp_path):
     assert etree.parse(str(path)).find("document-format-change-manifest/VizInTooltipHideWorksheet") is not None
 
 
-@pytest.mark.parametrize('sheet', [{"name": "Missing", "filter_fields": ["Category"]}, {"name": "Source", "filter_fields": []}, {"name": "Source", "filter_fields": ["Category"], "maxwidth": -1}, {"name": "Source", "filter_fields": ["Category","Region"]}])
+@pytest.mark.parametrize('sheet', [{"name": "Missing", "filter_fields": ["Category"]}, {"name": "Source", "filter_fields": []}, {"name": "Source", "filter_fields": ["Category"], "maxwidth": -1}, {"name": "Source", "filter_fields": ["Category","Category"]}])
 def test_invalid_tooltip_sheet_rejected(editor, sheet):
     editor.add_worksheet("Source")
     editor.configure_chart("Source", rows=["Category"])
