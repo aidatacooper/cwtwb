@@ -533,8 +533,10 @@ def _set_control_binding(node: FlexNode, editor) -> tuple[str, str]:
     """Resolve a real set and worksheet, without changing workbook state."""
     if not node.field or not node.worksheet:
         raise ValueError("set_control requires field and worksheet")
-    if node.mode not in ("", "dropdown"):
-        raise ValueError("set_control currently supports dropdown mode")
+    if node.show_apply is not None and not isinstance(node.show_apply, bool):
+        raise ValueError("set_control show_apply must be boolean")
+    if node.mode not in ("", "dropdown", "checkdropdown"):
+        raise ValueError("set_control supports dropdown or checkdropdown mode")
     worksheet = editor._find_worksheet(node.worksheet)
     datasource = editor._datasource
     matches = [g for g in datasource.findall("group")
@@ -565,6 +567,8 @@ def _render_set_control(node: FlexNode, zone: etree._Element,
     editor = context["editor"]
     reference, mode = _set_control_binding(node, editor)
     zone.set("type-v2", "setMembership")
+    if node.show_apply is not None:
+        zone.set("show-apply", str(node.show_apply).lower())
     zone.set("name", node.worksheet)
     zone.set("param", reference)
     zone.set("mode", mode)

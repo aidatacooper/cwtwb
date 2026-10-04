@@ -634,3 +634,9 @@ python examples/migrate_workflow/test_migration_workflow.py
 # Start MCP server
 cwtwb
 ```
+
+Set membership layout nodes support `mode="dropdown"` (the default) and
+`mode="checkdropdown"` for multiple selection. The chosen mode is emitted on
+both the dashboard zone and matching worksheet card.
+Set control `show_apply=True` enables its native Apply button; `False` hides it.
+Omitting the option preserves Tableau defaults. Non-boolean values are rejected.

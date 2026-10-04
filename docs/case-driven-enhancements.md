@@ -18,6 +18,13 @@ membership for formulas and set controls. All-members, explicit members and
 ranking modes are mutually exclusive. Regression fixtures use a small
 parameter-dependent dimension and a native set control. The case's REST
 parameter states do not claim that set-membership events were executed.
+A subsequent native-control audit found that its original multi-select controls
+use `mode="checkdropdown"`, while the released SDK accepted only `dropdown`.
+Set controls now accept both modes, preserve the chosen mode on the dashboard
+zone and worksheet card, expose boolean `show_apply` for the native Apply
+button, and reject unsupported modes or invalid flags before mutation.
+Author-free regression tests cover saved XML, default compatibility, replacing
+an existing card and MCP forwarding.
 
 WW50 colors layered measure marks jointly by Measure Names and profitability.
 Its white cost point must remain smaller than the gray outer cost point.

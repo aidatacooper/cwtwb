@@ -963,7 +963,7 @@ def add_dashboard(
     Layout options:
     - str (file path): Path to JSON or YAML layout file (recommended for complex layouts)
     - dict: Custom declarative layout tree passed inline
-      Native set dropdown: {"type": "set_control", "field": "Set name", "worksheet": "View", "mode": "dropdown"}
+      Native set control (mode dropdown or checkdropdown): {"type": "set_control", "field": "Set name", "worksheet": "View", "mode": "dropdown"}
     - "auto" (default): Simple vertical fallback — use layout dict or layout file for mixed layouts
     - "vertical": All worksheets stacked vertically
     - "horizontal": All worksheets side-by-side

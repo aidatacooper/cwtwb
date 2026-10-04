@@ -9,6 +9,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Native set controls accept `checkdropdown` for multiple selection and boolean
+  `show_apply` for an explicit Apply button (2020 WW49). Both modes preserve
+  worksheet card bindings, and invalid requests fail before mutation.
+
 - Native categorical size styles (`size_style.type='catsize'`) support virtual
   Measure Names, retaining categorical order and validating before style mutation
   (2020 WW50).
