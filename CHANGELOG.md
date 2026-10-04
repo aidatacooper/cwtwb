@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Unreleased
 
+### Fixed
+
+- Categorical exclusion filters retain their exclusive selection mode when
+  overridden through Tableau REST (2021 WW08).
+
 ### Added
 
 - Native dashboard extensions accept structured manifests, localized resources,

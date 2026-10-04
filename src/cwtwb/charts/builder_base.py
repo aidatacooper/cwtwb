@@ -939,6 +939,14 @@ class BaseChartBuilder:
                     raise ValueError("exclude is supported only for categorical filters")
                 filter_el.remove(group)
                 inverse = etree.SubElement(filter_el, "groupfilter", function="except")
+                inverse.set(f"{USER_NS}ui-domain", f.get("ui_domain", "relevant"))
+                inverse.set(f"{USER_NS}ui-enumeration", "exclusive")
+                inverse.set(f"{USER_NS}ui-marker", "enumerate")
+                # The outer expression owns the filter selection mode. Keeping
+                # inclusive metadata on its operand changes REST overrides.
+                for attribute in list(group.attrib):
+                    if attribute.startswith(USER_NS):
+                        del group.attrib[attribute]
                 etree.SubElement(inverse, "groupfilter", function="level-members", level=ci.instance_name)
                 inverse.append(group)
             insert_before = None

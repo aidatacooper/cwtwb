@@ -2,6 +2,15 @@
 
 ## 2021 WW04-08: layered maps, extended date domains and dashboard extensions
 
+WW08 also exposed a categorical exclusion serialization gap. Although the
+generated `except` expression excluded the default member correctly, a REST
+filter override interpreted its inherited selection mode as inclusive. The
+outer set difference now owns `ui-enumeration="exclusive"`, the configured
+domain and enumeration marker; its operand no longer carries inclusive UI
+metadata. Synthetic regressions cover one or several excluded members,
+context filters, save/reload and unchanged inclusive selection. Cloud tests
+compare the complete overridden domain with the author workbook separately.
+
 WW04 uses a noninteractive state background beneath interactive city marks.
 `configure_chart(map_layers=[...])` now accepts the native `inert` boolean per
 layer, while `configure_worksheet_style(size_style={"type": "centersize", ...})`
