@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import logging
 import re
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from typing import Iterable, Optional
 
 
@@ -136,6 +136,7 @@ AGGREGATE_FUNCTION_PREFIXES = (
     "quartertrunc(",
     "yeartrunc(",
     "exactdate(",
+    "discrete(",
 )
 
 DATE_FIELD_HINTS = (
@@ -399,6 +400,18 @@ class FieldRegistry:
           - "YEAR(Order Date)"  -> derivation=Year, field=Order Date
         """
         raw_expr = str(expr).strip()
+        discrete = re.fullmatch(r"DISCRETE\((.+)\)", raw_expr)
+        if discrete:
+            inner = self.parse_expression(discrete.group(1).strip())
+            if inner.derivation not in {
+                "Day-Trunc", "Month-Trunc", "Quarter-Trunc", "Year-Trunc"
+            }:
+                raise ValueError("DISCRETE requires a date truncation expression")
+            return replace(
+                inner,
+                ci_type="ordinal",
+                instance_name=inner.instance_name.removesuffix(":qk]") + ":ok]",
+            )
         if looks_like_column_instance_name(raw_expr):
             raise ValueError(
                 f"Invalid field expression '{expr}': this looks like a generated "

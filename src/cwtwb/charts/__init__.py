@@ -74,6 +74,7 @@ class ChartsMixin:
         label_param: Optional[str] = None,
         table_calc_overrides: Optional[dict[str, list[dict]]] = None,
         sort_field: Optional[str] = None,
+        separate_measure_domains: bool = False,
     ) -> str:
         """Route chart configuration to the correct builder."""
 
@@ -94,6 +95,7 @@ class ChartsMixin:
             filters=filters,
             geographic_field=geographic_field,
             measure_values=measure_values,
+            separate_measure_domains=separate_measure_domains,
             map_fields=map_fields,
             mark_sizing_off=mark_sizing_off,
             axis_fixed_range=axis_fixed_range,

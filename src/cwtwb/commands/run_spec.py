@@ -129,6 +129,7 @@ def _apply_worksheets(editor, spec: dict[str, Any]) -> list[str]:
                     "filters",
                     "geographic_field",
                     "measure_values",
+                    "separate_measure_domains",
                     "map_fields",
                     "mark_sizing_off",
                     "axis_fixed_range",

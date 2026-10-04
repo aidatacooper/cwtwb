@@ -427,7 +427,7 @@ def add_dashboard_dependencies(editor, db: etree._Element, layout_dict: dict) ->
             continue
         try:
             ci = editor.field_registry.parse_expression(field)
-            fi = editor.field_registry._find_field(field)
+            fi = editor.field_registry._find_field(ci.column_local_name)
 
             if ci.column_local_name not in seen_cols:
                 seen_cols.add(ci.column_local_name)

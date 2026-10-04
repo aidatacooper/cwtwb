@@ -389,6 +389,12 @@ class LayeredChartBuilder(BaseChartBuilder):
             raise ValueError("Layered charts require at least one pane")
         if self.axis_shelf not in {"rows", "columns", "cols"}:
             raise ValueError("axis_shelf must be 'rows', 'columns', or 'cols'")
+        for specification in self.panes:
+            separate = specification.get("separate_measure_domains", False)
+            if not isinstance(separate, bool):
+                raise ValueError("separate_measure_domains must be boolean")
+            if separate and specification.get("color") != _SPECIAL_MULTIPLE_VALUES:
+                raise ValueError("separate_measure_domains requires Multiple Values color")
 
         worksheet = self.editor._find_worksheet(self.worksheet_name)
         table = worksheet.find("table")
@@ -582,7 +588,7 @@ class LayeredChartBuilder(BaseChartBuilder):
                 None,
                 ds_name,
             )
-            if pane_spec.get("color") == _SPECIAL_MEASURE_NAMES:
+            if pane_spec.get("color") in {_SPECIAL_MEASURE_NAMES, _SPECIAL_MULTIPLE_VALUES}:
                 encodings = pane.find("encodings")
                 if encodings is None:
                     encodings = etree.Element("encodings")
@@ -590,7 +596,7 @@ class LayeredChartBuilder(BaseChartBuilder):
                 etree.SubElement(
                     encodings,
                     "color",
-                    {"column": f"[{ds_name}].[:Measure Names]"},
+                    {"column": self._field_ref(instances, pane_spec["color"], ds_name)},
                 )
             encodings = pane.find("encodings")
             if encodings is None:
@@ -614,6 +620,10 @@ class LayeredChartBuilder(BaseChartBuilder):
                 pane_spec.get("labels", []) + ([pane_spec["label"]] if self._is_special(pane_spec.get("label")) else []),
                 ds_name,
             )
+            if pane_spec.get("separate_measure_domains", False):
+                for encoding in encodings:
+                    if encoding.get("column") == f"[{ds_name}].[Multiple Values]":
+                        encoding.set("separate-domains", "true")
             if pane_spec.get("label_runs"):
                 self._build_rich_label(
                     pane,

@@ -1414,11 +1414,14 @@ class TextChartBuilder(BaseChartBuilder):
         label_runs: Optional[list[dict]] = None,
         label_param: Optional[str] = None,
         sort_field: Optional[str] = None,
+        separate_measure_domains: bool = False,
+        mark_type: str = "Text",
     ) -> None:
         """Capture text-table/KPI options, including measure-values configuration."""
         super().__init__(editor)
         self.worksheet_name = worksheet_name
-        self.mark_type = "Text"
+        self.mark_type = mark_type
+        self.separate_measure_domains = separate_measure_domains
         self.columns = columns or []
         self.rows = rows or []
         self.color = color
@@ -1450,7 +1453,7 @@ class TextChartBuilder(BaseChartBuilder):
         all_exprs = self._gather_expressions(
             self.columns,
             self.rows,
-            self.color,
+            None if self.color == "Multiple Values" else self.color,
             self.size,
             label_for_exprs,
             self.detail,
@@ -1472,10 +1475,10 @@ class TextChartBuilder(BaseChartBuilder):
         pane.set("selection-relaxation-option", "selection-relaxation-disallow")
         self._setup_pane(
             pane,
-            "Text",
-            "Text",
+            self.mark_type,
+            self.mark_type,
             instances,
-            self.color,
+            None if self.color == "Multiple Values" else self.color,
             self.size,
             label_for_exprs,
             self.detail,
@@ -1543,6 +1546,13 @@ class TextChartBuilder(BaseChartBuilder):
                 instances,
                 self.measure_values,
             )
+            if self.color == "Multiple Values":
+                encodings = pane.find("encodings")
+                etree.SubElement(encodings, "color", column=f"[{ds_name}].[Multiple Values]")
+                if self.separate_measure_domains:
+                    for encoding in encodings:
+                        if encoding.get("column") == f"[{ds_name}].[Multiple Values]":
+                            encoding.set("separate-domains", "true")
             # Measure Values owns the columns shelf, but row dimensions still
             # need to be emitted for a genuine text table (for example one
             # row per Sub-Category).

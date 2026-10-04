@@ -63,6 +63,9 @@ class FlexNode:
         self.show_apply = d.get("show_apply")
         self.values = d.get("values")
         self.show_all = d.get("show_all")
+        self.show_slider = d.get("show_slider")
+        if "show_slider" in d and not isinstance(self.show_slider, bool):
+            raise ValueError("filter show_slider must be boolean")
         self.visibility = d.get("visibility")
         self.corner_radius = d.get("corner_radius")
         self.absolute = d.get("absolute")
@@ -504,6 +507,8 @@ def _render_filter(
         if not isinstance(node.show_all, bool):
             raise ValueError("filter show_all must be boolean")
         zone.set("show-all", str(node.show_all).lower())
+    if node.show_slider is not None:
+        zone.set("show-slider", str(node.show_slider).lower())
     if not node.show_title:
         zone.set("show-title", "false")
     if getattr(node, "show_apply", None):
@@ -549,6 +554,8 @@ def validate_set_controls(layout: dict[str, Any], editor) -> None:
     """Reject invalid set controls before replacing an existing dashboard."""
     if layout.get("type") == "set_control":
         _set_control_binding(FlexNode(layout), editor)
+    if "show_slider" in layout and not isinstance(layout["show_slider"], bool):
+        raise ValueError("filter show_slider must be boolean")
     for child in layout.get("children", []):
         validate_set_controls(child, editor)
 

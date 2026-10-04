@@ -9,6 +9,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Independent Measure Values color domains for Text/Square charts and layered
+  panes, with virtual field binding retained through Python, MCP and run-spec
+  (2020 WW45). Filter layout nodes accept boolean `show_slider` (2020 WW42).
+- Explicit `DISCRETE(DAYTRUNC(Date))` and month/quarter/year equivalents retain
+  native ordinal date truncation and domain completion (2020 WW44).
 - Explicit layered chart `sort_mode` selects computed member sorting before
   table calculations or shelf sorting, with existing routing retained by default
   (2020 WW40). Declarative run-spec worksheets also accept `layered` options.
@@ -74,6 +79,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Declare compound tooltip filter members and recursive calculated dependencies
+  on both source and target worksheets, without duplicating bindings (2020 WW45).
+
+- Complete source date domains when the worksheet uses datepart or Attribute
+  instances; expression filter controls retain derived dashboard dependencies
+  (2020 WW42/WW44).
+- Blended Attribute fields use `ATTR`, preserve nominal string measures, and
+  expose Count/CountD results as integer measures (2020 WW46).
 - Preserve native temporal grains in table-calculation addresses and use
   datasource columns for ordinary dimension ordering fields (2020 WW41).
 - Exclude qualified custom parameter references from physical datasource

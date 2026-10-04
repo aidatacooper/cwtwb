@@ -2406,20 +2406,42 @@ class TWBEditor(ParametersMixin, ConnectionsMixin, ChartsMixin, DashboardsMixin)
                 f"pane_index={pane_index} is out of range."
             )
 
-        def resolve_field(expression: str) -> str:
+        def ensure_column(local_name: str, binding, visited: set[str]) -> None:
+            if local_name in visited:
+                return
+            visited.add(local_name)
+            source_column = self._datasource.find(f"column[@name='{local_name}']")
+            if source_column is None:
+                return
+            if binding.find(f"column[@name='{local_name}']") is None:
+                column = copy.deepcopy(source_column)
+                first_instance = binding.find("column-instance")
+                if first_instance is not None:
+                    first_instance.addprevious(column)
+                else:
+                    binding.append(column)
+            calculation = source_column.find("calculation")
+            if calculation is not None:
+                formula = re.sub(
+                    r"\[[^\]]+\]\.\[[^\]]+\]", "", calculation.get("formula", "")
+                )
+                for token in re.findall(r"\[([^\]]+)\]", formula):
+                    try:
+                        dependency = self.field_registry._find_field(token)
+                    except KeyError:
+                        continue
+                    ensure_column(dependency.local_name, binding, visited)
+
+        def resolve_field(expression: str, binding=None) -> str:
+            if binding is None:
+                binding = dependencies
             normalized = self.field_registry.default_view_expression(expression)
             ci = self.field_registry.parse_expression(normalized)
-            source_column = self._datasource.find(
-                f"column[@name='{ci.column_local_name}']"
-            )
-            if source_column is not None and dependencies.find(
-                f"column[@name='{ci.column_local_name}']"
-            ) is None:
-                dependencies.append(copy.deepcopy(source_column))
-            if dependencies.find(
+            ensure_column(ci.column_local_name, binding, set())
+            if binding.find(
                 f"column-instance[@name='{ci.instance_name}']"
             ) is None:
-                instance = etree.SubElement(dependencies, "column-instance")
+                instance = etree.SubElement(binding, "column-instance")
                 instance.set("column", ci.column_local_name)
                 instance.set("derivation", ci.derivation)
                 instance.set("name", ci.instance_name)
@@ -2476,6 +2498,9 @@ class TWBEditor(ParametersMixin, ConnectionsMixin, ChartsMixin, DashboardsMixin)
                 if not isinstance(filter_context, bool):
                     raise ValueError("Tooltip filter_context must be boolean")
                 instances = [resolve_field(field) for field in fields]
+                target_dependencies = target_view.find(f"datasource-dependencies[@datasource='{ds_name}']")
+                for field in fields:
+                    resolve_field(field, target_dependencies)
                 local_names = [self.field_registry.parse_expression(self.field_registry.default_view_expression(f)).column_local_name for f in fields]
                 caption = "Tooltip (" + ",".join(n.strip("[]") for n in local_names) + ")"
                 group_name = f"[{caption}]"

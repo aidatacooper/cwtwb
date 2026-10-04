@@ -54,14 +54,14 @@ def import_blended_field(editor, alias, secondary_datasource, field):
     formula = (
         reference
         if ci.derivation == "User"
-        else f"{ci.derivation.upper()}({reference})"
+        else f"{'ATTR' if ci.derivation == 'Attribute' else ci.derivation.upper()}({reference})"
     )
     editor.add_calculated_field(
         alias,
         formula,
-        datatype=info.datatype,
+        datatype="integer" if ci.derivation in {"Count", "CountD"} else info.datatype,
         role="measure",
-        field_type="quantitative",
+        field_type="quantitative" if ci.derivation in {"Count", "CountD"} else info.field_type,
     )
     # Preserve qualified secondary identities even when the primary has a field
     # with the same display name. Generic unqualified resolution must not rewrite it.

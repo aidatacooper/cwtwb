@@ -129,6 +129,7 @@ CAPABILITY_SPECS: tuple[CapabilitySpec, ...] = (
         canonical="Text",
         aliases=("text table", "kpi", "kpi card"),
         rationale="Required for KPI and text-table workflows in practical dashboards.",
+        notes="Measure-values Text/Square charts support virtual color and separate_measure_domains; layered panes accept the same independent-domain option.",
     ),
     CapabilitySpec(
         key="scatterplot",
@@ -350,7 +351,7 @@ CAPABILITY_SPECS: tuple[CapabilitySpec, ...] = (
         canonical="Filter",
         aliases=("filter zone",),
         rationale="Interactive dashboard control above base sheet placement.",
-        notes='Controls support relevant values and show_all=False; link_worksheet_filters shares existing categorical filters.',
+        notes='Controls support relevant values, show_all=False and show_slider=False; expression filters retain base-column and derived-instance dashboard dependencies.',
     ),
     CapabilitySpec(
         key="paramctrl-zone",

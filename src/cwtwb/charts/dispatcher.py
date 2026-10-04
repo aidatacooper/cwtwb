@@ -152,10 +152,10 @@ def _resolve_support_level(mark_type: str) -> CapabilityLevel | None:
 def profile_chart_request(mark_type: str, *, measure_values_mode: bool = False) -> ChartRouteProfile:
     """Classify a chart request without changing compatibility behavior."""
 
-    if mark_type == "Text":
+    if mark_type == "Text" or (measure_values_mode and mark_type in {"Automatic", "Square"}):
         return ChartRouteProfile(
             requested_mark_type=mark_type,
-            actual_mark_type="Text",
+            actual_mark_type="Square" if mark_type == "Square" else "Text",
             support_level=_resolve_support_level(mark_type),
             route_family="primitive",
             builder_name="text",
@@ -255,10 +255,18 @@ def configure_chart(
     label_runs: Optional[list[dict]] = None,
     label_param: Optional[str] = None,
     sort_field: Optional[str] = None,
+    separate_measure_domains: bool = False,
 ) -> str:
     """Route chart configuration to the correct builder."""
 
     _validate_filter_columns(filters)
+
+    if not isinstance(separate_measure_domains, bool):
+        raise ValueError("separate_measure_domains must be boolean")
+    if separate_measure_domains and (not measure_values or color != "Multiple Values"):
+        raise ValueError("separate_measure_domains requires measure_values and color='Multiple Values'")
+    if color == "Multiple Values" and (not measure_values or mark_type not in {"Text", "Square", "Automatic"}):
+        raise ValueError("Multiple Values color requires a Text, Square or Automatic measure-values chart")
 
     decision = decide_chart_builder(mark_type, measure_values=measure_values)
 
@@ -299,6 +307,8 @@ def configure_chart(
             tooltip,
             filters,
             measure_values,
+            separate_measure_domains=separate_measure_domains,
+            mark_type=decision.actual_mark_type,
             label_extra=label_extra,
             label_runs=label_runs,
             label_param=label_param,

@@ -1,5 +1,55 @@
 # Case-driven SDK enhancements
 
+## 2020 WW42-46: date domains, filter controls and independent colors
+
+WW42's Strava calendar uses a compact year slider with the track hidden. A filter
+layout node accepts boolean `show_slider=False`, emitting native `show-slider`;
+omitting it preserves the default. Invalid values fail before replacing a
+dashboard. The same case exposed missing dashboard dependencies for expressions
+such as `YEAR(Date)`: filter dependencies now include the resolved base column
+and the actual year instance, rather than looking up an expression as a column.
+
+WW44 completes a source date domain while Year, Quarter, Month and Day instances
+are on the shelves. `configure_worksheet_domain_range` now recognizes those
+used date instances and Attribute dates from the same source column. Unused
+fields, nondate fields and unrelated numeric aggregation remain invalid. The
+public method and native base-date reference are unchanged.
+The same case's complete diagnostic date table needs discrete date truncation,
+not a calculated date alias: `DISCRETE(DAYTRUNC(Order Date))` preserves the native
+Day-Trunc derivation with an ordinal instance. The wrapper also supports month,
+quarter and year truncation, while unwrapped truncations remain continuous.
+Synthetic checks cover shelves, calculation addressing and base-date completion.
+
+WW45 colors Profit independently from its Orders and Sales table measures:
+
+```python
+editor.configure_chart("Metrics", mark_type="Square", rows=["Group"],
+    measure_values=["COUNT(ID)", "SUM(Sales)", "SUM(Profit)"],
+    color="Multiple Values", separate_measure_domains=True)
+```
+
+The virtual field is not added as a physical datasource column. Native color
+and text bindings share `separate-domains="true"`, while existing detail,
+tooltip and color bindings survive Measure Values setup. Square marks retain
+their class; Automatic measure tables use Text. Each measure's palette remains
+configured by the existing worksheet `color_style`. Layered pane dictionaries
+accept the same option. Python, MCP and declarative run-spec forward the public
+flag, and invalid types or missing measure/color bindings fail before mutation.
+Compound viz-in-tooltip filters also register every member on both source and
+target worksheets, including recursive calculated-field dependencies. A
+synthetic two-level calculated member verifies declaration order and idempotency;
+native contracts establish tooltip behavior without claiming a hover execution.
+
+WW46 imports an opponent name from an independent match datasource.
+`import_blended_field(..., "ATTR(Opponent)")` now emits Tableau's `ATTR` function
+instead of invalid `ATTRIBUTE`. String measures retain nominal metadata, while
+Count and CountD proxies use integer quantitative metadata. Synthetic Hyper
+fixtures cover all four aggregates, native blending and packaged saves.
+
+These enhancements have no author data in their regression fixtures. WW43's
+narrow KPI layout reuses existing parameter actions and native zone visibility;
+its default REST rendering does not establish mobile-browser interaction.
+
 ## 2020 WW30–41: controls, compound tooltips and native date grains
 
 The ten articles in this batch represent WW30, WW31, WW32, WW33 and WW36–41.

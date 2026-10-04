@@ -639,21 +639,29 @@ def apply_measure_values(
     # one aggregate instead of one row per dimension member.
 
     old_enc = pane.find("encodings")
-    if old_enc is not None:
-        pane.remove(old_enc)
-
-    enc_el = etree.Element("encodings")
+    enc_el = old_enc if old_enc is not None else etree.Element("encodings")
+    for old in list(enc_el.findall("text")):
+        if old.get("column") == f"[{ds_name}].[Multiple Values]":
+            enc_el.remove(old)
     text_el = etree.SubElement(enc_el, "text")
     text_el.set("column", f"[{ds_name}].[Multiple Values]")
     customized_label = pane.find("customized-label")
-    if customized_label is not None and "[:Measure Names]" in etree.tostring(customized_label, encoding="unicode"):
+    if (
+        customized_label is not None
+        and "[:Measure Names]" in etree.tostring(customized_label, encoding="unicode")
+        and not any(
+            e.get("column") == f"[{ds_name}].[:Measure Names]"
+            for e in enc_el.findall("text")
+        )
+    ):
         etree.SubElement(enc_el, "text", column=f"[{ds_name}].[:Measure Names]")
 
     style_el = pane.find("style")
-    if style_el is not None:
-        style_el.addprevious(enc_el)
-    else:
-        pane.append(enc_el)
+    if old_enc is None:
+        if style_el is not None:
+            style_el.addprevious(enc_el)
+        else:
+            pane.append(enc_el)
 
     user_ns = "{http://www.tableausoftware.com/xml/user}"
     measure_refs: list[str] = []

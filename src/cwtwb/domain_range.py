@@ -24,10 +24,30 @@ def configure_worksheet_domain_range(
         dependencies = table.find(
             f"view/datasource-dependencies[@datasource='{ds_name}']"
         )
-        if (
-            dependencies is None
-            or dependencies.find(f"column-instance[@name='{ci.instance_name}']") is None
-        ):
+        # Tableau completes the source date domain even when a discrete
+        # datepart, rather than an exact date, is used on the shelves.
+        # Numeric aggregations of a date are not domain-completion evidence.
+        date_derivations = {
+            "None",
+            "Attribute",
+            "Year",
+            "Quarter",
+            "Month",
+            "Week",
+            "Weekday",
+            "Day",
+            "MY",
+            "Day-Trunc",
+            "Month-Trunc",
+            "Quarter-Trunc",
+            "Year-Trunc",
+        }
+        used_date = dependencies is not None and any(
+            instance.get("column") == ci.column_local_name
+            and instance.get("derivation") in date_derivations
+            for instance in dependencies.findall("column-instance")
+        )
+        if not used_date:
             raise ValueError(f"Field '{field}' must be present in the worksheet view.")
         ref = f"[{ds_name}].{ci.column_local_name}"
         if ref not in refs:
