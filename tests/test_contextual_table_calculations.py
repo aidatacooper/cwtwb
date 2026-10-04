@@ -127,3 +127,49 @@ def test_mcp_and_run_spec_forward_context_flag(monkeypatch):
     tools_workbook.configure_layered_chart("Map", **options)
     _apply_worksheets(e, {"worksheets": [{"name": "Map", "layered": options}]})
     assert e.root.find(".//encodings/color").get("column").endswith(":1]")
+
+
+def test_different_worksheet_contexts_do_not_collide_when_dashboard_merges_dependencies(
+    tmp_path,
+):
+    e = editor()
+    e.add_calculated_field(
+        "Region", "'R'", datatype="string", role="dimension", field_type="nominal"
+    )
+    e.add_worksheet("Table")
+    for sheet, dimension in [("Map", "District"), ("Table", "Region")]:
+        options = {
+            "panes": [
+                {"mark_type": "Circle", "detail": dimension, "color": "Percentile"}
+            ],
+            "table_calc_context": True,
+            "table_calc_overrides": {
+                "Percentile": [{"ordering_type": "Field", "order": [dimension]}]
+            },
+        }
+        e.configure_layered_chart(sheet, **options)
+        e.configure_layered_chart(sheet, **options)
+    names = [
+        e.root.find(
+            f"worksheets/worksheet[@name='{sheet}']/table/panes/pane/encodings/color"
+        ).get("column")
+        for sheet in ["Map", "Table"]
+    ]
+    assert names[0].endswith(":1]") and names[1].endswith(":2]")
+    e.add_dashboard(
+        "Both",
+        width=400,
+        height=300,
+        layout={
+            "type": "vertical",
+            "children": [
+                {"type": "worksheet", "name": sheet} for sheet in ["Map", "Table"]
+            ],
+        },
+    )
+    instances = e.root.findall(
+        "worksheets/worksheet/table/view/datasource-dependencies/column-instance"
+    )
+    for name in names:
+        assert any(name.endswith("." + ci.get("name")) for ci in instances)
+    e.save(str(tmp_path / "merged-contexts.twb"))

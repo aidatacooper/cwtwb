@@ -13,6 +13,7 @@ from copy import deepcopy
 from dataclasses import replace
 import math
 import json
+import re
 
 from lxml import etree
 
@@ -462,7 +463,14 @@ class LayeredChartBuilder(BaseChartBuilder):
                 if instance is None:
                     raise ValueError(f"Could not resolve table-calc override field: {expression}")
                 if instance.instance_name not in contextual:
-                    contextual[instance.instance_name] = replace(instance, instance_name=instance.instance_name[:-1] + f":{len(contextual) + 1}]")
+                    pattern = re.compile(re.escape(instance.instance_name[:-1]) + r":(\d+)\]")
+                    owned = [ci.get("name") for ci in view.findall("datasource-dependencies/column-instance") if pattern.fullmatch(ci.get("name", ""))]
+                    if owned:
+                        name = owned[0]
+                    else:
+                        used = [int(match.group(1)) for ci in self.root.findall(".//column-instance") if (match := pattern.fullmatch(ci.get("name", ""))) is not None]
+                        name = instance.instance_name[:-1] + f":{max(used, default=0) + 1}]"
+                    contextual[instance.instance_name] = replace(instance, instance_name=name)
             instances = {key: contextual.get(instance.instance_name, instance) for key, instance in instances.items()}
         self._setup_datasource_dependencies(view, ds_name, instances, expressions)
         geographic = any(pane.get("geometry") in _GENERATED_FIELDS for pane in self.panes) or any(expr in _GENERATED_FIELDS for expr in self.columns + self.rows)

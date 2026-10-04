@@ -30,6 +30,10 @@ geographic metadata and single-pane changes did not. Layered charts now accept
 `table_calc_context=True` with explicit `table_calc_overrides` to declare local
 instances without requiring caller-written native identifiers. Mark bindings,
 label fields, worksheet styles and dashboard legends reuse those identities.
+Context identities are distinct across worksheets in a workbook, so different
+addressing of the same calculation cannot collide. Rebuilding a worksheet keeps
+its existing context identity. A two-worksheet synthetic regression protects
+the different addressing alongside dashboard composition.
 Synthetic fixtures cover both normal and Measure Values encodings, idempotency,
 valid saves, MCP/run-spec forwarding and invalid options before mutation.
 
