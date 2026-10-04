@@ -2,6 +2,7 @@
 
 import pytest
 from lxml import etree
+
 from cwtwb import TWBEditor
 
 

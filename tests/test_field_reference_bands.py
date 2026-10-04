@@ -2,6 +2,7 @@
 
 import pytest
 from lxml import etree
+
 from cwtwb import TWBEditor
 
 
@@ -25,9 +26,11 @@ def editor():
 
 
 def band(e, **changes):
-    options = dict(
-        axis_field="SUM(Value)", lower_field="AGG(Lower)", upper_field="AGG(Upper)"
-    )
+    options = {
+        "axis_field": "SUM(Value)",
+        "lower_field": "AGG(Lower)",
+        "upper_field": "AGG(Upper)",
+    }
     options.update(changes)
     return e.add_reference_band("Plot", **options)
 
