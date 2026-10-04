@@ -9,6 +9,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Explicit layered chart `sort_mode` selects computed member sorting before
+  table calculations or shelf sorting, with existing routing retained by default
+  (2020 WW40). Declarative run-spec worksheets also accept `layered` options.
+- Explicit worksheet table calculation contexts consistently bind mark encodings,
+  label range fields, styles and dashboard legends to native local instances (2020 WW36).
 - Native set membership dropdowns, compound viz-in-tooltip filters with optional
   context filtering, and positive-integer stepped color palettes (2020 WW31/WW36/WW38).
 - Custom Phone/Tablet layouts preserving default zone geometry and identities,
@@ -69,6 +74,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Exclude qualified custom parameter references from physical datasource
+  dependency scanning, including arbitrary public internal IDs (2020 WW41).
 - Reject malformed chart filter dictionaries before replacing a worksheet,
   preventing silently omitted requested filters (2020 WW30–33).
 - Resolve label min/max range fields to native qualified instances in worksheet

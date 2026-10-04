@@ -427,7 +427,9 @@ def configure_layered_chart(
     hide_axes: bool = False,
     sort_descending: Optional[str] = None,
     table_calc_overrides: Optional[dict[str, list[dict]]] = None,
+    table_calc_context: bool = False,
     sort_field: Optional[str] = None,
+    sort_mode: str = "auto",
     filters: Optional[list[dict]] = None,
 ) -> str:
     """Build an explicitly declared multi-pane worksheet."""
@@ -448,6 +450,8 @@ def configure_layered_chart(
         hide_axes=hide_axes,
         sort_descending=sort_descending,
         sort_field=sort_field,
+        sort_mode=sort_mode,
         filters=filters,
         table_calc_overrides=table_calc_overrides,
+        table_calc_context=table_calc_context,
     ).build()

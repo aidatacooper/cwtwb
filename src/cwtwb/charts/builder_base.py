@@ -356,15 +356,17 @@ class BaseChartBuilder:
             if calc_el is None:
                 continue
             formula = calc_el.get("formula", "")
-            referenced_names = _re.findall(r"\[([^\]]+)\]", formula)
+            # Parameter references belong to their own datasource, including
+            # public custom internal names. Do not invent physical dependencies
+            # from the second token of a qualified parameter reference.
+            data_formula = _re.sub(r"\[Parameters\]\.\[[^\]]+\]", "", formula)
+            referenced_names = _re.findall(r"\[([^\]]+)\]", data_formula)
             source_column = calc_el.get("column", "")
             if source_column.startswith("[") and source_column.endswith("]"):
                 referenced_names.append(source_column[1:-1])
             for ref_name in referenced_names:
                 local_ref = f"[{ref_name}]"
                 if local_ref in seen_columns:
-                    continue
-                if ref_name.startswith("Parameter ") or ref_name == "Parameters":
                     continue
                 raw_col = self._datasource.find(f"column[@name='{local_ref}']")
                 if raw_col is None:

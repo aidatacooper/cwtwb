@@ -106,6 +106,8 @@ def _apply_worksheets(editor, spec: dict[str, Any]) -> list[str]:
                     auto_ensure_prerequisites=item.get("auto_ensure_prerequisites", True),
                 )
             )
+        elif item.get("layered"):
+            messages.append(editor.configure_layered_chart(worksheet_name=name, **item["layered"]))
         elif item.get("dual_axis"):
             dual = item["dual_axis"]
             messages.append(editor.configure_dual_axis(worksheet_name=name, **dual))

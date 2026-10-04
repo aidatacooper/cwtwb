@@ -624,7 +624,20 @@ def _render_color(
         field_registry = context["field_registry"]
         try:
             ci = field_registry.parse_expression(node.field)
-            zone.set("param", field_registry.resolve_full_reference(ci.instance_name))
+            reference = field_registry.resolve_full_reference(ci.instance_name)
+            editor = context.get("editor")
+            if editor is not None and node.worksheet:
+                worksheet = editor._find_worksheet(node.worksheet)
+                panes = worksheet.findall("table/panes/pane")
+                if node.pane_index is not None:
+                    panes = [pane for pane in panes if pane.get("id") == str(node.pane_index)]
+                for pane in panes:
+                    for encoding in pane.findall(f"encodings/{node.type}"):
+                        candidate = encoding.get("column", "")
+                        if candidate == reference or candidate.startswith(reference[:-1] + ":"):
+                            reference = candidate
+                            break
+            zone.set("param", reference)
         except (KeyError, ValueError) as exc:
             logger.warning("Failed to resolve color field '%s': %s", node.field, exc)
             zone.set("param", node.field)

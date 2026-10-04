@@ -198,7 +198,9 @@ class ChartsMixin:
         hide_axes: bool = False,
         sort_descending: Optional[str] = None,
         table_calc_overrides: Optional[dict[str, list[dict]]] = None,
+        table_calc_context: bool = False,
         sort_field: Optional[str] = None,
+        sort_mode: str = "auto",
         filters: Optional[list[dict]] = None,
     ) -> str:
         """Configure panes with encodings, sorting, and native trendline/style dictionaries."""
@@ -215,8 +217,10 @@ class ChartsMixin:
             hide_axes=hide_axes,
             sort_descending=sort_descending,
             sort_field=sort_field,
+            sort_mode=sort_mode,
             filters=filters,
             table_calc_overrides=table_calc_overrides,
+            table_calc_context=table_calc_context,
         )
 
     def _set_parameter_axis_title(self, worksheet, reference, parameter, scope, duplicate_index):
@@ -321,6 +325,8 @@ class ChartsMixin:
             dependencies = table.find("view/datasource-dependencies[@datasource='%s']" % self._datasource.get("name", ""))
             if dependencies is not None:
                 for existing in dependencies.findall("column-instance"):
+                    if existing.get("column") == instance.column_local_name and existing.get("name", "").startswith(instance.instance_name[:-1] + ":"):
+                        return self.field_registry.resolve_full_reference(existing.get("name"))
                     if existing.get("column") == instance.column_local_name and existing.get("visual-totals"):
                         return self.field_registry.resolve_full_reference(existing.get("name"))
             return self.field_registry.resolve_full_reference(instance.instance_name)

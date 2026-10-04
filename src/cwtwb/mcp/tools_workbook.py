@@ -691,10 +691,18 @@ def configure_layered_chart(
     hide_axes: bool = False,
     sort_descending: str | None = None,
     table_calc_overrides: dict[str, list[dict]] | None = None,
+    table_calc_context: bool = False,
     sort_field: Optional[str] = None,
+    sort_mode: str = "auto",
     filters: Optional[list[dict]] = None,
 ) -> str:
-    """Build layered panes with encodings, ordered values, sorting and native trendline/style dictionaries."""
+    """Build layered panes with encodings, ordered values and native styles.
+
+    sort_mode='computed' orders dimension members before table calculations;
+    'shelf' explicitly selects shelf sorting, and 'auto' retains default routing.
+    table_calc_context gives explicit overrides a local native instance identity,
+    including map calculations whose dimensions live on mark detail shelves.
+    """
 
     result = get_editor().configure_layered_chart(
         worksheet_name=worksheet_name,
@@ -707,8 +715,10 @@ def configure_layered_chart(
         hide_axes=hide_axes,
         sort_descending=sort_descending,
         sort_field=sort_field,
+        sort_mode=sort_mode,
         filters=filters,
         table_calc_overrides=table_calc_overrides,
+        table_calc_context=table_calc_context,
     )
     return result + _skill_hint("configure_layered_chart")
 

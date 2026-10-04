@@ -22,6 +22,17 @@ Invalid set references, worksheets and modes fail before an existing dashboard
 is replaced. Synthetic tests retain explicit members and validate packaged XML.
 REST parameter/filter exports do not execute set membership selection.
 
+The county map also exposed an executed calculation failure: unsuffixed native
+instances fell back to datasource addressing and rendered Alaska/Hawaii county
+percentiles as 100%. Independent Cloud diagnostic exports held the input and
+formulas fixed: a local calculation instance restored all 34 county ranks;
+geographic metadata and single-pane changes did not. Layered charts now accept
+`table_calc_context=True` with explicit `table_calc_overrides` to declare local
+instances without requiring caller-written native identifiers. Mark bindings,
+label fields, worksheet styles and dashboard legends reuse those identities.
+Synthetic fixtures cover both normal and Measure Values encodings, idempotency,
+valid saves, MCP/run-spec forwarding and invalid options before mutation.
+
 WW38 requires a stepped sequential color scale. Worksheet `color_style` accepts
 `num_steps` (or native `num-steps`) as a positive integer for custom or named
 interpolated palettes. Invalid boolean, null, fractional and nonpositive values
@@ -49,11 +60,29 @@ Layered styles declare the required dependency even when the range field differs
 from the axis. Synthetic fixtures cover both pane-style collection forms,
 aggregate calculations, idempotency and unknown-field rejection.
 
+WW41 also produced entirely empty Cloud views when a supported custom parameter
+internal ID was misclassified as a physical datasource column. Dependency
+scanning now excludes qualified `[Parameters].[CustomID]` tokens rather than
+assuming names start with `Parameter `. Parameter dependencies remain in the
+Parameters datasource. Synthetic basic, dual-axis and layered fixtures cover
+custom IDs referenced through multiple aggregate calculations.
+
 WW30–33 also exposed misspelled filter dictionaries being silently omitted.
 Chart dispatch now requires each filter to have a nonempty `column` expression
 before any builder replaces the worksheet. The regression covers standard,
 dual-axis and layered APIs, retains an existing worksheet on invalid input,
 and verifies a valid native filter and MCP error propagation.
+
+WW40 exposed a meaningful order-of-operations issue: shelf sorting made the NFL
+table readable but INDEX pagination selected the wrong player members on later
+pages. `configure_layered_chart(..., sort_field="Member",
+sort_descending="SUM(Metric)", sort_mode="computed")` emits native member
+sorting before table calculation filtering, even when the member is on the row
+shelf. `auto` preserves existing routing; `shelf` selects shelf sorting explicitly.
+Competing sort entries for the same dimension are removed on updates.
+Synthetic nested-row tests cover native ordering, pagination filters, valid
+saves, repeated calls, mode changes and invalid options before mutation. MCP and
+run-spec's `layered` worksheet configuration forward the same public arguments.
 
 ## 2020 WW25–29: assets, fiscal dates and independent logical tables
 

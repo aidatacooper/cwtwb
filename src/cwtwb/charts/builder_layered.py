@@ -10,6 +10,7 @@ from __future__ import annotations
 
 from typing import Any, Optional
 from copy import deepcopy
+from dataclasses import replace
 import math
 import json
 
@@ -42,10 +43,12 @@ class LayeredChartBuilder(BaseChartBuilder):
         hide_axes: bool = False,
         sort_descending: Optional[str] = None,
         sort_field: Optional[str] = None,
+        sort_mode: str = "auto",
         filters: Optional[list[dict]] = None,
         table_calc_overrides: Optional[
             dict[str, list[dict[str, Any]]]
         ] = None,
+        table_calc_context: bool = False,
     ) -> None:
         super().__init__(editor)
         self.worksheet_name = worksheet_name
@@ -60,8 +63,18 @@ class LayeredChartBuilder(BaseChartBuilder):
         self.hide_axes = hide_axes
         self.sort_descending = sort_descending
         self.sort_field = sort_field
+        if sort_mode not in {"auto", "computed", "shelf"}:
+            raise ValueError("sort_mode must be auto, computed or shelf")
+        if sort_mode != "auto" and (not sort_field or not sort_descending):
+            raise ValueError("Explicit sort_mode requires sort_field and sort_descending")
+        self.sort_mode = sort_mode
         self.filters = filters or []
         self.table_calc_overrides = table_calc_overrides or {}
+        if not isinstance(table_calc_context, bool):
+            raise ValueError("table_calc_context must be boolean")
+        if table_calc_context and not self.table_calc_overrides:
+            raise ValueError("table_calc_context requires explicit table_calc_overrides")
+        self.table_calc_context = table_calc_context
 
     @staticmethod
     def _is_special(expression: Optional[str]) -> bool:
@@ -442,6 +455,15 @@ class LayeredChartBuilder(BaseChartBuilder):
                 expressions,
                 pane_spec.get("tooltip"),
             )
+        if self.table_calc_context:
+            contextual = {}
+            for expression in self.table_calc_overrides:
+                instance = self._instance_for_expression(instances, expression)
+                if instance is None:
+                    raise ValueError(f"Could not resolve table-calc override field: {expression}")
+                if instance.instance_name not in contextual:
+                    contextual[instance.instance_name] = replace(instance, instance_name=instance.instance_name[:-1] + f":{len(contextual) + 1}]")
+            instances = {key: contextual.get(instance.instance_name, instance) for key, instance in instances.items()}
         self._setup_datasource_dependencies(view, ds_name, instances, expressions)
         geographic = any(pane.get("geometry") in _GENERATED_FIELDS for pane in self.panes) or any(expr in _GENERATED_FIELDS for expr in self.columns + self.rows)
         if geographic:
@@ -453,7 +475,18 @@ class LayeredChartBuilder(BaseChartBuilder):
         if self.sort_descending:
             row_instances = [self._instance_for_expression(instances, expression) for expression in self.rows]
             sort_instance = self._instance_for_expression(instances, self.sort_field) if self.sort_field else None
-            if sort_instance is not None and not any(instance and instance.instance_name == sort_instance.instance_name for instance in row_instances):
+            if sort_instance is not None:
+                reference = self.field_registry.resolve_full_reference(sort_instance.instance_name)
+                for old in list(view.findall("computed-sort")):
+                    if old.get("column") == reference:
+                        view.remove(old)
+                for container in list(view.findall("shelf-sorts")):
+                    for old in list(container):
+                        if old.get("dimension-to-sort") == reference:
+                            container.remove(old)
+                    if not len(container):
+                        view.remove(container)
+            if sort_instance is not None and (self.sort_mode == "computed" or (self.sort_mode == "auto" and not any(instance and instance.instance_name == sort_instance.instance_name for instance in row_instances))):
                 if sort_instance.ci_type not in {"nominal", "ordinal"}:
                     raise ValueError("sort_field must identify a dimension")
                 measure = self._instance_for_expression(instances, self.sort_descending)
