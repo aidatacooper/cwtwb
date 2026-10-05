@@ -948,3 +948,24 @@ and unchanged nesting for ordinary tiled or nonabsolute flow containers.
 
 Native show/hide buttons accept the elevated dedicated flow container while
 continuing to reject the dashboard tiled root and incomplete target sheet lists.
+
+
+## 2021 WW10: measure values on primitive marks
+
+The WW10 case binds two measures to a Bar chart through `measure_values=[...]`,
+which is documented for Text/Square KPI sheets. Two defects surfaced. First, a
+literal `color="Measure Names"` resolved through the ordinary field path and
+registered a physical `[Measure Names]` datasource column; Tableau could not
+resolve that color encoding and rendered the worksheet empty. Virtual
+`Measure Names` / `Multiple Values` references now resolve to
+`[:Measure Names]` / `[Multiple Values]` without touching the datasource.
+
+Second, `configure_chart` accepted `measure_values` and then dropped it when
+routing to `BasicChartBuilder` for Bar/Line/Circle/Square. The worksheet kept a
+Measure Names color but had no measure on either shelf. The basic builder now
+places the requested measures on the dimension-free shelf and colors by the
+virtual Measure Names, producing the native one-mark-per-measure view. An
+explicit measure shelf is preserved and merged rather than replaced. Synthetic
+regressions cover the two-measure Bar shape, the dimension-free shelf choice,
+the virtual color reference, the absence of a physical Measure Names column, and
+the unchanged Multiple Values guard for unsupported marks.

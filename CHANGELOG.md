@@ -9,6 +9,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Virtual Measure Names resolves to the native `[:Measure Names]` field instead
+  of registering a physical column, so a Measure Names color encoding renders
+  (2021 WW10).
+
+- `configure_chart` honors `measure_values` on Bar/Line/Circle/Square marks by
+  binding the requested measures to the dimension-free shelf with a native
+  Measure Names color, instead of silently dropping the request and rendering an
+  empty view (2021 WW10).
+
 - Categorical filters serialize null members as the native null token instead
   of a string (2021 WW07).
 

@@ -153,6 +153,10 @@ class BaseChartBuilder:
         """Parse expressions into ColumnInstances and normalize filter-side types."""
         instances: dict[str, ColumnInstance] = {}
         for expr in all_exprs:
+            virtual = self._virtual_instance(expr)
+            if virtual is not None:
+                instances[expr] = virtual
+                continue
             normalized_expr = self.field_registry.default_view_expression(expr)
             ci = self.field_registry.parse_expression(normalized_expr)
             instances[expr] = ci
@@ -192,6 +196,33 @@ class BaseChartBuilder:
         normalized = self.field_registry.default_view_expression(text)
         if normalized != text:
             return instances.get(normalized)
+        return None
+
+    def _virtual_instance(self, expr: Optional[str]) -> ColumnInstance | None:
+        """Resolve Tableau's virtual Measure Names / Multiple Values fields.
+
+        These are not physical datasource columns.  Treating them as ordinary
+        fields registers a bogus ``[Measure Names]`` column and emits an
+        encoding Tableau cannot resolve, which renders the worksheet blank.
+        """
+
+        text = str(expr or "").strip().strip("[]")
+        if text in {":Measure Names", "Measure Names"}:
+            return ColumnInstance(
+                column_local_name="[:Measure Names]",
+                derivation="None",
+                instance_name="[:Measure Names]",
+                ci_type="nominal",
+                is_direct=True,
+            )
+        if text in {"Multiple Values", "Measure Values"}:
+            return ColumnInstance(
+                column_local_name="[Multiple Values]",
+                derivation="None",
+                instance_name="[Multiple Values]",
+                ci_type="quantitative",
+                is_direct=True,
+            )
         return None
 
     def _tooltip_instance_for_expression(self, expr: Optional[str]) -> Optional[ColumnInstance]:
@@ -298,11 +329,19 @@ class BaseChartBuilder:
         for expr, ci in instances.items():
             if ci.column_local_name not in seen_columns:
                 seen_columns.add(ci.column_local_name)
-                try:
-                    fi = self.field_registry._find_field(ci.column_local_name)
-                except (KeyError, ValueError):
-                    fi = self.field_registry._find_field(expr.split("(")[-1].rstrip(")").strip() if "(" in expr else expr.strip())
-                if fi.calculation_class == "set":
+                if ci.column_local_name in {"[:Measure Names]", "[Multiple Values]"}:
+                    # Virtual fields have no physical datasource column; Tableau
+                    # resolves them from the view instance alone.
+                    col_el = None
+                    fi = None
+                else:
+                    try:
+                        fi = self.field_registry._find_field(ci.column_local_name)
+                    except (KeyError, ValueError):
+                        fi = self.field_registry._find_field(expr.split("(")[-1].rstrip(")").strip() if "(" in expr else expr.strip())
+                if fi is None:
+                    col_el = None
+                elif fi.calculation_class == "set":
                     col_el = None
                 elif fi.is_calculated:
                     src_col = self._datasource.find(f"column[@name='{fi.local_name}']")
@@ -752,7 +791,7 @@ class BaseChartBuilder:
                 encoded_columns.add(column)
 
             if color:
-                color_ci = self._instance_for_expression(instances, color)
+                color_ci = self._virtual_instance(color) or self._instance_for_expression(instances, color)
                 if color_ci is not None:
                     add_encoding("color", color_ci)
 
@@ -767,7 +806,7 @@ class BaseChartBuilder:
                     add_encoding("size", size_ci)
 
             if label:
-                label_ci = self._instance_for_expression(instances, label)
+                label_ci = self._virtual_instance(label) or self._instance_for_expression(instances, label)
                 if label_ci is not None:
                     add_encoding("text", label_ci)
 
@@ -1059,7 +1098,8 @@ class BasicChartBuilder(BaseChartBuilder):
                  label_extra: Optional[list[str]] = None,
                  label_runs: Optional[list[dict]] = None,
                  table_calc_overrides: Optional[dict[str, list[dict]]] = None,
-                 sort_field: Optional[str] = None) -> None:
+                 sort_field: Optional[str] = None,
+                 measure_values: Optional[list[str]] = None) -> None:
         """Capture chart configuration for one single-pane worksheet mutation."""
         super().__init__(editor)
         self.worksheet_name = worksheet_name
@@ -1082,6 +1122,70 @@ class BasicChartBuilder(BaseChartBuilder):
         self.label_extra = label_extra or []
         self.label_runs = label_runs or []
         self.table_calc_overrides = table_calc_overrides or {}
+        self.measure_values = measure_values or []
+
+    def _apply_measure_values_on_shelves(
+        self,
+        table: etree._Element,
+        pane: etree._Element,
+        ds_name: str,
+        instances: dict[str, ColumnInstance],
+        measure_values: list[str],
+        mark_type: str,
+    ) -> None:
+        """Render a measure-values request on a primitive mark.
+
+        Tableau has no single Measure Values shelf for Bar/Line/Circle marks.
+        The native equivalent is to place each requested measure on the
+        dimension-free shelf and color by the virtual Measure Names, which
+        produces one bar per measure.  ``measure_values`` was previously
+        accepted and then dropped for these marks, leaving a broken worksheet.
+        """
+
+        refs: list[str] = []
+        for expression in measure_values:
+            ci = self._instance_for_expression(instances, expression)
+            if ci is not None:
+                refs.append(self.field_registry.resolve_full_reference(ci.instance_name))
+        if not refs:
+            return
+
+        dimension_shelf = "rows" if self.rows else "cols"
+        measure_shelf = "cols" if dimension_shelf == "rows" else "rows"
+        shelf_el = table.find(measure_shelf)
+        if shelf_el is None:
+            shelf_el = etree.SubElement(table, measure_shelf)
+        existing = [part.strip() for part in (shelf_el.text or "").split("+") if part.strip()]
+        for ref in refs:
+            if ref not in existing:
+                existing.append(ref)
+        shelf_el.text = " + ".join(existing)
+
+        encodings = pane.find("encodings")
+        if encodings is None:
+            encodings = etree.Element("encodings")
+            mark_el = pane.find("mark")
+            if mark_el is not None:
+                mark_el.addnext(encodings)
+            else:
+                pane.append(encodings)
+        if encodings.find("color") is None:
+            etree.SubElement(encodings, "color", column=f"[{ds_name}].[:Measure Names]")
+
+        view = table.find("view")
+        if view is None:
+            return
+        slices = view.find("slices")
+        if slices is None:
+            slices = etree.Element("slices")
+            anchor = view.find("aggregation")
+            if anchor is not None:
+                anchor.addprevious(slices)
+            else:
+                view.append(slices)
+        measure_names_ref = f"[{ds_name}].[:Measure Names]"
+        if not any((column.text or "").strip() == measure_names_ref for column in slices.findall("column")):
+            etree.SubElement(slices, "column").text = measure_names_ref
 
     def build(self) -> str:
         """Create/update worksheet XML for a standard single-pane chart."""
@@ -1102,7 +1206,7 @@ class BasicChartBuilder(BaseChartBuilder):
 
         all_exprs = self._gather_expressions(
             columns, rows, self.color, self.size, self.label, self.detail, None,
-            self.sort_descending, self.tooltip, self.filters, None, None
+            self.sort_descending, self.tooltip, self.filters, None, self.measure_values
         )
         for extra_field in self.label_extra:
             if extra_field not in all_exprs:
@@ -1204,6 +1308,16 @@ class BasicChartBuilder(BaseChartBuilder):
         cols_el = table.find("cols")
         if cols_el is not None:
             cols_el.text = self.editor._build_dimension_shelf(instances, columns) if columns else None
+
+        # A measure-values request on a primitive mark (Bar/Line/Circle/...) has
+        # no Measure Values encoding of its own.  Tableau's native pattern is to
+        # bind the requested measures to the dimension-free shelf and color by
+        # the virtual Measure Names, producing one mark per measure.  This runs
+        # after the shelf text above so the measure shelf is not overwritten.
+        if self.measure_values:
+            self._apply_measure_values_on_shelves(
+                table, pane, ds_name, instances, self.measure_values, mark_type
+            )
 
         if self.sort_descending:
              self._add_shelf_sort(view, ds_name, instances, rows, self.sort_descending, self.sort_field)

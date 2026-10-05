@@ -364,6 +364,7 @@ def configure_chart(
         label_runs=label_runs,
         table_calc_overrides=table_calc_overrides,
         sort_field=sort_field,
+        measure_values=measure_values,
     )
     return builder.build()
 
