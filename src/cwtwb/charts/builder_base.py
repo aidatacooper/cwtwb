@@ -1653,7 +1653,8 @@ class MapChartBuilder(BaseChartBuilder):
                  map_fields: Optional[list[str]] = None,
                  filters: Optional[list[dict]] = None,
                  map_layers: Optional[list[dict]] = None,
-                 map_partition: Optional[str] = None) -> None:
+                 map_partition: Optional[str] = None,
+                 map_layer_mode: str = "overlay") -> None:
         """Capture map-specific encodings and layer settings."""
         super().__init__(editor)
         self.worksheet_name = worksheet_name
@@ -1667,7 +1668,19 @@ class MapChartBuilder(BaseChartBuilder):
         self.map_fields = map_fields
         self.filters = filters
         self.map_layers = map_layers
+        if map_layer_mode not in {"overlay", "native"}:
+            raise ValueError("map_layer_mode must be overlay or native")
+        if map_layer_mode == "native" and (not map_layers or map_partition):
+            raise ValueError("Native map layers require map_layers and no map_partition")
+        self.map_layer_mode = map_layer_mode
         for layer in map_layers or []:
+            if not isinstance(layer, dict):
+                raise TypeError("Map layers must be dictionaries")
+            values = layer.get("measure_values", [])
+            if not isinstance(values, list) or not all(isinstance(v, str) and v for v in values):
+                raise ValueError("Map layer measure_values must be a list of expressions")
+            if layer.get("wedge_size") in {"Multiple Values", "Measure Values"} and not values:
+                raise ValueError("Multiple Values wedge_size requires measure_values")
             for option in ("inert",):
                 if option in layer and not isinstance(layer[option], bool):
                     raise ValueError(f"Map layer {option} must be boolean")
@@ -1697,7 +1710,9 @@ class MapChartBuilder(BaseChartBuilder):
         self._add_tooltip_instances(instances, all_exprs, tooltip_for_deps)
         self._setup_datasource_dependencies(view, ds_name, instances, all_exprs)
 
-        if self.map_layers:
+        if self.map_layers and self.map_layer_mode == "native":
+            self._build_native_layers(table, ds_name, instances)
+        elif self.map_layers:
             self._build_multi_layer(table, ds_name, instances)
         else:
             self._build_single_layer(table, ds_name, instances)
@@ -1710,7 +1725,7 @@ class MapChartBuilder(BaseChartBuilder):
         cols_el = table.find("cols")
         if cols_el is not None:
             longitude = f"[{ds_name}].[Longitude (generated)]"
-            if self.map_layers:
+            if self.map_layers and self.map_layer_mode == "overlay":
                 axes = " + ".join(longitude for _ in self.map_layers)
                 if self.map_partition:
                     partition_ci = instances.get(self.map_partition)
@@ -1732,7 +1747,7 @@ class MapChartBuilder(BaseChartBuilder):
             self._add_filters(view, instances, self.filters)
 
         self.editor._setup_table_style(table, "Map")
-        if self.map_layers and len(self.map_layers) > 1:
+        if self.map_layers and len(self.map_layers) > 1 and self.map_layer_mode == "overlay":
             style = table.find("style")
             rule = etree.SubElement(style, "style-rule", element="axis")
             for index in range(1, len(self.map_layers)):
@@ -1786,8 +1801,11 @@ class MapChartBuilder(BaseChartBuilder):
             exprs.append(self.map_partition)
 
         for layer in self.map_layers:
-            for key in ("geometry", "color", "size", "label", "detail"):
+            for key in ("geometry", "color", "size", "label", "detail", "wedge_size"):
                 val = layer.get(key)
+                if isinstance(val, list):
+                    exprs.extend(v for v in val if v not in exprs)
+                    continue
                 if val and val not in exprs:
                     # Skip numeric literals (e.g. size="0.01") — not field expressions
                     try:
@@ -1795,6 +1813,9 @@ class MapChartBuilder(BaseChartBuilder):
                     except (ValueError, TypeError):
                         exprs.append(val)
             tt = layer.get("tooltip")
+            for expression in layer.get("measure_values", []) + layer.get("map_fields", []):
+                if expression not in exprs:
+                    exprs.append(expression)
             if tt:
                 tt_list = [tt] if isinstance(tt, str) else tt
                 for t in tt_list:
@@ -1816,7 +1837,8 @@ class MapChartBuilder(BaseChartBuilder):
                 fld = f.get("field") or f.get("column")
                 if fld and fld not in exprs:
                     exprs.append(fld)
-        return exprs
+        specials = {"Measure Names", "Measure Values", "Multiple Values", "Latitude (generated)", "Longitude (generated)", "Geometry (generated)"}
+        return [expression for expression in exprs if expression not in specials]
 
     # ------------------------------------------------------------------
     # Single-layer (legacy behaviour)
@@ -1833,6 +1855,139 @@ class MapChartBuilder(BaseChartBuilder):
     # ------------------------------------------------------------------
     # Multi-layer map
     # ------------------------------------------------------------------
+    def _build_native_layers(self, table, ds_name, instances):
+        """Build Tableau map layers with independent geographic partitions."""
+        from .builder_layered import LayeredChartBuilder
+
+        helper = LayeredChartBuilder(self.editor, self.worksheet_name)
+        self._ensure_manifest_entry("MapboxVectorStylesAndLayers")
+        self._ensure_manifest_entry("Layers")
+        old = table.find("panes")
+        panes = etree.Element("panes", {"customization-axis": "layer"})
+        if old is not None:
+            table.replace(old, panes)
+        else:
+            rows = table.find("rows")
+            if rows is not None:
+                rows.addprevious(panes)
+            else:
+                table.append(panes)
+        base = etree.SubElement(
+            panes,
+            "pane",
+            {"selection-relaxation-option": "selection-relaxation-disallow"},
+        )
+        etree.SubElement(etree.SubElement(base, "view"), "breakdown", value="auto")
+        etree.SubElement(base, "mark", {"class": "Multipolygon"})
+        base_encodings = etree.SubElement(base, "encodings")
+        base_tooltip = (
+            [self.tooltip] if isinstance(self.tooltip, str) else self.tooltip or []
+        )
+        for expression in base_tooltip:
+            instance = self._tooltip_instance_for_expression(expression)
+            reference = (
+                self.field_registry.resolve_full_reference(instance.instance_name)
+                if instance is not None
+                else helper._field_ref(instances, expression, ds_name)
+            )
+            etree.SubElement(base_encodings, "tooltip", column=reference)
+        etree.SubElement(base, "style")
+        measures = []
+        for index, spec in enumerate(self.map_layers, 1):
+            mark = spec.get("mark_type", "Automatic")
+            pane = etree.SubElement(
+                panes,
+                "pane",
+                {
+                    "id": str(index),
+                    "selection-relaxation-option": "selection-relaxation-disallow"
+                    if mark in {"Map", "Multipolygon"}
+                    else "selection-relaxation-allow",
+                },
+            )
+            if "inert" in spec:
+                pane.set("inert", str(spec["inert"]).lower())
+            if spec.get("name"):
+                pane.set("generated-title", spec["name"])
+            etree.SubElement(etree.SubElement(pane, "view"), "breakdown", value="auto")
+            etree.SubElement(
+                pane, "mark", {"class": "Multipolygon" if mark == "Map" else mark}
+            )
+            if spec.get("mark_sizing_off"):
+                etree.SubElement(
+                    pane, "mark-sizing", {"mark-sizing-setting": "marks-scaling-off"}
+                )
+            enc = etree.SubElement(pane, "encodings")
+            for key, tag in (
+                ("color", "color"),
+                ("size", "size"),
+                ("label", "text"),
+                ("wedge_size", "wedge-size"),
+                ("geometry", "geometry"),
+            ):
+                expression = spec.get(key)
+                if expression:
+                    if expression == "Measure Values":
+                        expression = "Multiple Values"
+                    etree.SubElement(
+                        enc,
+                        tag,
+                        column=helper._field_ref(instances, expression, ds_name),
+                    )
+            details = spec.get("detail", [])
+            if isinstance(details, str):
+                details = [details]
+            for expression in dict.fromkeys(details + spec.get("map_fields", [])):
+                etree.SubElement(
+                    enc, "lod", column=helper._field_ref(instances, expression, ds_name)
+                )
+            if mark in {"Map", "Multipolygon"} and not spec.get("geometry"):
+                etree.SubElement(
+                    enc, "geometry", column=f"[{ds_name}].[Geometry (generated)]"
+                )
+            tooltip = spec.get("tooltip", [])
+            if isinstance(tooltip, str):
+                tooltip = [tooltip]
+            for expression in tooltip:
+                instance = self._tooltip_instance_for_expression(expression)
+                ref = (
+                    self.field_registry.resolve_full_reference(instance.instance_name)
+                    if instance is not None
+                    else helper._field_ref(instances, expression, ds_name)
+                )
+                etree.SubElement(enc, "tooltip", column=ref)
+            rule = etree.SubElement(
+                etree.SubElement(pane, "style"), "style-rule", element="mark"
+            )
+            for key, attr in (
+                ("mark_size_value", "size"),
+                ("mark_color", "mark-color"),
+                ("stroke_color", "stroke-color"),
+                ("has_stroke", "has-stroke"),
+            ):
+                if key in spec:
+                    value = (
+                        str(spec[key]).lower()
+                        if isinstance(spec[key], bool)
+                        else str(spec[key])
+                    )
+                    etree.SubElement(rule, "format", attr=attr, value=value)
+            etree.SubElement(
+                rule,
+                "format",
+                attr="mark-labels-show",
+                value="true" if spec.get("label") else "false",
+            )
+            for expression in spec.get("measure_values", []):
+                if expression not in measures:
+                    measures.append(expression)
+            helper._apply_color_map(instances, spec, table.find("view"))
+        view = table.find("view")
+        for old_filter in view.findall("filter"):
+            if old_filter.get("column") == f"[{ds_name}].[:Measure Names]":
+                view.remove(old_filter)
+        helper._append_measure_names_filter(view, instances, ds_name, measures)
+
     def _build_multi_layer(self, table, ds_name, instances):
         """Build multi-layer panes with ``customization-axis='layer'``."""
         # Ensure Tableau knows this workbook uses layers

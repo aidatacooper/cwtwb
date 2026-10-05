@@ -75,6 +75,7 @@ class ChartsMixin:
         table_calc_overrides: Optional[dict[str, list[dict]]] = None,
         sort_field: Optional[str] = None,
         separate_measure_domains: bool = False,
+        map_layer_mode: str = "overlay",
     ) -> str:
         """Route chart configuration to the correct builder."""
 
@@ -104,6 +105,7 @@ class ChartsMixin:
             text_format=text_format,
             map_layers=map_layers,
             map_partition=map_partition,
+            map_layer_mode=map_layer_mode,
             label_extra=label_extra,
             label_runs=label_runs,
             label_param=label_param,

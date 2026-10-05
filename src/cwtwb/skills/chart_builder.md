@@ -183,6 +183,32 @@ configure_chart(
 Bare spatial fields use Tableau's `Collection` (`clct`) derivation. Explicit
 `COLLECT(Route)` is also supported.
 
+For native map layers on one latitude/longitude canvas, set
+`map_layer_mode="native"`. The default `"overlay"` preserves repeated longitude
+axes. Native layers have independent `detail` (one expression or a list) and
+`map_fields`; global geography is not added to every layer. Use
+`geometry="Geometry (generated)"` for country polygons and omit geometry for
+point or Pie marks. Conditional geographic calculations can return null to
+hide a layer without retaining another layer's geographic partition.
+
+```python
+configure_chart(
+    "Regional Composition", mark_type="Map", geographic_field="Country",
+    map_layer_mode="native",
+    map_layers=[
+        {"mark_type": "Multipolygon", "detail": "Visible Country"},
+        {"mark_type": "Pie", "detail": "Selected Country",
+         "color": "Measure Names", "wedge_size": "Multiple Values",
+         "measure_values": ["SUM(Revenue)", "SUM(Cost)"],
+         "color_map": {"SUM(Revenue)": "#d3d3d3", "SUM(Cost)": "#767f8b"}},
+    ],
+)
+```
+
+`measure_values` selects the worksheet-wide ordered Measure Names domain.
+Different Pie layers share that domain; `color_map` keys are public expressions.
+`map_partition` is supported by overlay mode only.
+
 ### Pie Charts
 
 For composition/parts of whole:

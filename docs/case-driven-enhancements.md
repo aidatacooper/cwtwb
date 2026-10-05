@@ -1,5 +1,23 @@
 # Case-driven SDK enhancements
 
+## 2021 WW09: native geographic layers and multi-measure map pies
+
+The population map combines conditional country polygons, a two-measure Pie
+and a central labelled mark. Legacy repeated longitude overlays cannot preserve
+independent nullable geographic partitions. `configure_chart` now accepts
+`map_layer_mode="native"` to build one geographic canvas with native layer panes;
+the default `"overlay"` retains existing charts. Each native layer owns its
+`detail` and `map_fields`, rather than inheriting the global country field.
+
+Layer `wedge_size="Multiple Values"`, `color="Measure Names"` and
+`measure_values=[...]` resolve virtual fields and register quantitative
+dependencies and the ordered Measure Names filter. Per-layer `color_map`
+resolves public measure expressions into palette buckets through the existing
+layered-chart implementation. Synthetic tests cover null partitions, polygon
+versus point geometry, aliases, palette references, upsert, input validation,
+XML schema ordering, unchanged overlays and facade/MCP/build-spec forwarding.
+The API authors native contracts; it does not execute map selection actions.
+
 ## 2021 WW04-08: layered maps, extended date domains and dashboard extensions
 
 WW08 also exposed a categorical exclusion serialization gap. Although the

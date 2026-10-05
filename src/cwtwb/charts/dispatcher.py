@@ -279,6 +279,7 @@ def configure_chart(
     label_param: Optional[str] = None,
     sort_field: Optional[str] = None,
     separate_measure_domains: bool = False,
+    map_layer_mode: str = "overlay",
 ) -> str:
     """Route chart configuration to the correct builder."""
 
@@ -314,6 +315,7 @@ def configure_chart(
             filters,
             map_layers=map_layers,
             map_partition=map_partition,
+            map_layer_mode=map_layer_mode,
         )
         return builder.build()
 

@@ -143,6 +143,8 @@ def _apply_worksheets(editor, spec: dict[str, Any]) -> list[str]:
                     "color_map",
                     "text_format",
                     "map_layers",
+                    "map_layer_mode",
+                    "map_partition",
                     "label_runs",
                     "label_param",
                 }

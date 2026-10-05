@@ -35,6 +35,7 @@ class CapabilitySpec:
 
 
 CAPABILITY_SPECS: tuple[CapabilitySpec, ...] = (
+    CapabilitySpec(key="native-map-layers", kind="feature", level="advanced", canonical="configure_chart", rationale="Build independently partitioned native map layers, including multi-measure Pie wedges, on one geographic canvas.", notes="map_layer_mode='native'; default overlay behavior remains compatible."),
     CapabilitySpec(key="dashboard-extension", kind="dashboard_zone", level="advanced", canonical="add_dashboard_extension", rationale="Declare native extension manifests, localized resources, settings and dashboard bounds without a workbook template."),
     CapabilitySpec(key="extended-time-series", kind="feature", level="advanced", canonical="configure_worksheet_time_series", rationale="Extend continuous date shelves into future periods with native calculations on densified marks."),
     CapabilitySpec(key="centered-size-style", kind="encoding", level="advanced", canonical="configure_worksheet_style", aliases=("centersize",), rationale="Render quantitative mark sizes centered on zero while retaining signed field values."),

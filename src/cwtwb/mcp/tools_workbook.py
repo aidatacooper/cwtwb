@@ -593,6 +593,7 @@ def configure_chart(
     label_param: str | None = None,
     sort_field: Optional[str] = None,
     separate_measure_domains: bool = False,
+    map_layer_mode: str = "overlay",
 ) -> str:
     """Configure chart type and field mappings for a worksheet.
 
@@ -625,6 +626,7 @@ def configure_chart(
         text_format=text_format,
         map_layers=map_layers,
         map_partition=map_partition,
+        map_layer_mode=map_layer_mode,
         label_runs=label_runs,
         label_param=label_param,
     )

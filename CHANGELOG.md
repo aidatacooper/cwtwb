@@ -17,6 +17,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Native map layers preserve independent geography and support geographic pies
+  using Measure Names, Measure Values, per-layer palettes and inert marks (2021 WW09).
+
 - Native dashboard extensions accept structured manifests, localized resources,
   JSON-compatible settings and normalized bounds (2021 WW07/08).
 - `configure_worksheet_time_series` extends continuous date shelves and controls
