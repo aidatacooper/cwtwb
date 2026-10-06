@@ -190,9 +190,28 @@ class LayeredChartBuilder(BaseChartBuilder):
                     "member": f'"{ref}"',
                 },
             )
-        aggregation = view.find("aggregation")
-        if aggregation is not None:
-            aggregation.addprevious(filter_el)
+        # Filters must precede sort/shelf-sorts/slices/aggregation. Anchoring on
+        # <aggregation> put this filter after <slices>, which Desktop rejects.
+        anchor = next(
+            (
+                view.find(tag)
+                for tag in (
+                    "computed-sort",
+                    "manual-sort",
+                    "natural-sort",
+                    "alphabetic-sort",
+                    "perspectives",
+                    "shelf-sorts",
+                    "hide-sort-controls",
+                    "slices",
+                    "aggregation",
+                )
+                if view.find(tag) is not None
+            ),
+            None,
+        )
+        if anchor is not None:
+            anchor.addprevious(filter_el)
         else:
             view.append(filter_el)
 

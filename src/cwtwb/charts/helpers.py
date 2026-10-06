@@ -168,6 +168,25 @@ def _get_or_create_table_style(table: etree._Element) -> etree._Element:
 _STYLE_NON_ATTR_KEYS = frozenset({"_field_ref", "field", "scope", "data_class", "data-class"})
 
 
+def _style_attr_value_pairs(spec: dict) -> list[tuple[str, object]]:
+    """Return (attr, value) pairs for a style specification.
+
+    Two shapes are accepted, matching the documented API:
+
+    * explicit: ``{"attr": "height", "value": 19}`` — the attr/value keys
+      name the attribute, they are not themselves attributes.
+    * shorthand: ``{"height": 19, "font-weight": "bold"}`` — every
+      non-selector key is an attribute name.
+    """
+    if "attr" in spec and "value" in spec:
+        return [(str(spec["attr"]), spec["value"])]
+    return [
+        (str(key), value)
+        for key, value in spec.items()
+        if key not in _STYLE_NON_ATTR_KEYS
+    ]
+
+
 def _style_selectors(spec: dict) -> dict[str, str]:
     """Return the non-attr selectors for a style specification as attributes."""
     selectors: dict[str, str] = {}
@@ -404,9 +423,7 @@ def apply_worksheet_style(
         for lf in resolved_label_formats:
             field_ref = lf.get("_field_ref")
             selectors = _style_selectors(lf)
-            for attr, val in lf.items():
-                if attr in _STYLE_NON_ATTR_KEYS:
-                    continue
+            for attr, val in _style_attr_value_pairs(lf):
                 fmt = etree.SubElement(label_rule, "format", **selectors)
                 fmt.set("attr", attr.replace("_", "-"))
                 if field_ref:
@@ -426,9 +443,7 @@ def apply_worksheet_style(
         for cf in resolved_cell_formats:
             field_ref = cf.get("_field_ref")
             selectors = _style_selectors(cf)
-            for attr, val in cf.items():
-                if attr in _STYLE_NON_ATTR_KEYS:
-                    continue
+            for attr, val in _style_attr_value_pairs(cf):
                 fmt = etree.SubElement(cell_rule, "format", **selectors)
                 fmt.set("attr", attr.replace("_", "-"))
                 if field_ref:
@@ -709,7 +724,7 @@ def apply_measure_values(
             member.set("member", f'"{ref}"')  # Measure names are always strings
 
         insert_before = None
-        for tag in ("sort", "perspectives", "slices", "aggregation"):
+        for tag in ("sort", "perspectives", "shelf-sorts", "slices", "aggregation"):
             insert_before = view.find(tag)
             if insert_before is not None:
                 break

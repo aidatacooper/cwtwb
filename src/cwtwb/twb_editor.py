@@ -173,6 +173,15 @@ class ParametersMixin:
         if default_format:
             col.set("default-format", default_format)
         col.set("name", internal_name)
+        if domain_type == "all":
+            # Tableau's XSD enumeration is any/list/range. Callers sometimes
+            # use "all" for an unconstrained domain; serialize it as "any".
+            domain_type = "any"
+        if domain_type not in {"any", "list", "range"}:
+            raise ValueError(
+                "domain_type must be one of: any, list, range "
+                f"(or the legacy 'all'), got {domain_type!r}"
+            )
         col.set("param-domain-type", domain_type)
         col.set("role", "measure")
         col.set("type", "nominal" if datatype in ("string", "boolean") else "quantitative")
