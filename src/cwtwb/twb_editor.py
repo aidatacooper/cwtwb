@@ -396,7 +396,52 @@ class TWBEditor(ParametersMixin, ConnectionsMixin, ChartsMixin, DashboardsMixin)
             self._remove_empty_top_level_container(tag)
 
         self._canonicalize_schema_order()
+        self._reconcile_manifest_flags()
         self._ensure_xsd_required_elements()
+
+    # Tableau gates several document features behind a
+    # ``document-format-change-manifest`` entry. The element is schema-valid on
+    # its own, but Desktop's DOM loader refuses the whole workbook when it sees
+    # the element without the matching flag (error ``d2e8da72``). The mapping
+    # below is derived from Tableau-authored workbooks that pair each element
+    # with its flag; see ``docs/generated-twbx-desktop-load-audit.md``.
+    _MANIFEST_ELEMENT_FLAGS: tuple[tuple[str, str], ...] = (
+        ("manual-sort", "SortTagCleanup"),
+        ("computed-sort", "SortTagCleanup"),
+        ("hide-sort-controls", "HideSortControls"),
+    )
+    # Attributes that imply a manifest flag rather than a child element.
+    _MANIFEST_ATTRIBUTE_FLAGS: tuple[tuple[str, str], ...] = (
+        ("generated-title", "Layers"),
+    )
+
+    def _reconcile_manifest_flags(self) -> None:
+        """Add manifest flags required by elements and attributes present.
+
+        Emitting a gated element without its flag makes Tableau Desktop reject
+        the workbook even though the XML passes the XSD. Rather than rely on
+        every builder remembering the pairing, derive it from the finished
+        tree so any code path that produces the element is covered.
+        """
+        present_tags: set[str] = set()
+        present_attrs: set[str] = set()
+        for element in self.root.iter():
+            if not isinstance(element.tag, str):
+                continue
+            present_tags.add(element.tag)
+            present_attrs.update(element.attrib.keys())
+        required = {
+            flag
+            for tag, flag in self._MANIFEST_ELEMENT_FLAGS
+            if tag in present_tags
+        }
+        required.update(
+            flag
+            for attribute, flag in self._MANIFEST_ATTRIBUTE_FLAGS
+            if attribute in present_attrs
+        )
+        for flag in sorted(required):
+            self._ensure_manifest_entry(flag)
 
     def _canonicalize_schema_order(self) -> None:
         """Restore Tableau XSD element order that Tableau Desktop enforces.
