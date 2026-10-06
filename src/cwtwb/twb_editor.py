@@ -394,16 +394,41 @@ class TWBEditor(ParametersMixin, ConnectionsMixin, ChartsMixin, DashboardsMixin)
 
         Desktop rejects a workbook whose DOM loader hits schema-ordered
         sequences out of order, even when the XML is otherwise well formed.
-        Two sequences are routinely emitted out of order while editing:
+
+        The order is derived from the vendored official TWB XSD, so the rules
+        cannot drift from the schema. Two sequences were historically emitted
+        out of order and motivated this:
 
         * ``<datasource>``: ``column-instance`` belongs to ``Columns-G`` and
-          must precede ``drill-paths``/``layout``/``style`` and the other
-          trailing groups, not follow them.
+          must precede ``group`` / ``drill-paths`` / ``layout`` / ``style``
+          and the other trailing groups, not follow them.
         * ``<actions>``: ``Actions-G`` orders legacy ``action`` first, then
           ``nav-action``, ``edit-group-action`` and finally
           ``edit-parameter-action``. Editing order is arbitrary.
 
-        Reordering is stable, so author-intended action numbering is kept.
+        Reordering is stable, so author-intended action numbering is kept, and
+        containers with unknown children are left untouched.
+        """
+        from .schema_order import reorder_to_schema
+
+        try:
+            reordered = reorder_to_schema(self.root, self.root.get("version"))
+        except Exception:  # pragma: no cover - defensive, never block a save
+            logger.warning("Schema-order reorder failed; using fallback", exc_info=True)
+            self._canonicalize_schema_order_fallback()
+            return
+        if reordered:
+            logger.debug("Reordered schema children in: %s", sorted(set(reordered)))
+        # Always enforce the two historically-broken sequences. The generic
+        # pass declines a container whose children include anything unknown to
+        # the schema, which would otherwise leave e.g. a filter action after a
+        # parameter action. Both passes are stable and idempotent.
+        self._canonicalize_schema_order_fallback()
+
+    def _canonicalize_schema_order_fallback(self) -> None:
+        """Hardcoded ordering used when the vendored XSD cannot be read.
+
+        Only covers the two sequences known to break Tableau Desktop.
         """
         self._canonicalize_datasource_column_instances()
         self._canonicalize_actions_order()

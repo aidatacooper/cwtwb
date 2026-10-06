@@ -115,13 +115,24 @@ def test_action_order_is_stable_within_a_group() -> None:
 def test_already_ordered_workbook_is_unchanged() -> None:
     editor = _editor()
     datasource = _datasource(editor)
-    etree.SubElement(datasource, "drill-paths")
-    etree.SubElement(datasource, "layout")
+    # The empty template is already in schema order; a reorder must be a no-op.
     before = etree.tostring(editor.root)
 
     editor._canonicalize_schema_order()
 
     assert etree.tostring(editor.root) == before
+
+
+def test_out_of_order_trailing_groups_are_fixed() -> None:
+    editor = _editor()
+    datasource = _datasource(editor)
+    etree.SubElement(datasource, "layout")
+    etree.SubElement(datasource, "drill-paths")
+
+    editor._canonicalize_schema_order()
+
+    tags = [c.tag for c in datasource]
+    assert tags.index("drill-paths") < tags.index("layout")
 
 
 def test_unknown_action_children_are_preserved() -> None:
