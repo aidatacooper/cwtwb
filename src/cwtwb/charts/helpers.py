@@ -162,6 +162,22 @@ def _get_or_create_table_style(table: etree._Element) -> etree._Element:
     return table_style
 
 
+# Keys inside a style specification that select the target of a <format>
+# element rather than naming a style attribute. They must never be emitted as
+# the ``attr`` name, which produced values outside the XSD enumeration.
+_STYLE_NON_ATTR_KEYS = frozenset({"_field_ref", "field", "scope", "data_class", "data-class"})
+
+
+def _style_selectors(spec: dict) -> dict[str, str]:
+    """Return the non-attr selectors for a style specification as attributes."""
+    selectors: dict[str, str] = {}
+    for key in ("scope", "data_class", "data-class"):
+        value = spec.get(key)
+        if value is not None:
+            selectors[key.replace("_", "-")] = str(value)
+    return selectors
+
+
 def apply_worksheet_style(
     table: etree._Element,
     *,
@@ -387,10 +403,11 @@ def apply_worksheet_style(
             label_rule.set("element", "label")
         for lf in resolved_label_formats:
             field_ref = lf.get("_field_ref")
+            selectors = _style_selectors(lf)
             for attr, val in lf.items():
-                if attr == "_field_ref":
+                if attr in _STYLE_NON_ATTR_KEYS:
                     continue
-                fmt = etree.SubElement(label_rule, "format")
+                fmt = etree.SubElement(label_rule, "format", **selectors)
                 fmt.set("attr", attr.replace("_", "-"))
                 if field_ref:
                     fmt.set("field", field_ref)
@@ -408,9 +425,9 @@ def apply_worksheet_style(
             cell_rule.set("element", "cell")
         for cf in resolved_cell_formats:
             field_ref = cf.get("_field_ref")
-            selectors = {key.replace("_", "-"): str(value) for key, value in cf.items() if key in ("scope", "data_class", "data-class")}
+            selectors = _style_selectors(cf)
             for attr, val in cf.items():
-                if attr in ("_field_ref", "scope", "data_class", "data-class"):
+                if attr in _STYLE_NON_ATTR_KEYS:
                     continue
                 fmt = etree.SubElement(cell_rule, "format", **selectors)
                 fmt.set("attr", attr.replace("_", "-"))
