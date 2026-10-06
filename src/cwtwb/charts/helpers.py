@@ -200,6 +200,7 @@ def _style_selectors(spec: dict) -> dict[str, str]:
 def apply_worksheet_style(
     table: etree._Element,
     *,
+    editor=None,
     background_color: str | None = None,
     hide_axes: bool = False,
     hide_gridlines: bool = False,
@@ -240,6 +241,10 @@ def apply_worksheet_style(
             for control in view.findall("hide-sort-controls"):
                 view.remove(control)
             if hide_sort_controls:
+                # Tableau requires this manifest flag for <hide-sort-controls>;
+                # without it the DOM loader rejects the workbook (d2e8da72).
+                if editor is not None:
+                    editor._ensure_manifest_entry("HideSortControls")
                 control = etree.Element("hide-sort-controls")
                 anchor = next((view.find(tag) for tag in ("slices", "aggregation") if view.find(tag) is not None), None)
                 if anchor is None:

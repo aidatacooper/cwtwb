@@ -467,6 +467,7 @@ class ChartsMixin:
 
         apply_worksheet_style(
             table,
+            editor=self,
             background_color=background_color,
             hide_axes=hide_axes,
             hide_gridlines=hide_gridlines,
