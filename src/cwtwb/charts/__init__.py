@@ -502,7 +502,7 @@ class ChartsMixin:
         if gridline_style:
             if not isinstance(gridline_style, dict) or set(gridline_style) - {"rows", "cols"}:
                 raise ValueError("gridline_style requires rows/cols format dictionaries")
-            allowed = {"line-visibility", "stroke-color", "stroke-size", "stroke-pattern"}
+            allowed = {"line-visibility", "stroke-color", "stroke-size", "line-pattern"}
             for scope, formats in gridline_style.items():
                 if not isinstance(formats, dict) or not formats:
                     raise ValueError("gridline_style scopes require nonempty format dictionaries")
