@@ -66,6 +66,33 @@ def test_generated_title_requires_layers() -> None:
     assert "Layers" in _manifest(editor)
 
 
+def test_device_layouts_require_phone_layout_flag() -> None:
+    editor = TWBEditor("")
+    editor.add_worksheet("Viz")
+    root = editor.root
+    dashboards = root.find("dashboards")
+    if dashboards is None:
+        dashboards = etree.SubElement(root, "dashboards")
+    dashboard = etree.SubElement(dashboards, "dashboard", name="D")
+    etree.SubElement(dashboard, "devicelayouts")
+    editor._sanitize_workbook_tree()
+    assert "AutoCreateAndUpdateDSDPhoneLayouts" in _manifest(editor)
+
+
+def test_button_requires_collapsible_pane_flag() -> None:
+    editor = TWBEditor("")
+    editor.add_worksheet("Viz")
+    root = editor.root
+    dashboards = root.find("dashboards")
+    if dashboards is None:
+        dashboards = etree.SubElement(root, "dashboards")
+    dashboard = etree.SubElement(dashboards, "dashboard", name="D")
+    zones = etree.SubElement(dashboard, "zones")
+    etree.SubElement(zones, "button", **{"button-type": "text"})
+    editor._sanitize_workbook_tree()
+    assert "CollapsiblePane" in _manifest(editor)
+
+
 def test_absent_content_adds_no_flag() -> None:
     editor = TWBEditor("")
     editor.add_worksheet("Viz")

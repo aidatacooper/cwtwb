@@ -409,6 +409,8 @@ class TWBEditor(ParametersMixin, ConnectionsMixin, ChartsMixin, DashboardsMixin)
         ("manual-sort", "SortTagCleanup"),
         ("computed-sort", "SortTagCleanup"),
         ("hide-sort-controls", "HideSortControls"),
+        ("devicelayouts", "AutoCreateAndUpdateDSDPhoneLayouts"),
+        ("button", "CollapsiblePane"),
     )
     # Attributes that imply a manifest flag rather than a child element.
     _MANIFEST_ATTRIBUTE_FLAGS: tuple[tuple[str, str], ...] = (
