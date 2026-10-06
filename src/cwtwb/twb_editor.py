@@ -386,7 +386,106 @@ class TWBEditor(ParametersMixin, ConnectionsMixin, ChartsMixin, DashboardsMixin)
         for tag in ("actions", "worksheets", "dashboards", "mapsources"):
             self._remove_empty_top_level_container(tag)
 
+        self._canonicalize_schema_order()
         self._ensure_xsd_required_elements()
+
+    def _canonicalize_schema_order(self) -> None:
+        """Restore Tableau XSD element order that Tableau Desktop enforces.
+
+        Desktop rejects a workbook whose DOM loader hits schema-ordered
+        sequences out of order, even when the XML is otherwise well formed.
+        Two sequences are routinely emitted out of order while editing:
+
+        * ``<datasource>``: ``column-instance`` belongs to ``Columns-G`` and
+          must precede ``drill-paths``/``layout``/``style`` and the other
+          trailing groups, not follow them.
+        * ``<actions>``: ``Actions-G`` orders legacy ``action`` first, then
+          ``nav-action``, ``edit-group-action`` and finally
+          ``edit-parameter-action``. Editing order is arbitrary.
+
+        Reordering is stable, so author-intended action numbering is kept.
+        """
+        self._canonicalize_datasource_column_instances()
+        self._canonicalize_actions_order()
+
+    def _canonicalize_datasource_column_instances(self) -> None:
+        """Move ``column-instance`` back into its ``Columns-G`` position."""
+        datasources = self.root.find("datasources")
+        if datasources is None:
+            return
+        # First element that belongs after Columns-G in DataSource-CT.
+        # Note the schema group names (``Groups-G``) differ from the element
+        # names they contain (``group``); the element name is what matters here.
+        later_tags = (
+            "group",
+            "mapped-images",
+            "drill-paths",
+            "unlinked-server-hierarchies",
+            "folders-common",
+            "folders-parameters",
+            "actions",
+            "calculated-members",
+            "extract",
+            "layout",
+            "style",
+            "semantic-values",
+            "date-options",
+            "default-date-format",
+            "default-sorts",
+            "field-sort-info",
+            "datasource-dependencies",
+            "explainability",
+            "datasource-filters",
+            "analytic-model",
+            "object-graph",
+            "default-calendar-type",
+            "datasource-tree",
+        )
+        for datasource in datasources.findall("datasource"):
+            instances = datasource.findall("column-instance")
+            if not instances:
+                continue
+            anchor = next(
+                (child for child in datasource if child.tag in later_tags), None
+            )
+            for instance in instances:
+                datasource.remove(instance)
+            if anchor is None:
+                for instance in instances:
+                    datasource.append(instance)
+            else:
+                for instance in instances:
+                    anchor.addprevious(instance)
+
+    def _canonicalize_actions_order(self) -> None:
+        """Group ``<actions>`` children in the order ``Actions-G`` declares."""
+        actions = self.root.find("actions")
+        if actions is None:
+            return
+        groups = (
+            ("action",),
+            ("nav-action",),
+            ("edit-group-action",),
+            ("edit-parameter-action",),
+        )
+        ordered_tags = {tag for group in groups for tag in group}
+        children = list(actions)
+        if all(child.tag in ordered_tags for child in children):
+            reordered = []
+            for group in groups:
+                reordered.extend(c for c in children if c.tag in group)
+            if reordered != children:
+                for child in children:
+                    actions.remove(child)
+                for child in reordered:
+                    actions.append(child)
+            return
+        # Unexpected children: only move the known action groups, keeping
+        # unknown elements where they are so nothing is silently dropped.
+        for group in groups:
+            for child in [c for c in list(actions) if c.tag in group]:
+                actions.remove(child)
+                actions.append(child)
 
     def _ensure_xsd_required_elements(self) -> None:
         """Add top-level elements the XSD schema expects (external)."""
