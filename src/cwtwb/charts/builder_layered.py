@@ -567,6 +567,7 @@ class LayeredChartBuilder(BaseChartBuilder):
             if old.get("column") == f"[{ds_name}].[:Measure Names]":
                 view.remove(old)
         if all_measure_values:
+            self._ensure_manifest_entry("SortTagCleanup")
             values = etree.Element("manual-sort", column=f"[{ds_name}].[:Measure Names]", direction="ASC")
             dictionary = etree.SubElement(values, "dictionary")
             for expression in all_measure_values:

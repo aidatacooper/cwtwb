@@ -737,6 +737,9 @@ def apply_measure_values(
         if old.get("column") == f"[{ds_name}].[:Measure Names]":
             view.remove(old)
     if measure_refs:
+        # Tableau requires this manifest flag for <manual-sort>; without it the
+        # DOM loader rejects the workbook (error code d2e8da72).
+        editor._ensure_manifest_entry("SortTagCleanup")
         sort = etree.Element("manual-sort", column=f"[{ds_name}].[:Measure Names]", direction="ASC")
         dictionary = etree.SubElement(sort, "dictionary")
         for ref in measure_refs:

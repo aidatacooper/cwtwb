@@ -545,6 +545,21 @@ class TWBEditor(ParametersMixin, ConnectionsMixin, ChartsMixin, DashboardsMixin)
         else:
             following.addprevious(ext)
 
+    def _ensure_manifest_entry(self, entry_name: str) -> None:
+        """Add a ``document-format-change-manifest`` flag if not already present.
+
+        Tableau gates several features behind these flags; omitting the flag for
+        an element that is present makes Desktop refuse to open the workbook.
+        """
+        from lxml import etree as _etree
+
+        manifest = self.root.find("document-format-change-manifest")
+        if manifest is None:
+            manifest = _etree.Element("document-format-change-manifest")
+            self.root.insert(0, manifest)
+        if manifest.find(entry_name) is None:
+            _etree.SubElement(manifest, entry_name)
+
     def _remove_empty_top_level_container(self, tag: str) -> None:
         """Drop empty top-level containers that violate Tableau's schema."""
 
