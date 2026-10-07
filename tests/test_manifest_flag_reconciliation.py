@@ -134,6 +134,27 @@ def test_non_text_button_does_not_require_text_support() -> None:
     assert "BasicButtonObjectTextSupport" not in _manifest(editor)
 
 
+def test_dashboard_extension_requires_extensions_flag() -> None:
+    """An extension zone (``<add-in>``) needs the ``Extensions`` flag.
+
+    Removing ``referenced-extensions`` alone does not help: the dashboard
+    still carries the extension zone. Tableau refuses the workbook until the
+    ``Extensions`` entry is present; this reproduces ww07 before the fix.
+    """
+    editor = TWBEditor("")
+    editor.add_worksheet("Viz")
+    root = editor.root
+    dashboards = root.find("dashboards")
+    if dashboards is None:
+        dashboards = etree.SubElement(root, "dashboards")
+    dashboard = etree.SubElement(dashboards, "dashboard", name="D")
+    zones = etree.SubElement(dashboard, "zones")
+    zone = etree.SubElement(zones, "zone", **{"type-v2": "dashboard-object"})
+    etree.SubElement(zone, "add-in", **{"add-in-id": "com.example.ext"})
+    editor._sanitize_workbook_tree()
+    assert "Extensions" in _manifest(editor)
+
+
 def test_absent_content_adds_no_flag() -> None:
     editor = TWBEditor("")
     editor.add_worksheet("Viz")

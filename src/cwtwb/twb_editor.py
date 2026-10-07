@@ -411,6 +411,10 @@ class TWBEditor(ParametersMixin, ConnectionsMixin, ChartsMixin, DashboardsMixin)
         ("hide-sort-controls", "HideSortControls"),
         ("devicelayouts", "AutoCreateAndUpdateDSDPhoneLayouts"),
         ("button", "CollapsiblePane"),
+        # A dashboard extension zone carries an ``<add-in>`` and needs the
+        # ``Extensions`` feature flag. Without it Desktop refuses the whole
+        # workbook even though the extension zone is schema-valid.
+        ("add-in", "Extensions"),
     )
     # Attributes that imply a manifest flag rather than a child element.
     _MANIFEST_ATTRIBUTE_FLAGS: tuple[tuple[str, str], ...] = (
