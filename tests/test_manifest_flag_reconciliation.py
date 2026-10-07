@@ -93,6 +93,47 @@ def test_button_requires_collapsible_pane_flag() -> None:
     assert "CollapsiblePane" in _manifest(editor)
 
 
+def test_text_button_requires_object_model_and_text_support() -> None:
+    """A text button needs CollapsiblePane plus the two BasicButtonObject flags.
+
+    Tableau-authored workbooks pair all three. Adding only CollapsiblePane (the
+    older rule) leaves Desktop refusing the workbook; this reproduces ww10 and
+    ww39 before the fix.
+    """
+    editor = TWBEditor("")
+    editor.add_worksheet("Viz")
+    root = editor.root
+    dashboards = root.find("dashboards")
+    if dashboards is None:
+        dashboards = etree.SubElement(root, "dashboards")
+    dashboard = etree.SubElement(dashboards, "dashboard", name="D")
+    zones = etree.SubElement(dashboard, "zones")
+    etree.SubElement(zones, "button", **{"button-type": "text"})
+    editor._sanitize_workbook_tree()
+    manifest = editor.root.find("document-format-change-manifest")
+    assert manifest.find("CollapsiblePane") is not None
+    assert manifest.find("BasicButtonObject") is not None
+    text_support = manifest.find("BasicButtonObjectTextSupport")
+    assert text_support is not None
+    assert text_support.get("ignorable") == "true"
+    assert text_support.get("predowngraded") == "true"
+
+
+def test_non_text_button_does_not_require_text_support() -> None:
+    editor = TWBEditor("")
+    editor.add_worksheet("Viz")
+    root = editor.root
+    dashboards = root.find("dashboards")
+    if dashboards is None:
+        dashboards = etree.SubElement(root, "dashboards")
+    dashboard = etree.SubElement(dashboards, "dashboard", name="D")
+    zones = etree.SubElement(dashboard, "zones")
+    etree.SubElement(zones, "button", **{"button-type": "image"})
+    editor._sanitize_workbook_tree()
+    assert "BasicButtonObject" not in _manifest(editor)
+    assert "BasicButtonObjectTextSupport" not in _manifest(editor)
+
+
 def test_absent_content_adds_no_flag() -> None:
     editor = TWBEditor("")
     editor.add_worksheet("Viz")

@@ -416,6 +416,21 @@ class TWBEditor(ParametersMixin, ConnectionsMixin, ChartsMixin, DashboardsMixin)
     _MANIFEST_ATTRIBUTE_FLAGS: tuple[tuple[str, str], ...] = (
         ("generated-title", "Layers"),
     )
+    # A text button needs its own object model and text-rendering support in
+    # addition to ``CollapsiblePane``. Tableau-authored workbooks pair all
+    # three; the text-support entry is a downgrade-ignorable feature. Adding
+    # only one of them leaves Desktop refusing the workbook (error d2e8da72).
+    _MANIFEST_TEXT_BUTTON_FLAGS: tuple[str, ...] = (
+        "BasicButtonObject",
+        "BasicButtonObjectTextSupport",
+    )
+    # Manifest entries that Tableau writes with attributes rather than bare.
+    _MANIFEST_ENTRY_ATTRIBUTES: dict[str, dict[str, str]] = {
+        "BasicButtonObjectTextSupport": {
+            "ignorable": "true",
+            "predowngraded": "true",
+        },
+    }
 
     def _reconcile_manifest_flags(self) -> None:
         """Add manifest flags required by elements and attributes present.
@@ -427,11 +442,14 @@ class TWBEditor(ParametersMixin, ConnectionsMixin, ChartsMixin, DashboardsMixin)
         """
         present_tags: set[str] = set()
         present_attrs: set[str] = set()
+        text_button = False
         for element in self.root.iter():
             if not isinstance(element.tag, str):
                 continue
             present_tags.add(element.tag)
             present_attrs.update(element.attrib.keys())
+            if element.tag == "button" and element.get("button-type") == "text":
+                text_button = True
         required = {
             flag
             for tag, flag in self._MANIFEST_ELEMENT_FLAGS
@@ -442,6 +460,8 @@ class TWBEditor(ParametersMixin, ConnectionsMixin, ChartsMixin, DashboardsMixin)
             for attribute, flag in self._MANIFEST_ATTRIBUTE_FLAGS
             if attribute in present_attrs
         )
+        if text_button:
+            required.update(self._MANIFEST_TEXT_BUTTON_FLAGS)
         for flag in sorted(required):
             self._ensure_manifest_entry(flag)
 
@@ -605,7 +625,11 @@ class TWBEditor(ParametersMixin, ConnectionsMixin, ChartsMixin, DashboardsMixin)
             manifest = _etree.Element("document-format-change-manifest")
             self.root.insert(0, manifest)
         if manifest.find(entry_name) is None:
-            _etree.SubElement(manifest, entry_name)
+            entry = _etree.SubElement(manifest, entry_name)
+            for key, value in self._MANIFEST_ENTRY_ATTRIBUTES.get(
+                entry_name, {}
+            ).items():
+                entry.set(key, value)
 
     def _remove_empty_top_level_container(self, tag: str) -> None:
         """Drop empty top-level containers that violate Tableau's schema."""
