@@ -95,9 +95,11 @@ class BaseChartBuilder:
         """
         if value is None or value == "%null%":
             return "%null%"
-        if column_instance is not None and column_instance.derivation in {"Year", "Quarter", "Month", "Day", "Week", "Weekday"}:
+        if column_instance is not None and column_instance.derivation in _TEMPORAL_DERIVATIONS:
             # Discrete date parts have numeric domains even when the source
             # column is a date. Quoted years are rejected by Tableau Cloud.
+            # MY (month-year, e.g. 202510) is a date part too: quoting it makes
+            # Tableau match no members and the view renders empty.
             return str(int(value))
         s = str(value).strip().lower()
         if s in ("true", "false"):
@@ -111,7 +113,7 @@ class BaseChartBuilder:
         field = self.field_registry._find_field(column_instance.column_local_name)
         if field.datatype == "boolean" or field.calculation_class == "set":
             return str(value).strip().lower()
-        if column_instance.derivation in {"Year", "Quarter", "Month", "Day", "Week", "Weekday"} or field.datatype in {"integer", "real"}:
+        if column_instance.derivation in _TEMPORAL_DERIVATIONS or field.datatype in {"integer", "real"}:
             from decimal import Decimal, InvalidOperation
             try:
                 number = Decimal(str(value))
