@@ -362,3 +362,17 @@ class TestAdvancedStylingOptions:
         assert f_bw is not None and f_bw.get("data-class") == "total" and f_bw.get("scope") == "cols" and f_bw.get("value") == "0"
         f_tl = hdr_rule.find("format[@attr='total-label']")
         assert f_tl is not None and f_tl.get("value") == "Last 7 days" and f_tl.get("data-class") == "total"
+
+
+def test_style_scope_key_sets_scope_attribute_not_attr(ws_editor):
+    """`scope` in a style spec selects the target; it must not become attr="scope"."""
+    ws_editor.configure_worksheet_style(
+        "Chart",
+        header_formats=[{"scope": "rows", "band-color": "#d4d4d4"}],
+    )
+    rule = ws_editor._find_worksheet("Chart").find("table/style/style-rule[@element='header']")
+    assert rule is not None
+    formats = rule.findall("format")
+    assert [f.get("attr") for f in formats] == ["band-color"]
+    assert formats[0].get("scope") == "rows"
+    assert all(f.get("attr") != "scope" for f in formats)

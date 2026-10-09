@@ -24,6 +24,29 @@ from ..field_registry import ColumnInstance
 
 _SPECIAL_MULTIPLE_VALUES = "Multiple Values"
 _SPECIAL_MEASURE_NAMES = "Measure Names"
+
+
+def _normalize_selection_relaxation(value: str | None) -> str:
+    """Normalize a pane selection-relaxation value to the XSD enumeration.
+
+    Callers pass either the full token (``selection-relaxation-disallow``) or
+    the short form (``disallow``). Writing the short form verbatim produced an
+    invalid attribute and a workbook Tableau refuses to open.
+    """
+    if not value:
+        return "selection-relaxation-allow"
+    token = str(value).strip()
+    if token in {"selection-relaxation-allow", "selection-relaxation-disallow"}:
+        return token
+    short = token.removeprefix("selection-relaxation-")
+    if short == "allow":
+        return "selection-relaxation-allow"
+    if short == "disallow":
+        return "selection-relaxation-disallow"
+    raise ValueError(
+        "selection_relaxation must be 'allow' or 'disallow' "
+        f"(or the full 'selection-relaxation-*' token), got {value!r}"
+    )
 _GENERATED_FIELDS = {"Latitude (generated)", "Longitude (generated)", "Geometry (generated)"}
 
 
@@ -167,9 +190,28 @@ class LayeredChartBuilder(BaseChartBuilder):
                     "member": f'"{ref}"',
                 },
             )
-        aggregation = view.find("aggregation")
-        if aggregation is not None:
-            aggregation.addprevious(filter_el)
+        # Filters must precede sort/shelf-sorts/slices/aggregation. Anchoring on
+        # <aggregation> put this filter after <slices>, which Desktop rejects.
+        anchor = next(
+            (
+                view.find(tag)
+                for tag in (
+                    "computed-sort",
+                    "manual-sort",
+                    "natural-sort",
+                    "alphabetic-sort",
+                    "perspectives",
+                    "shelf-sorts",
+                    "hide-sort-controls",
+                    "slices",
+                    "aggregation",
+                )
+                if view.find(tag) is not None
+            ),
+            None,
+        )
+        if anchor is not None:
+            anchor.addprevious(filter_el)
         else:
             view.append(filter_el)
 
@@ -525,6 +567,7 @@ class LayeredChartBuilder(BaseChartBuilder):
             if old.get("column") == f"[{ds_name}].[:Measure Names]":
                 view.remove(old)
         if all_measure_values:
+            self._ensure_manifest_entry("SortTagCleanup")
             values = etree.Element("manual-sort", column=f"[{ds_name}].[:Measure Names]", direction="ASC")
             dictionary = etree.SubElement(values, "dictionary")
             for expression in all_measure_values:
@@ -554,9 +597,8 @@ class LayeredChartBuilder(BaseChartBuilder):
                 "pane",
                 {
                     "id": str(index),
-                    "selection-relaxation-option": pane_spec.get(
-                        "selection_relaxation",
-                        "selection-relaxation-allow",
+                    "selection-relaxation-option": _normalize_selection_relaxation(
+                        pane_spec.get("selection_relaxation")
                     ),
                 },
             )

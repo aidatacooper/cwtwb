@@ -240,6 +240,19 @@ def _is_known_tableau_user_specific_attribute_issue(error: str) -> bool:
     )
 
 
+def _is_known_feature_flag_compatibility_issue(error: str) -> bool:
+    """Tableau feature-flag elements (``_.fcp.<Feature>.true...``) are tolerated.
+
+    Tableau serializes opt-in features as elements whose name embeds a
+    feature-flag token, for example
+    ``<_.fcp.DashboardRoundedCorners.true...format .../>``. The published XSD
+    models only the base element (``format``), so these raise strict errors even
+    though Tableau Desktop opens the workbook. Verified against a workbook that
+    uses rounded dashboard corners and loads successfully in Desktop.
+    """
+    return "_.fcp." in error
+
+
 def _extract_twb_version(root: etree._Element) -> str | None:
     """Extract the TWB version string from the workbook root element.
 
@@ -291,6 +304,7 @@ def validate_against_schema(root: etree._Element) -> SchemaValidationResult:
         if (
             _is_known_workbook_tail_compatibility_issue(error)
             or _is_known_tableau_user_specific_attribute_issue(error)
+            or _is_known_feature_flag_compatibility_issue(error)
         ):
             compatibility_warnings.append(error)
         else:

@@ -727,6 +727,17 @@ def add_dashboard_set_action(
     if not target_set.strip():
         raise ValueError("target_set must not be empty")
 
+    # Tableau's XSD restricts <activation type> to explicit/on-select/on-hover.
+    # A menu-driven set action is serialized as "explicit"; writing "on-menu"
+    # produced a workbook Desktop refuses to open.
+    if event_type == "on-menu":
+        event_type = "explicit"
+    if event_type not in {"explicit", "on-select", "on-hover"}:
+        raise ValueError(
+            "event_type must be one of: explicit, on-select, on-hover "
+            f"(or the legacy 'on-menu'), got {event_type!r}"
+        )
+
     db_el = editor.root.find(f".//dashboards/dashboard[@name='{dashboard_name}']")
     if db_el is None:
         raise ValueError(f"Dashboard '{dashboard_name}' not found.")

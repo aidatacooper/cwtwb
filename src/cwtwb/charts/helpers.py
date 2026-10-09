@@ -162,9 +162,45 @@ def _get_or_create_table_style(table: etree._Element) -> etree._Element:
     return table_style
 
 
+# Keys inside a style specification that select the target of a <format>
+# element rather than naming a style attribute. They must never be emitted as
+# the ``attr`` name, which produced values outside the XSD enumeration.
+_STYLE_NON_ATTR_KEYS = frozenset({"_field_ref", "field", "scope", "data_class", "data-class"})
+
+
+def _style_attr_value_pairs(spec: dict) -> list[tuple[str, object]]:
+    """Return (attr, value) pairs for a style specification.
+
+    Two shapes are accepted, matching the documented API:
+
+    * explicit: ``{"attr": "height", "value": 19}`` — the attr/value keys
+      name the attribute, they are not themselves attributes.
+    * shorthand: ``{"height": 19, "font-weight": "bold"}`` — every
+      non-selector key is an attribute name.
+    """
+    if "attr" in spec and "value" in spec:
+        return [(str(spec["attr"]), spec["value"])]
+    return [
+        (str(key), value)
+        for key, value in spec.items()
+        if key not in _STYLE_NON_ATTR_KEYS
+    ]
+
+
+def _style_selectors(spec: dict) -> dict[str, str]:
+    """Return the non-attr selectors for a style specification as attributes."""
+    selectors: dict[str, str] = {}
+    for key in ("scope", "data_class", "data-class"):
+        value = spec.get(key)
+        if value is not None:
+            selectors[key.replace("_", "-")] = str(value)
+    return selectors
+
+
 def apply_worksheet_style(
     table: etree._Element,
     *,
+    editor=None,
     background_color: str | None = None,
     hide_axes: bool = False,
     hide_gridlines: bool = False,
@@ -205,6 +241,10 @@ def apply_worksheet_style(
             for control in view.findall("hide-sort-controls"):
                 view.remove(control)
             if hide_sort_controls:
+                # Tableau requires this manifest flag for <hide-sort-controls>;
+                # without it the DOM loader rejects the workbook (d2e8da72).
+                if editor is not None:
+                    editor._ensure_manifest_entry("HideSortControls")
                 control = etree.Element("hide-sort-controls")
                 anchor = next((view.find(tag) for tag in ("slices", "aggregation") if view.find(tag) is not None), None)
                 if anchor is None:
@@ -387,10 +427,9 @@ def apply_worksheet_style(
             label_rule.set("element", "label")
         for lf in resolved_label_formats:
             field_ref = lf.get("_field_ref")
-            for attr, val in lf.items():
-                if attr == "_field_ref":
-                    continue
-                fmt = etree.SubElement(label_rule, "format")
+            selectors = _style_selectors(lf)
+            for attr, val in _style_attr_value_pairs(lf):
+                fmt = etree.SubElement(label_rule, "format", **selectors)
                 fmt.set("attr", attr.replace("_", "-"))
                 if field_ref:
                     fmt.set("field", field_ref)
@@ -408,10 +447,8 @@ def apply_worksheet_style(
             cell_rule.set("element", "cell")
         for cf in resolved_cell_formats:
             field_ref = cf.get("_field_ref")
-            selectors = {key.replace("_", "-"): str(value) for key, value in cf.items() if key in ("scope", "data_class", "data-class")}
-            for attr, val in cf.items():
-                if attr in ("_field_ref", "scope", "data_class", "data-class"):
-                    continue
+            selectors = _style_selectors(cf)
+            for attr, val in _style_attr_value_pairs(cf):
                 fmt = etree.SubElement(cell_rule, "format", **selectors)
                 fmt.set("attr", attr.replace("_", "-"))
                 if field_ref:
@@ -692,7 +729,7 @@ def apply_measure_values(
             member.set("member", f'"{ref}"')  # Measure names are always strings
 
         insert_before = None
-        for tag in ("sort", "perspectives", "slices", "aggregation"):
+        for tag in ("sort", "perspectives", "shelf-sorts", "slices", "aggregation"):
             insert_before = view.find(tag)
             if insert_before is not None:
                 break
@@ -705,6 +742,9 @@ def apply_measure_values(
         if old.get("column") == f"[{ds_name}].[:Measure Names]":
             view.remove(old)
     if measure_refs:
+        # Tableau requires this manifest flag for <manual-sort>; without it the
+        # DOM loader rejects the workbook (error code d2e8da72).
+        editor._ensure_manifest_entry("SortTagCleanup")
         sort = etree.Element("manual-sort", column=f"[{ds_name}].[:Measure Names]", direction="ASC")
         dictionary = etree.SubElement(sort, "dictionary")
         for ref in measure_refs:

@@ -173,6 +173,15 @@ class ParametersMixin:
         if default_format:
             col.set("default-format", default_format)
         col.set("name", internal_name)
+        if domain_type == "all":
+            # Tableau's XSD enumeration is any/list/range. Callers sometimes
+            # use "all" for an unconstrained domain; serialize it as "any".
+            domain_type = "any"
+        if domain_type not in {"any", "list", "range"}:
+            raise ValueError(
+                "domain_type must be one of: any, list, range "
+                f"(or the legacy 'all'), got {domain_type!r}"
+            )
         col.set("param-domain-type", domain_type)
         col.set("role", "measure")
         col.set("type", "nominal" if datatype in ("string", "boolean") else "quantitative")
@@ -386,7 +395,202 @@ class TWBEditor(ParametersMixin, ConnectionsMixin, ChartsMixin, DashboardsMixin)
         for tag in ("actions", "worksheets", "dashboards", "mapsources"):
             self._remove_empty_top_level_container(tag)
 
+        self._canonicalize_schema_order()
+        self._reconcile_manifest_flags()
         self._ensure_xsd_required_elements()
+
+    # Tableau gates several document features behind a
+    # ``document-format-change-manifest`` entry. The element is schema-valid on
+    # its own, but Desktop's DOM loader refuses the whole workbook when it sees
+    # the element without the matching flag (error ``d2e8da72``). The mapping
+    # below is derived from Tableau-authored workbooks that pair each element
+    # with its flag; see ``docs/generated-twbx-desktop-load-audit.md``.
+    _MANIFEST_ELEMENT_FLAGS: tuple[tuple[str, str], ...] = (
+        ("manual-sort", "SortTagCleanup"),
+        ("computed-sort", "SortTagCleanup"),
+        ("hide-sort-controls", "HideSortControls"),
+        ("devicelayouts", "AutoCreateAndUpdateDSDPhoneLayouts"),
+        ("button", "CollapsiblePane"),
+        # A dashboard extension zone carries an ``<add-in>`` and needs the
+        # ``Extensions`` feature flag. Without it Desktop refuses the whole
+        # workbook even though the extension zone is schema-valid.
+        ("add-in", "Extensions"),
+    )
+    # Attributes that imply a manifest flag rather than a child element.
+    _MANIFEST_ATTRIBUTE_FLAGS: tuple[tuple[str, str], ...] = (
+        ("generated-title", "Layers"),
+    )
+    # A text button needs its own object model and text-rendering support in
+    # addition to ``CollapsiblePane``. Tableau-authored workbooks pair all
+    # three; the text-support entry is a downgrade-ignorable feature. Adding
+    # only one of them leaves Desktop refusing the workbook (error d2e8da72).
+    _MANIFEST_TEXT_BUTTON_FLAGS: tuple[str, ...] = (
+        "BasicButtonObject",
+        "BasicButtonObjectTextSupport",
+    )
+    # Manifest entries that Tableau writes with attributes rather than bare.
+    _MANIFEST_ENTRY_ATTRIBUTES: dict[str, dict[str, str]] = {
+        "BasicButtonObjectTextSupport": {
+            "ignorable": "true",
+            "predowngraded": "true",
+        },
+    }
+
+    def _reconcile_manifest_flags(self) -> None:
+        """Add manifest flags required by elements and attributes present.
+
+        Emitting a gated element without its flag makes Tableau Desktop reject
+        the workbook even though the XML passes the XSD. Rather than rely on
+        every builder remembering the pairing, derive it from the finished
+        tree so any code path that produces the element is covered.
+        """
+        present_tags: set[str] = set()
+        present_attrs: set[str] = set()
+        text_button = False
+        for element in self.root.iter():
+            if not isinstance(element.tag, str):
+                continue
+            present_tags.add(element.tag)
+            present_attrs.update(element.attrib.keys())
+            if element.tag == "button" and element.get("button-type") == "text":
+                text_button = True
+        required = {
+            flag
+            for tag, flag in self._MANIFEST_ELEMENT_FLAGS
+            if tag in present_tags
+        }
+        required.update(
+            flag
+            for attribute, flag in self._MANIFEST_ATTRIBUTE_FLAGS
+            if attribute in present_attrs
+        )
+        if text_button:
+            required.update(self._MANIFEST_TEXT_BUTTON_FLAGS)
+        for flag in sorted(required):
+            self._ensure_manifest_entry(flag)
+
+    def _canonicalize_schema_order(self) -> None:
+        """Restore Tableau XSD element order that Tableau Desktop enforces.
+
+        Desktop rejects a workbook whose DOM loader hits schema-ordered
+        sequences out of order, even when the XML is otherwise well formed.
+
+        The order is derived from the vendored official TWB XSD, so the rules
+        cannot drift from the schema. Two sequences were historically emitted
+        out of order and motivated this:
+
+        * ``<datasource>``: ``column-instance`` belongs to ``Columns-G`` and
+          must precede ``group`` / ``drill-paths`` / ``layout`` / ``style``
+          and the other trailing groups, not follow them.
+        * ``<actions>``: ``Actions-G`` orders legacy ``action`` first, then
+          ``nav-action``, ``edit-group-action`` and finally
+          ``edit-parameter-action``. Editing order is arbitrary.
+
+        Reordering is stable, so author-intended action numbering is kept, and
+        containers with unknown children are left untouched.
+        """
+        from .schema_order import reorder_to_schema
+
+        try:
+            reordered = reorder_to_schema(self.root, self.root.get("version"))
+        except Exception:  # pragma: no cover - defensive, never block a save
+            logger.warning("Schema-order reorder failed; using fallback", exc_info=True)
+            self._canonicalize_schema_order_fallback()
+            return
+        if reordered:
+            logger.debug("Reordered schema children in: %s", sorted(set(reordered)))
+        # Always enforce the two historically-broken sequences. The generic
+        # pass declines a container whose children include anything unknown to
+        # the schema, which would otherwise leave e.g. a filter action after a
+        # parameter action. Both passes are stable and idempotent.
+        self._canonicalize_schema_order_fallback()
+
+    def _canonicalize_schema_order_fallback(self) -> None:
+        """Hardcoded ordering used when the vendored XSD cannot be read.
+
+        Only covers the two sequences known to break Tableau Desktop.
+        """
+        self._canonicalize_datasource_column_instances()
+        self._canonicalize_actions_order()
+
+    def _canonicalize_datasource_column_instances(self) -> None:
+        """Move ``column-instance`` back into its ``Columns-G`` position."""
+        datasources = self.root.find("datasources")
+        if datasources is None:
+            return
+        # First element that belongs after Columns-G in DataSource-CT.
+        # Note the schema group names (``Groups-G``) differ from the element
+        # names they contain (``group``); the element name is what matters here.
+        later_tags = (
+            "group",
+            "mapped-images",
+            "drill-paths",
+            "unlinked-server-hierarchies",
+            "folders-common",
+            "folders-parameters",
+            "actions",
+            "calculated-members",
+            "extract",
+            "layout",
+            "style",
+            "semantic-values",
+            "date-options",
+            "default-date-format",
+            "default-sorts",
+            "field-sort-info",
+            "datasource-dependencies",
+            "explainability",
+            "datasource-filters",
+            "analytic-model",
+            "object-graph",
+            "default-calendar-type",
+            "datasource-tree",
+        )
+        for datasource in datasources.findall("datasource"):
+            instances = datasource.findall("column-instance")
+            if not instances:
+                continue
+            anchor = next(
+                (child for child in datasource if child.tag in later_tags), None
+            )
+            for instance in instances:
+                datasource.remove(instance)
+            if anchor is None:
+                for instance in instances:
+                    datasource.append(instance)
+            else:
+                for instance in instances:
+                    anchor.addprevious(instance)
+
+    def _canonicalize_actions_order(self) -> None:
+        """Group ``<actions>`` children in the order ``Actions-G`` declares."""
+        actions = self.root.find("actions")
+        if actions is None:
+            return
+        groups = (
+            ("action",),
+            ("nav-action",),
+            ("edit-group-action",),
+            ("edit-parameter-action",),
+        )
+        ordered_tags = {tag for group in groups for tag in group}
+        children = list(actions)
+        if all(child.tag in ordered_tags for child in children):
+            reordered = []
+            for group in groups:
+                reordered.extend(c for c in children if c.tag in group)
+            if reordered != children:
+                for child in children:
+                    actions.remove(child)
+                for child in reordered:
+                    actions.append(child)
+            return
+        # Unexpected children: only move the known action groups, keeping
+        # unknown elements where they are so nothing is silently dropped.
+        for group in groups:
+            for child in [c for c in list(actions) if c.tag in group]:
+                actions.remove(child)
+                actions.append(child)
 
     def _ensure_xsd_required_elements(self) -> None:
         """Add top-level elements the XSD schema expects (external)."""
@@ -411,6 +615,25 @@ class TWBEditor(ParametersMixin, ConnectionsMixin, ChartsMixin, DashboardsMixin)
             self.root.append(ext)
         else:
             following.addprevious(ext)
+
+    def _ensure_manifest_entry(self, entry_name: str) -> None:
+        """Add a ``document-format-change-manifest`` flag if not already present.
+
+        Tableau gates several features behind these flags; omitting the flag for
+        an element that is present makes Desktop refuse to open the workbook.
+        """
+        from lxml import etree as _etree
+
+        manifest = self.root.find("document-format-change-manifest")
+        if manifest is None:
+            manifest = _etree.Element("document-format-change-manifest")
+            self.root.insert(0, manifest)
+        if manifest.find(entry_name) is None:
+            entry = _etree.SubElement(manifest, entry_name)
+            for key, value in self._MANIFEST_ENTRY_ATTRIBUTES.get(
+                entry_name, {}
+            ).items():
+                entry.set(key, value)
 
     def _remove_empty_top_level_container(self, tag: str) -> None:
         """Drop empty top-level containers that violate Tableau's schema."""
