@@ -32,6 +32,9 @@ def test_set_tooltip_keeps_native_membership_instance():
         ("DAY(Order Date)", [10]),
         ("WEEK(Order Date)", [4]),
         ("WEEKDAY(Order Date)", [2]),
+        # MY is a discrete month-year part (e.g. 202510). Quoting it makes
+        # Tableau match no members, so the view renders empty.
+        ("MY(Order Date)", [202510, 202511]),
     ],
 )
 def test_discrete_datepart_filter_members_are_numeric(expression, values):
