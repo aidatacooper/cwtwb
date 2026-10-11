@@ -124,6 +124,59 @@ cwtwb dashboard add output/chart.twb --name Overview --worksheets "Sales by Cate
 
 Use `--in-place` only when you intentionally want to overwrite the input workbook, and `--force` only when replacing an existing output file.
 
+### Convert Workbooks Between Formats
+
+`convert` detects TWB, TWBX, YAML, and JSON from file extensions. It does not
+require Gallery, a template, or an active editor session:
+
+```bash
+cwtwb convert input.twbx --out workbook.yaml
+cwtwb convert workbook.yaml --out workbook.json
+cwtwb convert workbook.json --out rebuilt.twbx
+cwtwb convert input.twbx --out unpacked.twb
+```
+
+`cwtwb export input.twb --out workbook.yaml` is an alias. Native definitions
+also work with `cwtwb run workbook.yaml --out rebuilt.twb`. Existing automation
+specs keep their previous behavior. Outputs are not overwritten unless `--force`
+is supplied; conversion never overwrites its input.
+
+Python: `from cwtwb import convert_workbook`, then
+`convert_workbook("input.twbx", "workbook.yaml")`. MCP exposes the same stateless
+`convert_workbook(input_path, output_path, force=False)` tool.
+
+The versioned `cwtwb-native` format currently represents the **native XML tree**:
+`document.root` contains `tag`, `attributes`, `text`, ordered `children`, and
+`tail`; comments, processing instructions, namespaces, thumbnails, and unknown
+elements are retained. Edit formulas in `calculation.attributes.formula` and
+layout geometry in zone attributes. XML attribute values remain strings. This
+is a detailed structural format, **not yet a simplified semantic workbook DSL**;
+no claim is made that every Tableau feature is understood or safely editable.
+Conversion bypasses `TWBEditor` cleanup and does not inject generated comments.
+XML declaration spelling, CDATA spelling, namespace prefixes, and ZIP metadata
+are not promised byte-for-byte. Unknown nodes are retained, not interpreted.
+
+Binary resources are copied to `<output-name>.assets/`, with relative paths and
+SHA-256 hashes in the definition. Keep the definition and this directory together.
+An unpacked TWB also has a `<output-name>.resources.json` companion to retain
+unreferenced package assets for later repacking. File references are relocated
+when needed; remote database connections remain remote. Standalone TWB discovery
+currently covers Hyper/CSV/Excel connections and bitmap zones; arbitrary external
+files referenced by custom extensions are not automatically discovered. TWBX
+conversion retains every bundled resource file, including unknown extensions.
+
+Missing known external resources produce warnings for text output and block TWBX
+packaging. Duplicate keys, unknown document properties/versions, missing or changed
+resource files, unsafe archive paths, multiple-TWB archives, and DTD-bearing XML
+fail explicitly. After deliberately changing an asset, update its recorded hash.
+Resource directories are not garbage-collected when outputs are replaced.
+
+Conversion checks XML syntax and resource integrity, not Tableau calculations,
+field-reference semantics, Desktop loading, rendering, or interactions. Use the
+existing validation commands and Tableau runtime checks separately. `run --validate`
+is intentionally rejected for native definitions rather than implying those checks
+ran during conversion.
+
 ### MCP Client Stability
 
 When cwtwb is connected as an MCP server, agents should call the exposed MCP tools directly through their client. They should not run shell commands such as `mcp call cwtwb ...`, `mcp list-tools cwtwb`, or `gh api .../mcp/...`; those commands are not part of cwtwb and are usually unavailable in normal Claude, Codex, Cursor, or VSCode environments.

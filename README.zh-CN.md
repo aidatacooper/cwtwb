@@ -121,6 +121,47 @@ cwtwb dashboard add output/chart.twb --name Overview --worksheets "Sales by Cate
 
 只有当你明确想覆盖输入工作簿时才使用 `--in-place`；只有在确认要替换已有输出文件时才使用 `--force`。
 
+### TWB / TWBX / YAML / JSON 互转
+
+统一入口根据文件后缀识别格式，不依赖 Gallery、模板或当前编辑器会话：
+
+```bash
+cwtwb convert input.twbx --out workbook.yaml
+cwtwb convert workbook.yaml --out workbook.json
+cwtwb convert workbook.json --out rebuilt.twbx
+cwtwb convert input.twbx --out unpacked.twb
+```
+
+也可以使用 `cwtwb export input.twb --out workbook.yaml`，以及
+`cwtwb run workbook.yaml --out rebuilt.twb`。旧自动化 YAML 保持原有执行方式。
+覆盖已有输出需加 `--force`，不能覆盖输入文件。
+
+Python 提供 `from cwtwb import convert_workbook`；MCP 提供无状态工具
+`convert_workbook(input_path, output_path, force=False)`，不会改变当前编辑会话。
+
+第一版使用带版本的 `cwtwb-native` **原生 XML 树格式**：`document.root` 中保存
+`tag`、`attributes`、`text`、有序 `children` 和 `tail`，同时保留命名空间、注释、
+处理指令、缩略图和未知节点。公式可编辑 `calculation` 节点的 `attributes.formula`，
+布局可编辑 zone 属性；XML 属性值必须保持字符串。这是完整结构的可编辑表达，
+**尚不是简化的业务语义模型，也不表示所有 Tableau 功能均已理解或任意编辑均安全**。
+转换不经过编辑器清理，也不添加生成注释；不承诺 XML 声明、CDATA 写法、命名空间
+前缀和 ZIP 元数据逐字节一致。未知节点会保留，不会解释或省略。
+
+二进制资源放在 `<输出文件名>.assets/`，定义中记录相对路径和 SHA-256。
+移动定义时请一起移动资源目录。转成独立 TWB 时，还会生成
+`<输出文件名>.resources.json`，供下次打包时保留未直接引用的资源。
+必要时自动重定位文件引用；远程数据库连接仍为远程连接。独立 TWB 的外部文件发现
+目前覆盖 Hyper/CSV/Excel 连接和 bitmap 区域，不自动发现自定义扩展中的任意外部文件。
+TWBX 则保留包内所有资源文件，包括未知扩展文件。
+
+已知外部资源缺失时，文本导出明确警告，生成 TWBX 会报错。重复键、未知属性或版本、
+资源缺失或哈希不符、不安全的包内路径、含多个 TWB 的包和带 DTD 的 XML 均明确拒绝。
+主动修改资源后需更新记录的哈希。覆盖输出不会自动清理旧资源目录。
+
+转换只检查 XML 语法和资源完整性，不代替公式与引用语义、Desktop 加载、渲染和交互
+验证。请另行使用现有验证工具及 Tableau。原生定义不接受 `run --validate`，避免把转换
+误认为已经完成这些验收。
+
 ### MCP 客户端稳定性
 
 当 cwtwb 作为 MCP server 连接时，Agent 应该通过客户端暴露的 MCP 工具直接调用。不要运行 `mcp call cwtwb ...`、`mcp list-tools cwtwb`、`gh api .../mcp/...` 之类 shell 命令；这些命令不属于 cwtwb，在正常 Claude、Codex、Cursor 或 VSCode 环境里通常不可用。

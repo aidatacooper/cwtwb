@@ -7,6 +7,7 @@ stable default workbook-engineering surface.
 __author__ = "Cooper Wenhua <imgwho@gmail.com>"
 
 from .mcp_server import (
+    convert_workbook,
     add_calculated_field,
     audit_calculated_fields,
     add_dashboard,
