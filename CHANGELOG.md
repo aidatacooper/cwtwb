@@ -5,7 +5,23 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## Unreleased
+## [0.28.0] - 2026-10-11
+
+This release consolidates the changes since PyPI 0.27.0, including the
+previously prepared but unpublished 0.27.1 changes below. Native workbook
+format conversion is not included; it is released separately as a preview.
+
+### Release highlights
+
+- Canonical Tableau XSD element ordering and feature manifests for sorts,
+  device layouts, text buttons, and dashboard extensions improve Desktop loading.
+- Month-year filter members are serialized without incorrect quotes; chart
+  color palettes retain their table-calculation context.
+- Native percentage distribution bands are available through the SDK.
+- Validation can read the operator-shared Tableau credentials file.
+- Case-driven authoring adds layered maps and charts, table-calculation contexts,
+  logical Hyper relationships, dynamic controls, device layouts, richer labels,
+  independent color domains, and dashboard interactions.
 
 ### Fixed
 
@@ -174,7 +190,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Numeric palettes serialize unquoted numbers (2019 WW48). Categorical-bin members
   use Tableau backslash escaping for quotes, backslashes, # and % (2019 WW46).
 
-## [0.27.1] - 2026-10-02
+## [0.27.1] - 2026-10-02 (unpublished; included in 0.28.0)
 
 ### Added
 
