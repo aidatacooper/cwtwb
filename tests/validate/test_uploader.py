@@ -135,7 +135,40 @@ class TestLoadDotenv:
 
         assert paths[0] == env_file
         assert paths[1] == tmp_path / "global.env"
-        assert paths[2] == workbook_path.parent / ".env"
+        # The operator-shared credentials file is consulted before the
+        # workbook-local .env so one secret serves both repos.
+        assert paths[2] == Path("~/.config/wow-cloud/tableau.env").expanduser()
+        assert paths[3] == workbook_path.parent / ".env"
+
+    def test_shared_credentials_file_uses_wow_variable_names(self, tmp_path, monkeypatch):
+        """The wow repo names the same PAT differently; both spellings must work."""
+        shared = tmp_path / "tableau.env"
+        shared.write_text(
+            "export TABLEAU_SERVER_URL=https://shared.online.tableau.com\n"
+            "export TABLEAU_SITE_ID=shared-site\n"
+            "export TABLEAU_TOKEN_NAME=shared-pat\n"
+            "export TABLEAU_TOKEN_SECRET=shared-secret\n",
+            encoding="utf-8",
+        )
+        monkeypatch.setenv("WOW_CLOUD_ENV", str(shared))
+        for key in (
+            "TABLEAU_SERVER",
+            "TABLEAU_SITE",
+            "TABLEAU_PAT_NAME",
+            "TABLEAU_PAT_SECRET",
+            "TABLEAU_SERVER_URL",
+            "TABLEAU_SITE_ID",
+            "TABLEAU_TOKEN_NAME",
+            "TABLEAU_TOKEN_SECRET",
+        ):
+            monkeypatch.delenv(key, raising=False)
+
+        cfg = _get_config()
+
+        assert cfg["server"] == "https://shared.online.tableau.com"
+        assert cfg["site"] == "shared-site"
+        assert cfg["pat_name"] == "shared-pat"
+        assert cfg["pat_secret"] == "shared-secret"
 
 
 class TestPackageTwbx:
