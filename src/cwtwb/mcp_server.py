@@ -53,6 +53,7 @@ from .mcp.tools_validate import (
     validate_workbook_api,
 )
 from .mcp.tools_workbook import (
+    convert_workbook,
     add_calculated_field,
     audit_calculated_fields,
     add_dashboard,

@@ -30,6 +30,7 @@ from .capability_registry import (  # noqa: E402
     list_capabilities,
 )
 from .field_registry import FieldRegistry  # noqa: E402
+from .conversion import convert_workbook, read_workbook, WorkbookDocument  # noqa: E402
 from .migration import (  # noqa: E402
     apply_twb_migration,
     inspect_target_schema,
@@ -62,6 +63,9 @@ from .twb_editor import TWBEditor  # noqa: E402
 from .validator import SchemaValidationResult, TWBValidationError, validate_against_schema  # noqa: E402
 
 __all__ = [
+    "convert_workbook",
+    "read_workbook",
+    "WorkbookDocument",
     "AnalysisReport",
     "CAPABILITY_SPECS",
     "CapabilitySpec",

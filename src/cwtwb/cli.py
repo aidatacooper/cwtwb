@@ -10,6 +10,7 @@ from .commands.common import add_json_flag
 from .commands.info import doctor, status
 from .commands.readonly import analyze, capabilities, dashboards, fields, inspect_workbook, validate, worksheets
 from .commands.run_spec import run as run_spec
+from .commands.convert import convert
 from .commands.write import (
     chart_add,
     connection_set_csv,
@@ -100,6 +101,14 @@ def build_parser() -> argparse.ArgumentParser:
     run_parser.add_argument("--no-save-validation", action="store_true", help="Skip TWBEditor save-time validation.")
     add_json_flag(run_parser)
     run_parser.set_defaults(func=run_spec)
+
+    for name in ("convert", "export"):
+        conversion = subparsers.add_parser(name, help="Convert TWB/TWBX/YAML/JSON; output suffix selects format.")
+        conversion.add_argument("input", help="Input workbook or native workbook definition.")
+        conversion.add_argument("--out", required=True, help="Destination .twb, .twbx, .yaml, .yml, or .json.")
+        conversion.add_argument("--force", action="store_true", help="Replace the output document.")
+        add_json_flag(conversion)
+        conversion.set_defaults(func=convert)
 
     create_parser = subparsers.add_parser("create", help="Create a workbook from the built-in or supplied template.")
     create_parser.add_argument("--template", default="", help="Template .twb/.twbx path. Omit for the built-in Superstore template.")

@@ -47,6 +47,8 @@ from ..twb_editor import TWBEditor
 server = FastMCP(
     "cwtwb",
     instructions="Tableau Workbook (.twb) generation MCP Server. "
+    "For file format conversion, call convert_workbook(input_path, output_path); "
+    "it supports TWB/TWBX/YAML/JSON without creating or changing the editor session. "
     "Call the exposed MCP tools directly through the connected client tool surface; "
     "do not run shell commands like 'mcp call', 'mcp list-tools', or 'gh api' to discover "
     "or invoke cwtwb tools. If tool discovery looks empty, ask the user to restart or "

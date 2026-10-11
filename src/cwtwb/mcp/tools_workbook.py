@@ -1254,6 +1254,20 @@ def generate_layout_yaml(
     )
 
 
+@server.tool()
+def convert_workbook(input_path: str, output_path: str, force: bool = False) -> dict:
+    """Convert TWB, TWBX, YAML or JSON by output suffix without an editor session.
+
+    YAML/JSON contain an editable native XML tree, not a simplified chart DSL.
+    Assets are copied alongside definitions; keep these files together. Unknown
+    XML is retained. Only XML syntax is checked, not Tableau runtime behavior.
+    The current editor session is not modified. Existing output requires force.
+    """
+    from ..conversion import convert_workbook as convert_file
+
+    return convert_file(input_path, output_path, force=force)
+
+
 # --- Migration tools ---
 
 

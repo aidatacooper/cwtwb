@@ -220,6 +220,19 @@ def run(args: Any) -> int:
     spec = load_data_file(args.spec)
     if not isinstance(spec, dict):
         raise ValueError("Spec root must be an object.")
+    if "format" in spec or "format_version" in spec:
+        from ..conversion import convert_workbook, read_workbook
+
+        if args.validate:
+            raise ValueError("Native conversion does not run Tableau validation. Run `cwtwb validate` on the output separately.")
+        if args.dry_run:
+            read_workbook(args.spec)
+            emit({"spec": str(args.spec), "status": "dry-run-ok"}, as_json=args.json)
+            return 0
+        if not args.out:
+            raise ValueError("Native workbook definitions require --out.")
+        emit(convert_workbook(args.spec, args.out, force=args.force), as_json=args.json)
+        return 0
     if args.dry_run:
         emit({"spec": str(args.spec), "status": "dry-run-ok", "planned_output": spec.get("output")}, as_json=args.json)
         return 0
