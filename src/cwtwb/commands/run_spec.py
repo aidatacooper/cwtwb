@@ -177,6 +177,8 @@ def _apply_worksheets(editor, spec: dict[str, Any]) -> list[str]:
             messages.append(editor.configure_custom_label(name, **label))
         for band in _as_list(item.get("reference_bands")):
             messages.append(editor.add_reference_band(name, **band))
+        for band in _as_list(item.get("percentage_bands")):
+            messages.append(editor.add_percentage_band(name, **band))
     return messages
 
 
