@@ -49,7 +49,11 @@ class ScreenshotResult:
 
 
 def _load_dotenv(env_path: Path) -> dict[str, str]:
-    """Load a .env file into a dict."""
+    """Load a .env file into a dict.
+
+    Accepts shell-style ``export KEY=VALUE`` lines, matching the operator-shared
+    credentials file at ``~/.config/wow-cloud/tableau.env``.
+    """
     result: dict[str, str] = {}
     if not env_path.exists():
         return result
@@ -58,8 +62,12 @@ def _load_dotenv(env_path: Path) -> dict[str, str]:
             line = line.strip()
             if not line or line.startswith("#") or "=" not in line:
                 continue
+            if line.startswith("export "):
+                line = line[len("export ") :].lstrip()
             key, _, value = line.partition("=")
             key, value = key.strip(), value.strip()
+            if len(value) >= 2 and value[0] == value[-1] and value[0] in {"'", '"'}:
+                value = value[1:-1]
             if key:
                 result[key] = value
     return result
@@ -79,6 +87,14 @@ def _candidate_env_files(
     env_file = os.environ.get("TABLEAU_ENV_FILE", "").strip()
     if env_file:
         candidates.append(Path(env_file).expanduser())
+
+    # Operator-shared credentials file. The wow-tableau-problem-solving repo
+    # keeps the Tableau PAT here (outside any repository, owner-only); cwtwb
+    # reads the same file so a single secret serves both repos.
+    shared = os.environ.get("WOW_CLOUD_ENV", "").strip()
+    if shared:
+        candidates.append(Path(shared).expanduser())
+    candidates.append(Path("~/.config/wow-cloud/tableau.env").expanduser())
 
     if workbook_path:
         candidates.append(Path(workbook_path).expanduser().parent / ".env")
@@ -126,26 +142,47 @@ def _get_config(
     def _get(key: str, default: str = "") -> str:
         return os.environ.get(key) or dotenv.get(key, default)
 
+    # The wow repo names the same PAT differently. Accept both spellings so one
+    # credentials file works for the SDK and the case repo.
+    _aliases = {
+        "TABLEAU_SERVER": ("TABLEAU_SERVER_URL",),
+        "TABLEAU_SITE": ("TABLEAU_SITE_ID",),
+        "TABLEAU_PAT_NAME": ("TABLEAU_TOKEN_NAME",),
+        "TABLEAU_PAT_SECRET": ("TABLEAU_TOKEN_SECRET",),
+    }
+
+    def _get_aliased(key: str, default: str = "") -> str:
+        value = _get(key)
+        if value:
+            return value
+        for alias in _aliases.get(key, ()):
+            value = _get(alias)
+            if value:
+                return value
+        return default
+
     config = {
-        "server": _get("TABLEAU_SERVER", "https://10ax.online.tableau.com"),
-        "site": _get("TABLEAU_SITE", ""),
-        "pat_name": _get("TABLEAU_PAT_NAME", ""),
-        "pat_secret": _get("TABLEAU_PAT_SECRET", ""),
-        "project_id": _get("TABLEAU_PROJECT_ID", ""),
+        "server": _get_aliased("TABLEAU_SERVER", "https://10ax.online.tableau.com"),
+        "site": _get_aliased("TABLEAU_SITE"),
+        "pat_name": _get_aliased("TABLEAU_PAT_NAME"),
+        "pat_secret": _get_aliased("TABLEAU_PAT_SECRET"),
+        "project_id": _get("TABLEAU_PROJECT_ID"),
     }
 
     if explicit_env is not None:
         explicit_values = _load_dotenv(explicit_env)
         explicit_map = {
-            "server": "TABLEAU_SERVER",
-            "site": "TABLEAU_SITE",
-            "pat_name": "TABLEAU_PAT_NAME",
-            "pat_secret": "TABLEAU_PAT_SECRET",
-            "project_id": "TABLEAU_PROJECT_ID",
+            "server": ("TABLEAU_SERVER", "TABLEAU_SERVER_URL"),
+            "site": ("TABLEAU_SITE", "TABLEAU_SITE_ID"),
+            "pat_name": ("TABLEAU_PAT_NAME", "TABLEAU_TOKEN_NAME"),
+            "pat_secret": ("TABLEAU_PAT_SECRET", "TABLEAU_TOKEN_SECRET"),
+            "project_id": ("TABLEAU_PROJECT_ID",),
         }
-        for config_key, env_key in explicit_map.items():
-            if explicit_values.get(env_key):
-                config[config_key] = explicit_values[env_key]
+        for config_key, env_keys in explicit_map.items():
+            for env_key in env_keys:
+                if explicit_values.get(env_key):
+                    config[config_key] = explicit_values[env_key]
+                    break
 
     return config
 
