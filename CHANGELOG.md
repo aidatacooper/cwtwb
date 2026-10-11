@@ -5,6 +5,29 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.29.0a1] - 2026-10-11
+
+### Added
+
+- Preview native TWB/TWBX/YAML/JSON conversion through `cwtwb convert`,
+  `cwtwb export`, native-definition `cwtwb run`, the Python API, and the
+  stateless MCP `convert_workbook` tool.
+- Versioned editable XML-tree definitions retain unknown nodes, namespaces,
+  comments, processing instructions, thumbnails, and bundled resource bytes.
+- Adjacent resource files, SHA-256 integrity checks, and an unpacked-TWB
+  resource manifest support moving definitions and repacking assets.
+- Explicit rejection of ambiguous versions, duplicate keys, unsafe archive
+  paths, missing resources during packaging, DTDs, and multiple-TWB archives.
+
+### Preview limitations
+
+- Definitions expose detailed native XML, not a simplified semantic model.
+- Conversion validates XML syntax and resources, not Tableau calculations,
+  Desktop loading, rendering, or interactive behavior.
+- Standalone TWB discovery covers Hyper/CSV/Excel connections and bitmap
+  zones; arbitrary external extension files are not discovered automatically.
+- Includes all 0.28.0 changes. Install explicitly with `pip install cwtwb==0.29.0a1`.
+
 ## [0.28.0] - 2026-10-11
 
 This release consolidates the changes since PyPI 0.27.0, including the
