@@ -1381,9 +1381,10 @@ class BasicChartBuilder(BaseChartBuilder):
         if self.color_map and self.color:
             ci = self._instance_for_expression(instances, self.color)
             if ci:
-                if self._datasource.find(
+                palette_instance = self._datasource.find(
                     f"column-instance[@name='{ci.instance_name}']"
-                ) is None:
+                )
+                if palette_instance is None:
                     palette_instance = etree.Element("column-instance")
                     palette_instance.set("column", ci.column_local_name)
                     palette_instance.set("derivation", ci.derivation)
@@ -1399,6 +1400,20 @@ class BasicChartBuilder(BaseChartBuilder):
                         insert_before.addprevious(palette_instance)
                     else:
                         self._datasource.append(palette_instance)
+                # Palette identity includes table-calculation addressing, not
+                # just the field name. When the colour field depends on a
+                # table calculation, Cloud ignores the datasource palette
+                # unless the instance carries the worksheet's nested
+                # <table-calc> context. Mirror builder_layered._apply_color_map
+                # so a plain configure_chart(color_map=...) palette renders.
+                bound_instance = view.find(
+                    f"datasource-dependencies/column-instance[@name='{ci.instance_name}']"
+                )
+                if bound_instance is not None:
+                    for old in list(palette_instance.findall("table-calc")):
+                        palette_instance.remove(old)
+                    for calculation in bound_instance.findall("table-calc"):
+                        palette_instance.append(copy.deepcopy(calculation))
                 ds_style = self._datasource.find("style")
                 if ds_style is None:
                     ds_style = etree.Element("style")

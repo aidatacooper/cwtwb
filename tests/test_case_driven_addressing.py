@@ -234,6 +234,48 @@ def test_layered_palette_preserves_nested_table_calc_context_through_mcp(editor,
     assert palette.findall("table-calc")[0] is not bound.findall("table-calc")[0]
 
 
+def test_chart_palette_preserves_nested_table_calc_context(editor):
+    """A boolean colour field driven by a table calc must carry its
+    table-calc addressing on the datasource palette instance, otherwise Cloud
+    silently ignores the palette and falls back to the default categorical
+    colours (as the ww14 baseball replica did).
+    """
+    editor.add_calculated_field("Running", "RUNNING_SUM(SUM([Sales]))", datatype="real", table_calc="Rows")
+    editor.add_calculated_field(
+        "Over", "SUM([Sales]) >= [Running]", datatype="boolean", role="measure",
+        field_type="nominal", table_calc="Rows",
+    )
+    editor.add_worksheet("Palette Context")
+    editor.configure_chart(
+        "Palette Context", mark_type="Bar", columns=["Category"],
+        rows=["SUM(Sales)"], color="Over", detail="Running",
+        color_map={"false": "#52b7d8", "true": "#e16032"},
+        table_calc_overrides={
+            "Running": [{"ordering-type": "Rows"}],
+            "Over": [
+                {"ordering-type": "Rows"},
+                {"field": "Running", "ordering-type": "Field", "order": ["Category"]},
+            ],
+        },
+    )
+    ci = editor.field_registry.parse_expression("Over")
+    palette = editor._datasource.find(f"column-instance[@name='{ci.instance_name}']")
+    bound = editor._find_worksheet("Palette Context").find(
+        f"table/view/datasource-dependencies/column-instance[@name='{ci.instance_name}']"
+    )
+    assert palette is not None
+    assert len(palette.findall("table-calc")) == len(bound.findall("table-calc")) == 2
+    assert [dict(node.attrib) for node in palette.findall("table-calc")] == [
+        dict(node.attrib) for node in bound.findall("table-calc")
+    ]
+    # Deep-copied, not shared with the worksheet dependency.
+    assert palette.findall("table-calc")[0] is not bound.findall("table-calc")[0]
+    encoding = editor._datasource.find(
+        f"style/style-rule/encoding[@field='{ci.instance_name}']"
+    )
+    assert [b.text for b in encoding.findall("map/bucket")] == ["false", "true"]
+
+
 def test_floating_navigation_is_a_dashboard_object_peer_with_exact_bounds(editor):
     editor.add_dashboard("Target")
     bounds = {"x": 71000, "y": 1000, "w": 27000, "h": 9000}
