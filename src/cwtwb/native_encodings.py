@@ -381,3 +381,173 @@ def add_reference_band(
     etree.SubElement(rule, "format", attr="fill-color", id=ids[0], value=fill_color)
     original.getparent().replace(original, worksheet)
     return f"Added reference band '{ids[0]}' to '{worksheet_name}'"
+
+
+def add_percentage_band(
+    editor,
+    worksheet_name,
+    *,
+    axis_field,
+    value_field=None,
+    percentage=150,
+    formula="average",
+    scope="per-pane",
+    pane_index=0,
+    probability="95",
+    fill_color="#00000000",
+    symmetric=False,
+    reverse_palette=False,
+):
+    """Add a native percentage distribution band on an existing quantitative axis.
+
+    A distribution band spans from an aggregate (``formula``) to
+    ``percentage`` percent of that aggregate. Tableau renders it as a
+    ``reference-line`` with ``percentage-bands='true'`` and a child
+    ``<reference-line-value percentage='...'/>``. Even with a transparent
+    fill it participates in the axis range, which is the portable way to
+    reproduce an author's per-pane breathing room.
+    """
+    if scope not in {"per-pane", "per-cell", "per-table"}:
+        raise ValueError("Invalid percentage band scope")
+    if (
+        isinstance(pane_index, bool)
+        or not isinstance(pane_index, int)
+        or pane_index < 0
+    ):
+        raise ValueError("pane_index must be a nonnegative integer")
+    if (
+        isinstance(percentage, bool)
+        or not isinstance(percentage, (int, float))
+        or not math.isfinite(percentage)
+        or percentage <= 0
+    ):
+        raise ValueError("percentage must be a finite positive number")
+    if formula not in {"min", "max", "average", "sum", "median"}:
+        raise ValueError("Unsupported percentage band aggregation")
+    if not isinstance(symmetric, bool):
+        raise TypeError("symmetric must be a boolean")
+    if not isinstance(reverse_palette, bool):
+        raise TypeError("reverse_palette must be a boolean")
+    if probability is not None and not isinstance(probability, (str, int)):
+        raise TypeError("probability must be a string, integer or None")
+    _color(fill_color)
+    original = editor._find_worksheet(worksheet_name)
+    worksheet = copy.deepcopy(original)
+    panes = worksheet.findall("table/panes/pane")
+    if pane_index >= len(panes):
+        raise ValueError("pane_index does not identify a configured pane")
+    registry = copy.deepcopy(editor.field_registry)
+    registry.set_unknown_field_policy(allow_unknown_fields=False)
+    ci = _instance(registry, axis_field)
+    ds_name = editor._datasource.get("name")
+    dependency = worksheet.find(
+        f"table/view/datasource-dependencies[@datasource='{ds_name}']"
+    )
+    axis = (
+        dependency.find(f"column-instance[@name='{ci.instance_name}']")
+        if dependency is not None
+        else None
+    )
+    if axis is None or axis.get("type") != "quantitative":
+        raise ValueError(
+            "axis_field must be a quantitative instance already used by the worksheet"
+        )
+    if value_field is None:
+        value_reference = registry.resolve_full_reference(ci.instance_name)
+    else:
+        value_ci = _instance(registry, value_field)
+        if value_ci.ci_type != "quantitative":
+            raise ValueError("value_field must resolve to a quantitative instance")
+        source_column = editor._datasource.find(
+            f"column[@name='{value_ci.column_local_name}']"
+        )
+        if (
+            source_column is not None
+            and dependency.find(f"column[@name='{value_ci.column_local_name}']") is None
+        ):
+            dependency.append(copy.deepcopy(source_column))
+        if dependency.find(f"column-instance[@name='{value_ci.instance_name}']") is None:
+            element = _instance_element(value_ci)
+            if source_column is not None:
+                for table_calc in source_column.findall("calculation/table-calc"):
+                    element.append(copy.deepcopy(table_calc))
+            dependency.append(element)
+        value_reference = registry.resolve_full_reference(value_ci.instance_name)
+    pane = panes[pane_index]
+    existing = {line.get("id") for line in worksheet.findall(".//reference-line")}
+    band_id = None
+    index = 0
+    while band_id is None:
+        candidate = f"refline{index}"
+        if candidate not in existing:
+            band_id = candidate
+        index += 1
+    z_order = (
+        max(
+            (int(line.get("z-order", "0")) for line in pane.findall("reference-line")),
+            default=0,
+        )
+        + 1
+    )
+    reference = registry.resolve_full_reference(ci.instance_name)
+    band = etree.Element(
+        "reference-line",
+        {
+            "axis-column": reference,
+            "enable-instant-analytics": "true",
+            "fill-above": "false",
+            "fill-below": "false",
+            "formula": formula,
+            "id": band_id,
+            "label-type": "none",
+            "percentage-bands": "true",
+            "scope": scope,
+            "symmetric": "true" if symmetric else "false",
+            "value-column": value_reference,
+            "z-order": str(z_order),
+        },
+    )
+    if probability is not None:
+        band.set("probability", str(probability))
+    value = etree.SubElement(band, "reference-line-value")
+    value.set("percentage", str(percentage))
+    anchor = next(
+        (
+            child
+            for child in pane
+            if child.tag in {"customized-tooltip", "customized-label", "style"}
+        ),
+        None,
+    )
+    if anchor is None:
+        pane.append(band)
+    else:
+        anchor.addprevious(band)
+    # Keep reference lines in ascending z-order: Tableau refuses to load a
+    # workbook whose pane lists a higher z-order line before a lower one.
+    lines = pane.findall("reference-line")
+    for line in sorted(
+        lines, key=lambda element: int(element.get("z-order", "0"))
+    ):
+        pane.remove(line)
+    insert_at = pane.index(anchor) if anchor is not None else len(pane)
+    for offset, line in enumerate(
+        sorted(lines, key=lambda element: int(element.get("z-order", "0")))
+    ):
+        pane.insert(insert_at + offset, line)
+    style = worksheet.find("table/style")
+    if style is None:
+        style = etree.SubElement(worksheet.find("table"), "style")
+    rule = style.find("style-rule[@element='refband']")
+    if rule is None:
+        rule = etree.SubElement(style, "style-rule", element="refband")
+    etree.SubElement(
+        rule,
+        "format",
+        attr="reverse-palette",
+        id=band_id,
+        value="true" if reverse_palette else "false",
+    )
+    etree.SubElement(rule, "format", attr="fill-color", id=band_id, value=fill_color)
+    original.getparent().replace(original, worksheet)
+    return f"Added percentage band '{band_id}' to '{worksheet_name}'"

@@ -459,6 +459,23 @@ def add_reference_band(
 
 
 @server.tool()
+def add_percentage_band(
+    worksheet_name: str, axis_field: str, value_field: str | None = None,
+    percentage: int | float = 150, formula: str = "average",
+    scope: str = "per-pane", pane_index: int = 0,
+    probability: str | int | None = "95", fill_color: str = "#00000000",
+    symmetric: bool = False, reverse_palette: bool = False,
+) -> str:
+    """Add a native percentage distribution band on an existing axis."""
+    return get_editor().add_percentage_band(
+        worksheet_name, axis_field=axis_field, value_field=value_field,
+        percentage=percentage, formula=formula, scope=scope,
+        pane_index=pane_index, probability=probability, fill_color=fill_color,
+        symmetric=symmetric, reverse_palette=reverse_palette,
+    )
+
+
+@server.tool()
 def add_parameter(
     name: str,
     datatype: str = "real",

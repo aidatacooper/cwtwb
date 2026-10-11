@@ -170,3 +170,48 @@ def test_band_preserves_synthetic_table_calculation_metadata():
         dict(instances[0].attrib),
         [(child.tag, dict(child.attrib)) for child in instances[0]],
     ) == before
+
+
+def test_percentage_band_writes_native_distribution_band(tmp_path):
+    """A percentage band is a distribution band that shapes the axis range."""
+    e = editor()
+    e.add_calculated_field("Latest", "{MAX([Value])}")
+    e.add_percentage_band(
+        "Plot",
+        axis_field="SUM(Value)",
+        value_field="AGG(Latest)",
+        percentage=150,
+    )
+    line = e.root.find(".//reference-line[@percentage-bands='true']")
+    assert line is not None
+    assert line.get("formula") == "average"
+    assert line.get("scope") == "per-pane"
+    assert line.get("label-type") == "none"
+    assert line.get("symmetric") == "false"
+    value = line.find("reference-line-value")
+    assert value is not None and value.get("percentage") == "150"
+    # The band's value-column is the field endpoint, not the axis.
+    assert line.get("value-column") != line.get("axis-column")
+    rule = e.root.find(".//style-rule[@element='refband']")
+    assert rule is not None
+    fill = rule.find("format[@attr='fill-color']")
+    assert fill is not None and fill.get("value") == "#00000000"
+    # Round-trips through save.
+    target = tmp_path / "band.twb"
+    e.save(target, validate=False)
+    reloaded = TWBEditor.open_existing(target)
+    assert reloaded.root.find(".//reference-line[@percentage-bands='true']") is not None
+
+
+def test_percentage_band_rejects_bad_input():
+    e = editor()
+    with pytest.raises(ValueError):
+        e.add_percentage_band("Plot", axis_field="SUM(Value)", percentage=0)
+    with pytest.raises(ValueError):
+        e.add_percentage_band("Plot", axis_field="SUM(Value)", percentage=-5)
+    with pytest.raises(ValueError):
+        e.add_percentage_band("Plot", axis_field="SUM(Value)", formula="stdev")
+    with pytest.raises(ValueError):
+        e.add_percentage_band("Plot", axis_field="SUM(Value)", scope="bogus")
+    with pytest.raises(ValueError):
+        e.add_percentage_band("Plot", axis_field="Category")

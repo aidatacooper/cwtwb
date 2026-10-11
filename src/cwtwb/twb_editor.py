@@ -3753,6 +3753,23 @@ class TWBEditor(ParametersMixin, ConnectionsMixin, ChartsMixin, DashboardsMixin)
             lower_label=lower_label, upper_label=upper_label,
         )
 
+    def add_percentage_band(
+        self, worksheet_name: str, *, axis_field: str,
+        value_field: str | None = None, percentage: int | float = 150,
+        formula: str = "average", scope: str = "per-pane", pane_index: int = 0,
+        probability: str | int | None = "95", fill_color: str = "#00000000",
+        symmetric: bool = False, reverse_palette: bool = False,
+    ) -> str:
+        """Add a native percentage distribution band on an existing axis."""
+        from .native_encodings import add_percentage_band
+
+        return add_percentage_band(
+            self, worksheet_name, axis_field=axis_field, value_field=value_field,
+            percentage=percentage, formula=formula, scope=scope,
+            pane_index=pane_index, probability=probability, fill_color=fill_color,
+            symmetric=symmetric, reverse_palette=reverse_palette,
+        )
+
     def set_worksheet_rich_title(
         self,
         worksheet_name: str,
