@@ -233,3 +233,65 @@ class TestRealWorldPatterns:
         assert len(cls) == 1, "Should replace, not duplicate"
         runs = _runs(cls[0])
         assert runs[0].text == "Second"
+
+
+# ── literal angle-bracket delimiters around a field run ───────────────────────
+
+
+class TestLiteralBracketDelimiters:
+    """A caller may spell the ``<`` / ``>`` delimiters as literal runs.
+
+    The field run must then emit a bare reference so the caller's literals form
+    the native ``<[ref]>`` token exactly once, instead of double-wrapping to
+    ``<<[ref]>>``.
+    """
+
+    def test_literal_lt_and_gt_do_not_double_wrap(self, lr_editor):
+        lr_editor.configure_chart(
+            "LRSheet",
+            mark_type="Text",
+            label="SUM(Sales)",
+            label_runs=[
+                {"text": "<"},
+                {"field": "SUM(Sales)"},
+                {"text": "> to goal"},
+            ],
+        )
+        cl = _get_customized_label(lr_editor, "LRSheet")
+        runs = _runs(cl)
+        combined = "".join(run.text or "" for run in runs)
+        assert combined.startswith("<[")
+        assert "<<" not in combined
+        assert ">>" not in combined
+        assert combined.endswith("> to goal")
+        assert "Sales" in combined
+
+    def test_plain_field_run_still_wraps_in_brackets(self, lr_editor):
+        lr_editor.configure_chart(
+            "LRSheet",
+            mark_type="Text",
+            label="SUM(Sales)",
+            label_runs=[{"field": "SUM(Sales)"}],
+        )
+        cl = _get_customized_label(lr_editor, "LRSheet")
+        runs = _runs(cl)
+        text = runs[0].text or ""
+        assert text.startswith("<[")
+        assert text.endswith("]>")
+
+    def test_prefix_run_is_not_treated_as_delimiter(self, lr_editor):
+        """A trailing '<' inside a longer literal is not a bare delimiter."""
+        lr_editor.configure_chart(
+            "LRSheet",
+            mark_type="Text",
+            label="SUM(Sales)",
+            label_runs=[
+                {"text": "a <"},
+                {"field": "SUM(Sales)"},
+            ],
+        )
+        cl = _get_customized_label(lr_editor, "LRSheet")
+        runs = _runs(cl)
+        combined = "".join(run.text or "" for run in runs)
+        # No closing '>' literal follows, so the field keeps its own brackets.
+        assert "a <<[" in combined
