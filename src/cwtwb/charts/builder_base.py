@@ -670,22 +670,27 @@ class BaseChartBuilder:
                 fa_val,
             )
 
-        def _resolve_run_text(spec: dict) -> str:
+        def _resolve_run_text(spec: dict, *, bare_field: bool = False) -> str:
             if "param" in spec:
                 param_info = self._parameters.get(spec["param"])
                 if param_info:
                     internal = param_info["internal_name"]
                     prefix = spec.get("prefix", "")
+                    if bare_field:
+                        return f"{prefix}[Parameters].{internal}"
                     return f"{prefix}<[Parameters].{internal}>"
                 return ""
             if "field" in spec:
                 virtual = {"Measure Names": ":Measure Names", "Multiple Values": "Multiple Values"}
                 if spec["field"] in virtual:
-                    return f"{spec.get('prefix', '')}<[{self._datasource.get('name')}].[{virtual[spec['field']]}]>"
+                    ref = f"[{self._datasource.get('name')}].[{virtual[spec['field']]}]"
+                    return f"{spec.get('prefix', '')}{ref}" if bare_field else f"{spec.get('prefix', '')}<{ref}>"
                 ci = self._instance_for_expression(instances, spec["field"])
                 if ci:
                     full_ref = self.field_registry.resolve_full_reference(ci.instance_name)
                     prefix = spec.get("prefix", "")
+                    if bare_field:
+                        return f"{prefix}{full_ref}"
                     return f"{prefix}<{full_ref}>"
                 return spec.get("text", "")
             if "text" in spec:
@@ -693,9 +698,35 @@ class BaseChartBuilder:
                 return "\u00c6\n" if text == "\n" else text
             return ""
 
+        def _delimited_by_literal_brackets(index: int) -> bool:
+            """Return whether a field run is already wrapped by literal runs.
+
+            Callers can spell the delimiters themselves as separate literal
+            runs (``{"text": "<"}`` ... ``{"text": "> to goal"}``). In that
+            case the generated ``<...>`` around the field reference would
+            double-wrap it and render as ``<<value>>``. Detecting the adjacent
+            literals lets the field run emit a bare reference so the caller's
+            brackets form the native ``<[ref]>`` syntax exactly once.
+            """
+            if index == 0 or index + 1 >= len(label_runs):
+                return False
+            previous = label_runs[index - 1]
+            following = label_runs[index + 1]
+            if "field" in previous or "param" in previous:
+                return False
+            if "field" in following or "param" in following:
+                return False
+            before = str(previous.get("text", ""))
+            after = str(following.get("text", ""))
+            return before.rstrip().endswith("<") and after.lstrip().startswith(">")
+
         resolved: list[tuple[dict, str]] = []
-        for spec in label_runs:
-            text = _resolve_run_text(spec)
+        for index, spec in enumerate(label_runs):
+            bare_field = (
+                ("field" in spec or "param" in spec)
+                and _delimited_by_literal_brackets(index)
+            )
+            text = _resolve_run_text(spec, bare_field=bare_field)
             if text:
                 resolved.append((spec, text))
 
