@@ -52,6 +52,11 @@ examples/migrate_workflow/migration_report.json
 examples/migrate_workflow/field_mapping.json
 examples/migrate_workflow/prompt.txt
 
+# Local handoff artifacts not required for the repository
+tests/test_kpi_field_collision.py
+uv.lock
+vendor/tableau-document-schemas/schemas/2026_1/twb_fixed.xsd
+
 
 prototype/frontend/node_modules/
 prototype/frontend/.pnpm-store/
