@@ -524,7 +524,30 @@ class BaseChartBuilder:
                 raise ValueError(
                     f"Missing column instance for table-calc override: {expression}"
                 )
+            # ``table-calc`` children with a ``field`` attribute are nested
+            # dependency metadata auto-generated from the calculated field's
+            # referenced fields (e.g. ``field="[ds].[Calculation_...]"``).
+            # When the override supplies only the instance's own addressing
+            # (no ``field`` entries) the auto nested dependencies must survive;
+            # dropping them collapses cumulative/window calculations (observed
+            # as a curve pinned to 100%). If the caller does supply explicit
+            # ``field`` entries, they are authoritative and replace the
+            # auto-generated set.
+            caller_provides_nested = any(
+                "field" in specification for specification in specifications
+            )
+            nested_metadata = [
+                old
+                for old in column_instance.findall("table-calc")
+                if old.get("field")
+            ]
+            if not caller_provides_nested:
+                first_nested = nested_metadata[0] if nested_metadata else None
+            else:
+                first_nested = None
             for old in list(column_instance.findall("table-calc")):
+                if old.get("field") and not caller_provides_nested:
+                    continue
                 column_instance.remove(old)
             def column_reference(expression) -> str:
                 if isinstance(expression, dict):
@@ -574,7 +597,11 @@ class BaseChartBuilder:
                     if sort_instance is None:
                         raise ValueError(f"Could not resolve table-calc sort field: {sort['using']}")
                     sort_attributes = {"direction": direction, "using": self.field_registry.resolve_full_reference(sort_instance.instance_name)}
-                table_calc = etree.SubElement(column_instance, "table-calc", attributes)
+                table_calc = etree.Element("table-calc", attributes)
+                if first_nested is not None:
+                    first_nested.addprevious(table_calc)
+                else:
+                    column_instance.append(table_calc)
                 for field in order:
                     etree.SubElement(table_calc, "order", field=column_reference(field))
                 if sort_attributes is not None:
