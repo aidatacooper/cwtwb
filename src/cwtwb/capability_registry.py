@@ -53,6 +53,9 @@ CAPABILITY_SPECS: tuple[CapabilitySpec, ...] = (
     CapabilitySpec(key="set-membership-control", kind="dashboard_zone", level="advanced", canonical="set_control", aliases=("setMembership",), rationale="Render a native set-membership dropdown or multiple-selection checkdropdown and matching worksheet card for an existing set."),
     CapabilitySpec(key="initial-filter-action-members", kind="action", level="advanced", canonical="initialize_dashboard_filter_action", rationale="Initialize existing action targets with native action-filter members that subsequent events can replace."),
     CapabilitySpec(key="custom-shape-assets", kind="encoding", level="advanced", canonical="set_shape_palette", rationale="Embed local shape assets and map categorical members to a native datasource shape palette."),
+    CapabilitySpec(key="field-geographic-role", kind="feature", level="advanced", canonical="set_field_geographic_role", aliases=("latitude role", "longitude role"), rationale="Assign or clear native geographic roles, including latitude and longitude, on datasource and worksheet dependency columns."),
+    CapabilitySpec(key="extract-geographic-role-inference", kind="connection", level="advanced", canonical="set_hyper_connection", rationale="Infer native geographic roles for latitude/longitude extract columns so a lat/lon map can bind them without a MAKEPOINT calculation."),
+    CapabilitySpec(key="custom-geographic-role", kind="feature", level="advanced", canonical="set_field_aggregate_role_from", aliases=("aggregate-role-from", "derived geographic role"), rationale="Derive a custom geographic role for a calculated field from another field's geographic role."),
     CapabilitySpec(key="field-fiscal-year", kind="feature", level="advanced", canonical="set_field_fiscal_year_start", rationale="Set native date-field fiscal metadata on the datasource and worksheet dependencies."),
     CapabilitySpec(key="hyper-logical-relationships", kind="connection", level="advanced", canonical="set_hyper_connection", rationale="Inspect typed Hyper tables and relate independent logical grains using explicit composite equality keys, without physical fact joins."),
     CapabilitySpec(key="measure-name-aliases", kind="feature", level="advanced", canonical="set_measure_name_aliases", rationale="Alias actual worksheet measure instances, preserving table calculation identities and native headers."),
@@ -543,6 +546,17 @@ CAPABILITY_SPECS: tuple[CapabilitySpec, ...] = (
         rationale="Supports Tableau visual totals and custom subtotal labels.",
         notes=(
             "Use configure_subtotals with measures already present in the worksheet.",
+        ),
+    ),
+    CapabilitySpec(
+        key="pages-shelf",
+        kind="feature",
+        level="advanced",
+        canonical="Pages",
+        aliases=("pages shelf", "page control", "animated pager"),
+        rationale="Binds discrete dimensions to the native Pages shelf for stepping through members.",
+        notes=(
+            "Use set_pages_shelf with a discrete dimension already present in the worksheet.",
         ),
     ),
     CapabilitySpec(

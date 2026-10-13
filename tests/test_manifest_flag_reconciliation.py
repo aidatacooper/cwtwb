@@ -163,6 +163,32 @@ def test_absent_content_adds_no_flag() -> None:
     assert "SortTagCleanup" not in manifest
     assert "HideSortControls" not in manifest
     assert "Layers" not in manifest
+    assert "Heatmap" not in manifest
+
+
+def test_heatmap_mark_requires_heatmap_flag() -> None:
+    """A density ``Heatmap`` mark needs the gated ``Heatmap`` flag.
+
+    Desktop refuses a schema-valid workbook carrying a ``<mark
+    class="Heatmap"/>`` without the matching manifest entry (error
+    d2e8da72). This reproduces the native-map density layer before the fix.
+    """
+    editor = TWBEditor("")
+    editor.add_worksheet("Viz")
+    pane = editor._find_worksheet("Viz").find("table/panes/pane")
+    pane.find("mark").set("class", "Heatmap")
+    editor._sanitize_workbook_tree()
+    assert "Heatmap" in _manifest(editor)
+
+
+def test_square_mark_does_not_require_heatmap_flag() -> None:
+    """The categorical ``Square`` alias must not pull in the density flag."""
+    editor = TWBEditor("")
+    editor.add_worksheet("Viz")
+    pane = editor._find_worksheet("Viz").find("table/panes/pane")
+    pane.find("mark").set("class", "Square")
+    editor._sanitize_workbook_tree()
+    assert "Heatmap" not in _manifest(editor)
 
 
 def test_reconciliation_is_idempotent() -> None:

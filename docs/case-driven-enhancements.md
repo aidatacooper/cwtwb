@@ -1,5 +1,39 @@
 # Case-driven SDK enhancements
 
+## 2021 WW22: latitude/longitude geographic roles
+
+An extract whose schema exposes plain `latitude`/`longitude` (or the common
+`lattitude` misspelling) columns registered them as ordinary measures with no
+geographic role, so a lat/lon map could not bind them and the case substituted
+a `MAKEPOINT` calculation. The semantic-role inference table now recognizes
+latitude/longitude names, the Hyper extract loader emits a top-level column for
+measure-typed fields that carry a geographic role, and
+`set_field_geographic_role` accepts `latitude` and `longitude` alongside the
+existing country/state/city/county/postal-code roles. Synthetic Hyper fixtures
+check the inferred roles and the explicit setter.
+
+## 2021 WW11: native Pages shelf
+
+The animated year pager had no public API; the case substituted a parameter and
+filter. The TWB view schema supports a native `<pages>` shelf, so
+`set_pages_shelf(worksheet_name, fields)` now binds one or more discrete
+dimensions already used by the worksheet, writing qualified column references in
+schema order after `cols`. An empty list clears the shelf. Measures and
+continuous dimensions are rejected before mutation, and the operation is
+idempotent. Synthetic tests cover the qualified reference, ordering,
+idempotence, clearing, rejection, schema validity and MCP forwarding.
+
+## 2021 WW19: custom geographic roles
+
+The article's "Region, created from State" custom geographic role had no public
+API; the case substituted one State-geocoded field per region. Tableau stores
+that role as ``aggregate-role-from`` on the calculated field, so
+``set_field_aggregate_role_from(field, source_field)`` now writes it on the
+datasource column and its worksheet dependency copies. The source field must
+already carry a geographic role; an empty source clears the derivation. The
+method is idempotent and synthetic tests cover the attribute, dependency
+propagation, clearing, rejection and MCP forwarding.
+
 ## 2021 WW09: native geographic layers and multi-measure map pies
 
 The population map combines conditional country polygons, a two-measure Pie

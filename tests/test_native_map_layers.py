@@ -213,6 +213,30 @@ def test_measure_name_palette_resolves_public_expressions():
     } == {"#d3d3d3", "#767f8b"}
 
 
+def test_native_heatmap_layer_adds_manifest_flag(tmp_path):
+    """A native density (Heatmap) layer must carry the gated manifest flag."""
+    editor = make()
+    specs = layers()
+    specs[3]["mark_type"] = "Heatmap"
+    editor.configure_chart(
+        "Map",
+        "Map",
+        geographic_field="Country/Region",
+        map_layers=specs,
+        map_layer_mode="native",
+    )
+    assert "Heatmap" in {
+        mark.get("class")
+        for mark in editor.root.findall(".//worksheet/table/panes/pane/mark")
+    }
+
+    output = tmp_path / "native_heatmap.twb"
+    editor.save(output)
+    manifest = editor.root.find("document-format-change-manifest")
+    assert manifest is not None
+    assert manifest.find("Heatmap") is not None
+
+
 def test_native_schema_adds_no_errors_to_empty_baseline():
     from cwtwb.validator import validate_against_schema
 
@@ -222,3 +246,55 @@ def test_native_schema_adds_no_errors_to_empty_baseline():
         pytest.skip("Vendored Tableau schema unavailable")
     configure(editor)
     assert validate_against_schema(editor.root).errors == baseline.errors
+
+
+def test_buffer_layer_without_detail_gets_geometry_detail():
+    """A native buffer layer needs a matching Detail to resolve its geometry.
+
+    Without a ``lod`` encoding a buffer/geometry layer does not set the map
+    extent, so the map stays at world scale instead of zooming to the buffer.
+    Tableau-authored workbooks pair the geometry encoding with a Detail field.
+    """
+    editor = make()
+    editor.add_calculated_field(
+        "Fire Size", "MAKEPOINT(1, 2)", datatype="spatial"
+    )
+    editor.configure_chart(
+        "Map",
+        "Map",
+        geographic_field="Fire Size",
+        map_layers=[{"geometry": "Fire Size", "mark_type": "Automatic", "tooltip": []}],
+        map_layer_mode="native",
+    )
+    pane = editor.root.xpath(".//worksheet/table/panes/pane[encodings/geometry]")[0]
+    encodings = pane.find("encodings")
+    geometry = encodings.find("geometry").get("column")
+    lod = encodings.find("lod")
+    assert lod is not None
+    assert lod.get("column") == geometry
+
+
+def test_buffer_layer_with_explicit_detail_is_unchanged():
+    """An explicit Detail is authoritative; no duplicate lod is added."""
+    editor = make()
+    editor.add_calculated_field(
+        "Fire Size", "MAKEPOINT(1, 2)", datatype="spatial"
+    )
+    editor.configure_chart(
+        "Map",
+        "Map",
+        geographic_field="Fire Size",
+        map_layers=[
+            {
+                "geometry": "Fire Size",
+                "mark_type": "Automatic",
+                "detail": "All Areas",
+                "tooltip": [],
+            }
+        ],
+        map_layer_mode="native",
+    )
+    pane = editor.root.xpath(".//worksheet/table/panes/pane[encodings/geometry]")[0]
+    lods = pane.findall("encodings/lod")
+    assert len(lods) == 1
+    assert lods[0].get("column") != pane.find("encodings/geometry").get("column")

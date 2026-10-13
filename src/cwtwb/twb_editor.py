@@ -42,7 +42,7 @@ from .validator import TWBValidationError
 logger = logging.getLogger(__name__)
 
 _AGGREGATE_FUNCTION_RE = re.compile(
-    r"\b(SUM|AVG|COUNT|COUNTD|MIN|MAX|MEDIAN|ATTR)\s*\(",
+    r"\b(SUM|AVG|COUNT|COUNTD|MIN|MAX|MEDIAN|PERCENTILE|ATTR)\s*\(",
     re.IGNORECASE,
 )
 _FIELD_TOKEN_RE = re.compile(r"\[([^\]]+)\]")
@@ -420,6 +420,13 @@ class TWBEditor(ParametersMixin, ConnectionsMixin, ChartsMixin, DashboardsMixin)
     _MANIFEST_ATTRIBUTE_FLAGS: tuple[tuple[str, str], ...] = (
         ("generated-title", "Layers"),
     )
+    # Mark classes that are gated behind a document-format manifest entry.
+    # A density ``Heatmap`` mark is schema-valid on its own, but Desktop's
+    # DOM loader refuses the whole workbook (error ``d2e8da72``) unless the
+    # matching ``Heatmap`` flag is present.
+    _MANIFEST_MARK_CLASS_FLAGS: tuple[tuple[str, str], ...] = (
+        ("Heatmap", "Heatmap"),
+    )
     # A text button needs its own object model and text-rendering support in
     # addition to ``CollapsiblePane``. Tableau-authored workbooks pair all
     # three; the text-support entry is a downgrade-ignorable feature. Adding
@@ -446,12 +453,15 @@ class TWBEditor(ParametersMixin, ConnectionsMixin, ChartsMixin, DashboardsMixin)
         """
         present_tags: set[str] = set()
         present_attrs: set[str] = set()
+        present_mark_classes: set[str] = set()
         text_button = False
         for element in self.root.iter():
             if not isinstance(element.tag, str):
                 continue
             present_tags.add(element.tag)
             present_attrs.update(element.attrib.keys())
+            if element.tag == "mark" and element.get("class"):
+                present_mark_classes.add(element.get("class"))
             if element.tag == "button" and element.get("button-type") == "text":
                 text_button = True
         required = {
@@ -463,6 +473,11 @@ class TWBEditor(ParametersMixin, ConnectionsMixin, ChartsMixin, DashboardsMixin)
             flag
             for attribute, flag in self._MANIFEST_ATTRIBUTE_FLAGS
             if attribute in present_attrs
+        )
+        required.update(
+            flag
+            for mark_class, flag in self._MANIFEST_MARK_CLASS_FLAGS
+            if mark_class in present_mark_classes
         )
         if text_button:
             required.update(self._MANIFEST_TEXT_BUTTON_FLAGS)
@@ -2046,12 +2061,14 @@ class TWBEditor(ParametersMixin, ConnectionsMixin, ChartsMixin, DashboardsMixin)
     def set_field_geographic_role(self, field: str, geographic_role: str) -> str:
         """Assign a geographic role to a field and its worksheet dependencies.
 
-        Supported roles are country, state, city, county, and postal_code.
-        An empty role clears an existing assignment.
+        Supported roles are country, state, city, county, postal_code,
+        latitude, and longitude. An empty role clears an existing assignment.
         """
         roles = {"country": "[Country].[ISO3166_2]", "state": "[State].[Name]",
                  "city": "[City].[Name]", "county": "[County].[Name]",
-                 "postal_code": "[ZipCode].[Name]", "": ""}
+                 "postal_code": "[ZipCode].[Name]",
+                 "latitude": "[Geographical].[Latitude]",
+                 "longitude": "[Geographical].[Longitude]", "": ""}
         if not isinstance(geographic_role, str) or geographic_role not in roles:
             raise ValueError("Unsupported geographic_role")
         info = self.field_registry._find_field(field)
@@ -2068,6 +2085,47 @@ class TWBEditor(ParametersMixin, ConnectionsMixin, ChartsMixin, DashboardsMixin)
             else:
                 node.attrib.pop("semantic-role", None)
         return f"Set geographic role for '{field}'"
+
+    def set_field_aggregate_role_from(self, field: str, source_field: str) -> str:
+        """Derive a custom geographic role for ``field`` from ``source_field``.
+
+        Tableau's ``aggregate-role-from`` attribute lets a calculated field
+        inherit the geographic role of another field (for example a
+        "West Region, created from State" field that geocodes as a state).
+        The source must already carry a geographic role. Pass an empty
+        ``source_field`` to clear the derivation.
+        """
+        if not isinstance(source_field, str):
+            raise ValueError("source_field must be a string")
+        info = self.field_registry._find_field(field)
+        column = self._datasource.find(f"column[@name='{info.local_name}']")
+        if column is None:
+            raise ValueError("Field must have a datasource column")
+
+        source_reference = ""
+        if source_field:
+            source_info = self.field_registry._find_field(source_field)
+            source_column = self._datasource.find(
+                f"column[@name='{source_info.local_name}']"
+            )
+            if source_column is None or not source_column.get("semantic-role"):
+                raise ValueError(
+                    f"Source field '{source_field}' must have a geographic role"
+                )
+            source_reference = source_info.local_name
+
+        nodes = [column]
+        for dependencies in self.root.findall(".//datasource-dependencies"):
+            if dependencies.get("datasource") == self._datasource.get("name"):
+                nodes.extend(
+                    dependencies.findall(f"column[@name='{info.local_name}']")
+                )
+        for node in nodes:
+            if source_reference:
+                node.set("aggregate-role-from", source_reference)
+            else:
+                node.attrib.pop("aggregate-role-from", None)
+        return f"Set aggregate role for '{field}' from '{source_field or 'none'}'"
 
     def set_shape_palette(self, field: str, shapes: dict[str, str], palette: str = "Custom") -> str:
         """Embed local shape assets and map categorical field members to them."""
@@ -2405,6 +2463,74 @@ class TWBEditor(ParametersMixin, ConnectionsMixin, ChartsMixin, DashboardsMixin)
             f"Configured {aggregation} subtotals for {configured_measures} measure(s) "
             f"on '{worksheet_name}'"
         )
+
+    def set_pages_shelf(self, worksheet_name: str, fields: list[str]) -> str:
+        """Bind discrete fields to a worksheet's native Pages shelf.
+
+        The Pages shelf turns a discrete field into a page control so a view
+        can be stepped through one member at a time (for example an animated
+        year pager). An empty ``fields`` list clears the shelf. Each field must
+        be a discrete dimension already used by the worksheet; continuous or
+        aggregated fields are rejected before mutation.
+        """
+        if not isinstance(fields, list) or any(
+            not isinstance(field, str) or not field.strip() for field in fields
+        ):
+            raise ValueError("fields must be a list of nonempty field expressions")
+
+        worksheet = self._find_worksheet(worksheet_name)
+        table = worksheet.find("table")
+        if table is None:
+            raise ValueError(f"Worksheet '{worksheet_name}' has no configured table.")
+        view = table.find("view")
+        ds_name = self._datasource.get("name", "")
+        dependencies = (
+            view.find(f"datasource-dependencies[@datasource='{ds_name}']")
+            if view is not None
+            else None
+        )
+
+        references: list[str] = []
+        for field in fields:
+            try:
+                info = self.field_registry._find_field(field)
+            except KeyError as exc:
+                raise ValueError(f"Unknown field '{field}'") from exc
+            if info.role != "dimension":
+                raise ValueError(
+                    f"Pages shelf requires a dimension; '{field}' is a measure."
+                )
+            ci = self.field_registry.parse_expression(field)
+            if ci.ci_type == "quantitative":
+                raise ValueError(
+                    f"Pages shelf requires a discrete field; '{field}' is continuous."
+                )
+            if dependencies is not None and dependencies.find(
+                f"column-instance[@column='{ci.column_local_name}']"
+            ) is None:
+                raise ValueError(
+                    f"Pages shelf field '{field}' is not used by worksheet "
+                    f"'{worksheet_name}'."
+                )
+            references.append(
+                self.field_registry.resolve_full_reference(ci.instance_name)
+            )
+
+        existing = table.find("pages")
+        if existing is not None:
+            table.remove(existing)
+        if references:
+            pages = etree.Element("pages")
+            for reference in references:
+                etree.SubElement(pages, "column").text = reference
+            # Schema order: pages follows cols and table-calc-densification.
+            anchor = table.find("cols")
+            if anchor is not None:
+                anchor.addnext(pages)
+            else:
+                table.append(pages)
+
+        return f"Set Pages shelf for '{worksheet_name}': {', '.join(fields) or 'cleared'}"
 
     def add_reference_line(
         self,

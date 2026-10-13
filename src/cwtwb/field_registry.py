@@ -20,7 +20,7 @@ from typing import Iterable, Optional
 # - If formula has aggregation (e.g. SUM(...)) -> derivation="User" (don't aggregate again)
 # - If formula has no aggregation (e.g. [Profit] / [Sales]) -> derivation="Sum"
 _AGGREGATE_FUNCTION_RE = re.compile(
-    r"\b(SUM|AVG|COUNT|COUNTD|MIN|MAX|MEDIAN|ATTR|COLLECT)\s*\(",
+    r"\b(SUM|AVG|COUNT|COUNTD|MIN|MAX|MEDIAN|PERCENTILE|ATTR|COLLECT)\s*\(",
     re.IGNORECASE,
 )
 
@@ -35,6 +35,10 @@ _DERIVATION_MAP: dict[str, str] = {
     "MIN": "Min",
     "MAX": "Max",
     "MEDIAN": "Median",
+    # PERCENTILE(expr, number) is an aggregate; Tableau stores its
+    # column-instance derivation as ``User`` (there is no dedicated
+    # percentile derivation enum).
+    "PERCENTILE": "User",
     # Tableau's column-instance derivation enum is ``Attribute``.  The
     # historical ``Attr`` shorthand is only an internal abbreviation and is
     # rejected by Tableau's workbook semantic validator.
@@ -87,6 +91,25 @@ _DERIVATION_ABBR: dict[str, str] = {
 # Temporal derivations (result type is ordinal key)
 _TEMPORAL_DERIVATIONS = {"Year", "Quarter", "Month", "Day", "Week", "Weekday", "MY"}
 
+# Aggregate functions whose trailing arguments are not field references
+# (e.g. the numeric constant in ``PERCENTILE(expr, 0.25)``). Only the first
+# top-level argument names the field being aggregated.
+_MULTI_ARG_AGGREGATE_FUNCTIONS = {"PERCENTILE"}
+
+
+def _first_argument(argument_text: str) -> str:
+    """Return the first top-level comma-separated argument of an expression."""
+
+    depth = 0
+    for index, char in enumerate(argument_text):
+        if char in "([":
+            depth += 1
+        elif char in ")]":
+            depth -= 1
+        elif char == "," and depth == 0:
+            return argument_text[:index].strip()
+    return argument_text.strip()
+
 # Expression regex: FUNC(field) or bare field
 _EXPR_RE = re.compile(
     r"^([A-Z]+)\((.+)\)$"  # FUNC(field)
@@ -114,6 +137,7 @@ AGGREGATE_FUNCTION_PREFIXES = (
     "min(",
     "max(",
     "median(",
+    "percentile(",
     "attr(",
     "month(",
     "quarter(",
@@ -429,6 +453,8 @@ class FieldRegistry:
             if m:
                 func_name = m.group(1).upper()
                 field_name = m.group(2).strip()
+                if func_name in _MULTI_ARG_AGGREGATE_FUNCTIONS:
+                    field_name = _first_argument(field_name)
                 if looks_like_column_instance_name(field_name):
                     raise ValueError(
                         f"Invalid field expression '{expr}': aggregation functions must "
