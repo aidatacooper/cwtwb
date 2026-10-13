@@ -42,7 +42,7 @@ from .validator import TWBValidationError
 logger = logging.getLogger(__name__)
 
 _AGGREGATE_FUNCTION_RE = re.compile(
-    r"\b(SUM|AVG|COUNT|COUNTD|MIN|MAX|MEDIAN|ATTR)\s*\(",
+    r"\b(SUM|AVG|COUNT|COUNTD|MIN|MAX|MEDIAN|PERCENTILE|ATTR)\s*\(",
     re.IGNORECASE,
 )
 _FIELD_TOKEN_RE = re.compile(r"\[([^\]]+)\]")
