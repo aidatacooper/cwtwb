@@ -12,6 +12,17 @@ measure-typed fields that carry a geographic role, and
 existing country/state/city/county/postal-code roles. Synthetic Hyper fixtures
 check the inferred roles and the explicit setter.
 
+## 2021 WW11: native Pages shelf
+
+The animated year pager had no public API; the case substituted a parameter and
+filter. The TWB view schema supports a native `<pages>` shelf, so
+`set_pages_shelf(worksheet_name, fields)` now binds one or more discrete
+dimensions already used by the worksheet, writing qualified column references in
+schema order after `cols`. An empty list clears the shelf. Measures and
+continuous dimensions are rejected before mutation, and the operation is
+idempotent. Synthetic tests cover the qualified reference, ordering,
+idempotence, clearing, rejection, schema validity and MCP forwarding.
+
 ## 2021 WW09: native geographic layers and multi-measure map pies
 
 The population map combines conditional country polygons, a two-measure Pie

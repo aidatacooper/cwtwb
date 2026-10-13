@@ -548,6 +548,17 @@ CAPABILITY_SPECS: tuple[CapabilitySpec, ...] = (
         ),
     ),
     CapabilitySpec(
+        key="pages-shelf",
+        kind="feature",
+        level="advanced",
+        canonical="Pages",
+        aliases=("pages shelf", "page control", "animated pager"),
+        rationale="Binds discrete dimensions to the native Pages shelf for stepping through members.",
+        notes=(
+            "Use set_pages_shelf with a discrete dimension already present in the worksheet.",
+        ),
+    ),
+    CapabilitySpec(
         key="bin",
         kind="feature",
         level="advanced",
