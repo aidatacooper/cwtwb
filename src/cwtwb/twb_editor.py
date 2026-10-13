@@ -2086,6 +2086,47 @@ class TWBEditor(ParametersMixin, ConnectionsMixin, ChartsMixin, DashboardsMixin)
                 node.attrib.pop("semantic-role", None)
         return f"Set geographic role for '{field}'"
 
+    def set_field_aggregate_role_from(self, field: str, source_field: str) -> str:
+        """Derive a custom geographic role for ``field`` from ``source_field``.
+
+        Tableau's ``aggregate-role-from`` attribute lets a calculated field
+        inherit the geographic role of another field (for example a
+        "West Region, created from State" field that geocodes as a state).
+        The source must already carry a geographic role. Pass an empty
+        ``source_field`` to clear the derivation.
+        """
+        if not isinstance(source_field, str):
+            raise ValueError("source_field must be a string")
+        info = self.field_registry._find_field(field)
+        column = self._datasource.find(f"column[@name='{info.local_name}']")
+        if column is None:
+            raise ValueError("Field must have a datasource column")
+
+        source_reference = ""
+        if source_field:
+            source_info = self.field_registry._find_field(source_field)
+            source_column = self._datasource.find(
+                f"column[@name='{source_info.local_name}']"
+            )
+            if source_column is None or not source_column.get("semantic-role"):
+                raise ValueError(
+                    f"Source field '{source_field}' must have a geographic role"
+                )
+            source_reference = source_info.local_name
+
+        nodes = [column]
+        for dependencies in self.root.findall(".//datasource-dependencies"):
+            if dependencies.get("datasource") == self._datasource.get("name"):
+                nodes.extend(
+                    dependencies.findall(f"column[@name='{info.local_name}']")
+                )
+        for node in nodes:
+            if source_reference:
+                node.set("aggregate-role-from", source_reference)
+            else:
+                node.attrib.pop("aggregate-role-from", None)
+        return f"Set aggregate role for '{field}' from '{source_field or 'none'}'"
+
     def set_shape_palette(self, field: str, shapes: dict[str, str], palette: str = "Custom") -> str:
         """Embed local shape assets and map categorical field members to them."""
         from .shape_assets import set_shape_palette

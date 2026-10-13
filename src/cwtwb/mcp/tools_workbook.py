@@ -328,6 +328,12 @@ def set_field_geographic_role(field: str, geographic_role: str) -> str:
 
 
 @server.tool()
+def set_field_aggregate_role_from(field: str, source_field: str) -> str:
+    """Derive a custom geographic role for a field from another field."""
+    return get_editor().set_field_aggregate_role_from(field, source_field)
+
+
+@server.tool()
 def set_field_format(field: str, default_format: str) -> str:
     """Set or clear a field's default Tableau display format."""
     return get_editor().set_field_format(field, default_format)
