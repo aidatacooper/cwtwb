@@ -1,5 +1,17 @@
 # Case-driven SDK enhancements
 
+## 2021 WW22: latitude/longitude geographic roles
+
+An extract whose schema exposes plain `latitude`/`longitude` (or the common
+`lattitude` misspelling) columns registered them as ordinary measures with no
+geographic role, so a lat/lon map could not bind them and the case substituted
+a `MAKEPOINT` calculation. The semantic-role inference table now recognizes
+latitude/longitude names, the Hyper extract loader emits a top-level column for
+measure-typed fields that carry a geographic role, and
+`set_field_geographic_role` accepts `latitude` and `longitude` alongside the
+existing country/state/city/county/postal-code roles. Synthetic Hyper fixtures
+check the inferred roles and the explicit setter.
+
 ## 2021 WW09: native geographic layers and multi-measure map pies
 
 The population map combines conditional country polygons, a two-measure Pie

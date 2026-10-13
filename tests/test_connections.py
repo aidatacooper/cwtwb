@@ -474,3 +474,75 @@ def test_schema_validation_downgrades_known_workbook_tail_issue(superstore_templ
     result = validate_against_schema(LET.parse(str(superstore_template)).getroot())
     assert result.compatibility_only is True
     assert result.to_text().startswith("WARN")
+
+
+def test_set_hyper_connection_infers_lat_lon_geographic_roles(tmp_path):
+    """Latitude/longitude extract columns receive native geographic roles.
+
+    Without a semantic role a lat/lon map cannot bind the columns; the author
+    workbook carries ``semantic-role='[Geographical].[Latitude]'`` and
+    ``'[Geographical].[Longitude]'``.
+    """
+    hyper = pytest.importorskip("tableauhyperapi")
+    hyper_path = tmp_path / "places.hyper"
+    with hyper.HyperProcess(
+        hyper.Telemetry.DO_NOT_SEND_USAGE_DATA_TO_TABLEAU
+    ) as process:
+        with hyper.Connection(
+            process.endpoint,
+            str(hyper_path),
+            hyper.CreateMode.CREATE_AND_REPLACE,
+        ) as connection:
+            connection.catalog.create_schema("Extract")
+            table = hyper.TableDefinition(
+                hyper.TableName("Extract", "Extract"),
+                [
+                    hyper.TableDefinition.Column(
+                        "Lattitude", hyper.SqlType.double()
+                    ),
+                    hyper.TableDefinition.Column(
+                        "Longitude", hyper.SqlType.double()
+                    ),
+                    hyper.TableDefinition.Column(
+                        "City", hyper.SqlType.text()
+                    ),
+                ],
+            )
+            connection.catalog.create_table(table)
+
+    editor = TWBEditor("")
+    editor.set_hyper_connection(str(hyper_path), table_name="Extract")
+
+    latitude = editor._datasource.find("column[@name='[Lattitude]']")
+    longitude = editor._datasource.find("column[@name='[Longitude]']")
+    city = editor._datasource.find("column[@name='[City]']")
+    assert latitude is not None and longitude is not None and city is not None
+    # ``lattitude`` is a common misspelling; the well-known name is matched.
+    assert longitude.get("semantic-role") == "[Geographical].[Longitude]"
+    assert city.get("semantic-role") == "[City].[Name]"
+
+
+def test_set_field_geographic_role_accepts_latitude_and_longitude():
+    editor = TWBEditor("")
+    editor.add_calculated_field(
+        "Lat", "1.0", datatype="real", role="measure", field_type="quantitative"
+    )
+    editor.add_calculated_field(
+        "Lon", "1.0", datatype="real", role="measure", field_type="quantitative"
+    )
+    editor.set_field_geographic_role("Lat", "latitude")
+    editor.set_field_geographic_role("Lon", "longitude")
+
+    lat_name = editor.field_registry._find_field("Lat").local_name
+    lon_name = editor.field_registry._find_field("Lon").local_name
+    assert (
+        editor._datasource.find(f"column[@name='{lat_name}']").get("semantic-role")
+        == "[Geographical].[Latitude]"
+    )
+    assert (
+        editor._datasource.find(f"column[@name='{lon_name}']").get("semantic-role")
+        == "[Geographical].[Longitude]"
+    )
+
+    editor.set_field_geographic_role("Lat", "")
+    assert editor._datasource.find(f"column[@name='{lat_name}']").get("semantic-role") is None

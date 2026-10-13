@@ -2061,12 +2061,14 @@ class TWBEditor(ParametersMixin, ConnectionsMixin, ChartsMixin, DashboardsMixin)
     def set_field_geographic_role(self, field: str, geographic_role: str) -> str:
         """Assign a geographic role to a field and its worksheet dependencies.
 
-        Supported roles are country, state, city, county, and postal_code.
-        An empty role clears an existing assignment.
+        Supported roles are country, state, city, county, postal_code,
+        latitude, and longitude. An empty role clears an existing assignment.
         """
         roles = {"country": "[Country].[ISO3166_2]", "state": "[State].[Name]",
                  "city": "[City].[Name]", "county": "[County].[Name]",
-                 "postal_code": "[ZipCode].[Name]", "": ""}
+                 "postal_code": "[ZipCode].[Name]",
+                 "latitude": "[Geographical].[Latitude]",
+                 "longitude": "[Geographical].[Longitude]", "": ""}
         if not isinstance(geographic_role, str) or geographic_role not in roles:
             raise ValueError("Unsupported geographic_role")
         info = self.field_registry._find_field(field)
