@@ -213,6 +213,30 @@ def test_measure_name_palette_resolves_public_expressions():
     } == {"#d3d3d3", "#767f8b"}
 
 
+def test_native_heatmap_layer_adds_manifest_flag(tmp_path):
+    """A native density (Heatmap) layer must carry the gated manifest flag."""
+    editor = make()
+    specs = layers()
+    specs[3]["mark_type"] = "Heatmap"
+    editor.configure_chart(
+        "Map",
+        "Map",
+        geographic_field="Country/Region",
+        map_layers=specs,
+        map_layer_mode="native",
+    )
+    assert "Heatmap" in {
+        mark.get("class")
+        for mark in editor.root.findall(".//worksheet/table/panes/pane/mark")
+    }
+
+    output = tmp_path / "native_heatmap.twb"
+    editor.save(output)
+    manifest = editor.root.find("document-format-change-manifest")
+    assert manifest is not None
+    assert manifest.find("Heatmap") is not None
+
+
 def test_native_schema_adds_no_errors_to_empty_baseline():
     from cwtwb.validator import validate_against_schema
 

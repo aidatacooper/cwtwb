@@ -420,6 +420,13 @@ class TWBEditor(ParametersMixin, ConnectionsMixin, ChartsMixin, DashboardsMixin)
     _MANIFEST_ATTRIBUTE_FLAGS: tuple[tuple[str, str], ...] = (
         ("generated-title", "Layers"),
     )
+    # Mark classes that are gated behind a document-format manifest entry.
+    # A density ``Heatmap`` mark is schema-valid on its own, but Desktop's
+    # DOM loader refuses the whole workbook (error ``d2e8da72``) unless the
+    # matching ``Heatmap`` flag is present.
+    _MANIFEST_MARK_CLASS_FLAGS: tuple[tuple[str, str], ...] = (
+        ("Heatmap", "Heatmap"),
+    )
     # A text button needs its own object model and text-rendering support in
     # addition to ``CollapsiblePane``. Tableau-authored workbooks pair all
     # three; the text-support entry is a downgrade-ignorable feature. Adding
@@ -446,12 +453,15 @@ class TWBEditor(ParametersMixin, ConnectionsMixin, ChartsMixin, DashboardsMixin)
         """
         present_tags: set[str] = set()
         present_attrs: set[str] = set()
+        present_mark_classes: set[str] = set()
         text_button = False
         for element in self.root.iter():
             if not isinstance(element.tag, str):
                 continue
             present_tags.add(element.tag)
             present_attrs.update(element.attrib.keys())
+            if element.tag == "mark" and element.get("class"):
+                present_mark_classes.add(element.get("class"))
             if element.tag == "button" and element.get("button-type") == "text":
                 text_button = True
         required = {
@@ -463,6 +473,11 @@ class TWBEditor(ParametersMixin, ConnectionsMixin, ChartsMixin, DashboardsMixin)
             flag
             for attribute, flag in self._MANIFEST_ATTRIBUTE_FLAGS
             if attribute in present_attrs
+        )
+        required.update(
+            flag
+            for mark_class, flag in self._MANIFEST_MARK_CLASS_FLAGS
+            if mark_class in present_mark_classes
         )
         if text_button:
             required.update(self._MANIFEST_TEXT_BUTTON_FLAGS)
