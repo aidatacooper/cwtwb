@@ -37,6 +37,13 @@ _SEMANTIC_ROLE_BY_FIELD_NAME = {
     "country": "[Country].[ISO3166_2]",
     "country region": "[Country].[ISO3166_2]",
     "country/region": "[Country].[ISO3166_2]",
+    "latitude": "[Geographical].[Latitude]",
+    "lattitude": "[Geographical].[Latitude]",
+    "lat": "[Geographical].[Latitude]",
+    "longitude": "[Geographical].[Longitude]",
+    "longtitude": "[Geographical].[Longitude]",
+    "lon": "[Geographical].[Longitude]",
+    "lng": "[Geographical].[Longitude]",
     "postal code": "[ZipCode].[Name]",
     "province": "[State].[Name]",
     "state": "[State].[Name]",
@@ -859,7 +866,10 @@ class ConnectionsMixin:
 
         top_level_columns: list[etree._Element] = []
         for field in normalized_fields:
-            if field["role"] == "measure":
+            # Measures normally live only in the connection metadata; a measure
+            # that carries a geographic semantic role (latitude/longitude) must
+            # also get a top-level column so a lat/lon map can bind it.
+            if field["role"] == "measure" and not field["semantic_role"]:
                 continue
             template = top_level_templates.get(field["local_name"])
             if template is None:
