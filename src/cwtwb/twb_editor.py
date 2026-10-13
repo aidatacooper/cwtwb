@@ -2423,6 +2423,74 @@ class TWBEditor(ParametersMixin, ConnectionsMixin, ChartsMixin, DashboardsMixin)
             f"on '{worksheet_name}'"
         )
 
+    def set_pages_shelf(self, worksheet_name: str, fields: list[str]) -> str:
+        """Bind discrete fields to a worksheet's native Pages shelf.
+
+        The Pages shelf turns a discrete field into a page control so a view
+        can be stepped through one member at a time (for example an animated
+        year pager). An empty ``fields`` list clears the shelf. Each field must
+        be a discrete dimension already used by the worksheet; continuous or
+        aggregated fields are rejected before mutation.
+        """
+        if not isinstance(fields, list) or any(
+            not isinstance(field, str) or not field.strip() for field in fields
+        ):
+            raise ValueError("fields must be a list of nonempty field expressions")
+
+        worksheet = self._find_worksheet(worksheet_name)
+        table = worksheet.find("table")
+        if table is None:
+            raise ValueError(f"Worksheet '{worksheet_name}' has no configured table.")
+        view = table.find("view")
+        ds_name = self._datasource.get("name", "")
+        dependencies = (
+            view.find(f"datasource-dependencies[@datasource='{ds_name}']")
+            if view is not None
+            else None
+        )
+
+        references: list[str] = []
+        for field in fields:
+            try:
+                info = self.field_registry._find_field(field)
+            except KeyError as exc:
+                raise ValueError(f"Unknown field '{field}'") from exc
+            if info.role != "dimension":
+                raise ValueError(
+                    f"Pages shelf requires a dimension; '{field}' is a measure."
+                )
+            ci = self.field_registry.parse_expression(field)
+            if ci.ci_type == "quantitative":
+                raise ValueError(
+                    f"Pages shelf requires a discrete field; '{field}' is continuous."
+                )
+            if dependencies is not None and dependencies.find(
+                f"column-instance[@column='{ci.column_local_name}']"
+            ) is None:
+                raise ValueError(
+                    f"Pages shelf field '{field}' is not used by worksheet "
+                    f"'{worksheet_name}'."
+                )
+            references.append(
+                self.field_registry.resolve_full_reference(ci.instance_name)
+            )
+
+        existing = table.find("pages")
+        if existing is not None:
+            table.remove(existing)
+        if references:
+            pages = etree.Element("pages")
+            for reference in references:
+                etree.SubElement(pages, "column").text = reference
+            # Schema order: pages follows cols and table-calc-densification.
+            anchor = table.find("cols")
+            if anchor is not None:
+                anchor.addnext(pages)
+            else:
+                table.append(pages)
+
+        return f"Set Pages shelf for '{worksheet_name}': {', '.join(fields) or 'cleared'}"
+
     def add_reference_line(
         self,
         worksheet_name: str,

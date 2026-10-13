@@ -405,6 +405,13 @@ def configure_subtotals(
 
 
 @server.tool()
+def set_pages_shelf(worksheet_name: str, fields: list[str]) -> str:
+    """Bind discrete fields to a worksheet's native Pages shelf (empty clears)."""
+
+    return get_editor().set_pages_shelf(worksheet_name, fields)
+
+
+@server.tool()
 def add_reference_line(
     worksheet_name: str,
     axis_field: str,
