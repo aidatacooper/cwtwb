@@ -2072,6 +2072,21 @@ class MapChartBuilder(BaseChartBuilder):
                 etree.SubElement(
                     enc, "lod", column=helper._field_ref(instances, expression, ds_name)
                 )
+            # A native buffer/geometry layer without a Detail field does not
+            # resolve its geometry, so the map stays at world scale instead of
+            # zooming to the buffer. Tableau-authored workbooks pair the
+            # geometry encoding with a matching Detail (``lod``) encoding; add
+            # it automatically when the caller supplied no detail of its own.
+            if (
+                spec.get("geometry")
+                and not details
+                and not spec.get("map_fields")
+            ):
+                etree.SubElement(
+                    enc,
+                    "lod",
+                    column=helper._field_ref(instances, spec["geometry"], ds_name),
+                )
             if mark in {"Map", "Multipolygon"} and not spec.get("geometry"):
                 etree.SubElement(
                     enc, "geometry", column=f"[{ds_name}].[Geometry (generated)]"
