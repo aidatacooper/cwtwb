@@ -5,7 +5,7 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [0.29.0a2] - 2026-10-24
 
 ### Added
 
@@ -26,6 +26,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   they can produce empty Cloud views.
 - Optional shared Tableau credential paths that are unreadable in a sandbox are
   skipped, so offline workbook construction and validation can continue.
+- Worksheet refactors now reuse captioned target fields by physical identity and
+  remove duplicate target column instances.
+
+Install this alpha explicitly with `pip install cwtwb==0.29.0a2`.
 
 ## [0.29.0a1] - 2026-10-11
 

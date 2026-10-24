@@ -82,6 +82,34 @@ worksheet construction. Dashboard interactions use `add_dashboard_action`
 for filter, highlight, URL, navigation, and parameter actions, and
 `add_dashboard_set_action` for set actions.
 
+Advanced datasource and encoding primitives include native intersections of
+same-grain dynamic sets, discrete aggregate headers, per-pane Pie wedges, and
+physical Hyper field metadata overrides:
+
+```python
+editor.add_combined_set(
+    "Profitable Top Products",
+    ["Profitable Products", "Top Products"],
+    operator="intersection",
+)
+editor.configure_chart(
+    "Headers",
+    mark_type="Text",
+    rows=["DISCRETE(SUM(Sales))"],
+)
+editor.set_hyper_connection(
+    "data.hyper",
+    field_overrides={
+        "Week": {"role": "dimension", "field_type": "ordinal"},
+        "Tasks.created_at": {"caption": "Created At"},
+    },
+)
+```
+
+Layered Pie panes accept `wedge_size` as a field expression or as
+`"Multiple Values"` together with pane-local `measure_values`. Text charts
+also honor `color_map`.
+
 Each operation is also available to MCP clients. Before using a composition,
 agents can call `list_capabilities` or `describe_capability` to confirm its
 support level and read `cwtwb://skills/chart_builder` or
@@ -295,6 +323,8 @@ These aliases exist to keep less disciplined clients from stopping on an `Unknow
 | `apply_worksheet_refactor` | Apply worksheet-scoped field rewrites while preserving the original worksheet |
 | `add_worksheet` | Add a new blank worksheet |
 | `configure_chart` | Configure chart type and field mappings |
+| `configure_layered_chart` | Configure independent mark panes, including pane-local Pie `wedge_size` and Measure Values |
+| `add_combined_set` | Combine same-grain native sets with `union` or `intersection` |
 | `configure_worksheet_style` | Apply worksheet-level styling: background color, axis/grid/border visibility |
 | `configure_dual_axis` | Configure a dual-axis chart composition |
 | `configure_chart_recipe` | Configure a showcase recipe chart such as `lollipop`, `donut`, `butterfly`, or `calendar` |
@@ -312,7 +342,7 @@ These aliases exist to keep less disciplined clients from stopping on an `Unknow
 | `set_excel_connection` | Configure the datasource to use a local Excel workbook and register fields from the selected sheet |
 | `set_mysql_connection` | Configure the datasource to use a local MySQL connection |
 | `set_tableauserver_connection` | Configure connection to an online Tableau Server |
-| `set_hyper_connection` | Configure the datasource to use a local Hyper extract connection |
+| `set_hyper_connection` | Configure a local Hyper extract, with optional physical-field caption, role, and field-type overrides |
 | `save_workbook` | Save the workbook as `.twb` (plain XML) or `.twbx` (ZIP with bundled extracts and images) |
 | `upload_workbook` | Publish `.twb`/`.twbx` to Tableau Cloud for explicit openability evidence, `.twbx` validation, or screenshots (requires `cwtwb[validate]`) |
 | `screenshot_workbook` | Capture a view image from a workbook published by `upload_workbook` (requires `cwtwb[validate]`) |
