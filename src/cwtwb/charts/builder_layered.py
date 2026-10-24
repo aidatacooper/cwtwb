@@ -462,10 +462,26 @@ class LayeredChartBuilder(BaseChartBuilder):
             include(specification.get("column"))
         all_measure_values: list[str] = []
         for pane_spec in self.panes:
+            if (
+                pane_spec.get("wedge_size") == _SPECIAL_MULTIPLE_VALUES
+                and not pane_spec.get("measure_values")
+            ):
+                raise ValueError(
+                    "Multiple Values wedge_size requires measure_values on the same pane"
+                )
             for attribute, expression in pane_spec.get("mark_style", {}).items():
                 if attribute.replace("_", "-") == "mark-labels-range-field":
                     include(expression)
-            for key in ("axis", "color", "size", "label", "detail", "path", "shape"):
+            for key in (
+                "axis",
+                "color",
+                "size",
+                "label",
+                "detail",
+                "path",
+                "shape",
+                "wedge_size",
+            ):
                 include(pane_spec.get(key))
             for expression in pane_spec.get("color_extra", []):
                 include(expression)
@@ -546,6 +562,14 @@ class LayeredChartBuilder(BaseChartBuilder):
                 if sort_instance.ci_type not in {"nominal", "ordinal"}:
                     raise ValueError("sort_field must identify a dimension")
                 measure = self._instance_for_expression(instances, self.sort_descending)
+                measure_field = self.field_registry._find_field(
+                    measure.column_local_name
+                )
+                if measure_field.is_table_calculation:
+                    raise ValueError(
+                        "computed sorting by a table calculation is not supported; "
+                        "use sort_mode='shelf' or place a discrete sort key on the shelf"
+                    )
                 for old in list(view.findall("computed-sort")):
                     if old.get("column") == self.field_registry.resolve_full_reference(sort_instance.instance_name):
                         view.remove(old)
@@ -623,7 +647,7 @@ class LayeredChartBuilder(BaseChartBuilder):
                 None if self._is_special(pane_spec.get("size")) else pane_spec.get("size"),
                 None if self._is_special(pane_spec.get("label")) else pane_spec.get("label"),
                 pane_spec.get("detail"),
-                None,
+                None if self._is_special(pane_spec.get("wedge_size")) else pane_spec.get("wedge_size"),
                 pane_spec.get("tooltip"),
                 False,
                 None,
@@ -646,6 +670,12 @@ class LayeredChartBuilder(BaseChartBuilder):
                 pane.find("mark").addnext(encodings)
             if pane_spec.get("size") == _SPECIAL_MEASURE_NAMES:
                 etree.SubElement(encodings, "size", column=f"[{ds_name}].[:Measure Names]")
+            if pane_spec.get("wedge_size") == _SPECIAL_MULTIPLE_VALUES:
+                etree.SubElement(
+                    encodings,
+                    "wedge-size",
+                    column=f"[{ds_name}].[Multiple Values]",
+                )
             for expression in pane_spec.get("color_extra", []):
                 etree.SubElement(encodings, "color", column=self._field_ref(instances, expression, ds_name))
             for expression in pane_spec.get("detail_extra", []):

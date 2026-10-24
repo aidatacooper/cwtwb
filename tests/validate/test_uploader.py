@@ -2,7 +2,6 @@
 
 import pytest
 from pathlib import Path
-from unittest.mock import patch, MagicMock
 
 from cwtwb.validate.uploader import (
     TableauUploader,
@@ -169,6 +168,44 @@ class TestLoadDotenv:
         assert cfg["site"] == "shared-site"
         assert cfg["pat_name"] == "shared-pat"
         assert cfg["pat_secret"] == "shared-secret"
+
+    def test_get_config_skips_unreadable_optional_candidate(
+        self, tmp_path, monkeypatch
+    ):
+        from cwtwb.validate import uploader
+
+        blocked = tmp_path / "blocked.env"
+        original_exists = Path.exists
+
+        def guarded_exists(path):
+            if path == blocked:
+                raise PermissionError("sandbox denied")
+            return original_exists(path)
+
+        monkeypatch.setattr(
+            uploader,
+            "_candidate_env_files",
+            lambda _env_path=None, _workbook_path=None: [blocked],
+        )
+        monkeypatch.setattr(Path, "exists", guarded_exists)
+        for key in (
+            "TABLEAU_SERVER",
+            "TABLEAU_SERVER_URL",
+            "TABLEAU_SITE",
+            "TABLEAU_SITE_ID",
+            "TABLEAU_PAT_NAME",
+            "TABLEAU_TOKEN_NAME",
+            "TABLEAU_PAT_SECRET",
+            "TABLEAU_TOKEN_SECRET",
+            "TABLEAU_PROJECT_ID",
+        ):
+            monkeypatch.delenv(key, raising=False)
+
+        cfg = uploader._get_config()
+
+        assert cfg["server"] == "https://10ax.online.tableau.com"
+        assert cfg["pat_name"] == ""
+        assert cfg["pat_secret"] == ""
 
 
 class TestPackageTwbx:

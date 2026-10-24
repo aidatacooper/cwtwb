@@ -91,6 +91,19 @@ _DERIVATION_ABBR: dict[str, str] = {
 # Temporal derivations (result type is ordinal key)
 _TEMPORAL_DERIVATIONS = {"Year", "Quarter", "Month", "Day", "Week", "Weekday", "MY"}
 
+# Derivations Tableau can expose as discrete aggregate headers while preserving
+# the aggregate operation in the column instance (for example [sum:Sales:ok]).
+_DISCRETE_AGGREGATE_DERIVATIONS = {
+    "Sum",
+    "Avg",
+    "Count",
+    "CountD",
+    "Min",
+    "Max",
+    "Median",
+    "Attribute",
+}
+
 # Aggregate functions whose trailing arguments are not field references
 # (e.g. the numeric constant in ``PERCENTILE(expr, 0.25)``). Only the first
 # top-level argument names the field being aggregated.
@@ -428,13 +441,19 @@ class FieldRegistry:
         if discrete:
             inner = self.parse_expression(discrete.group(1).strip())
             if inner.derivation not in {
-                "Day-Trunc", "Month-Trunc", "Quarter-Trunc", "Year-Trunc"
+                "Day-Trunc",
+                "Month-Trunc",
+                "Quarter-Trunc",
+                "Year-Trunc",
+                *_DISCRETE_AGGREGATE_DERIVATIONS,
             }:
-                raise ValueError("DISCRETE requires a date truncation expression")
+                raise ValueError(
+                    "DISCRETE requires a date truncation or aggregate expression"
+                )
             return replace(
                 inner,
                 ci_type="ordinal",
-                instance_name=inner.instance_name.removesuffix(":qk]") + ":ok]",
+                instance_name=re.sub(r":(?:qk|nk)\]$", ":ok]", inner.instance_name),
             )
         if looks_like_column_instance_name(raw_expr):
             raise ValueError(

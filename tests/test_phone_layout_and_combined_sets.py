@@ -2,6 +2,7 @@ import pytest
 from lxml import etree
 
 from cwtwb import TWBEditor
+from cwtwb.validator import validate_against_schema
 
 
 def test_phone_layout_is_automatic_and_derived_from_default_objects():
@@ -80,6 +81,52 @@ def test_combined_set_uses_native_dynamic_union():
         filters=[{"column": "Both", "values": [True]}],
     )
     assert editor.root.find(".//worksheet[@name='Union']//filter") is not None
+
+
+def test_combined_set_uses_native_dynamic_intersection(tmp_path):
+    baseline = TWBEditor("")
+    baseline.add_set("Top", "Category", basis_field="Sales", top_n=1)
+    baseline.add_set("Selected", "Category", members=["Technology"])
+    baseline.add_combined_set("Both", ["Top", "Selected"])
+
+    editor = TWBEditor("")
+    editor.add_set("Top", "Category", basis_field="Sales", top_n=1)
+    editor.add_set("Selected", "Category", members=["Technology"])
+
+    editor.add_combined_set(
+        "Both",
+        ["Top", "Selected"],
+        operator="intersection",
+    )
+
+    group = editor.root.find(".//group[@name='[Both]']")
+    assert [
+        node.get("field")
+        for node in group.findall(
+            "groupfilter[@function='intersection']/groupfilter[@function='reference']"
+        )
+    ] == ["[Top]", "[Selected]"]
+    instance = editor.root.find(".//column-instance[@column='[Both]']")
+    assert instance.get("derivation") == "InOut"
+    assert validate_against_schema(editor.root).errors == validate_against_schema(
+        baseline.root
+    ).errors
+    output = tmp_path / "intersection.twb"
+    editor.save(output)
+    assert validate_against_schema(etree.parse(str(output)).getroot()).errors == []
+
+
+@pytest.mark.parametrize("operator", ["difference", "except", "", None])
+def test_combined_set_rejects_unknown_operator_without_mutation(operator):
+    editor = TWBEditor("")
+    editor.add_set("Top", "Category", basis_field="Sales", top_n=1)
+    editor.add_set("Bottom", "Category", basis_field="Sales", top_n=1)
+    before = etree.tostring(editor.root)
+
+    with pytest.raises(ValueError, match="operator"):
+        editor.add_combined_set("Both", ["Top", "Bottom"], operator=operator)
+
+    assert etree.tostring(editor.root) == before
 
 
 def test_combined_set_rejects_different_grains_without_mutation():

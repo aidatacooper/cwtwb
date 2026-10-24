@@ -968,8 +968,9 @@ def set_hyper_connection(
     table_name: str = "Extract",
     tables: list[dict] | None = None,
     relationships: list[dict] | None = None,
+    field_overrides: dict[str, dict[str, str]] | None = None,
 ) -> str:
-    """Configure the workbook datasource to use a local Hyper extract connection."""
+    """Configure Hyper data, with optional physical-field captions and roles."""
 
     editor = get_editor()
     return editor.set_hyper_connection(
@@ -977,6 +978,7 @@ def set_hyper_connection(
         table_name=table_name,
         tables=tables,
         relationships=relationships,
+        field_overrides=field_overrides,
     )
 
 
@@ -1627,9 +1629,13 @@ def configure_datasource_blend(worksheet_name: str, secondary_datasource: str,
 
 
 @server.tool()
-def add_combined_set(set_name: str, set_names: list[str]) -> str:
-    """Union existing native sets at the same dimension grain."""
-    return get_editor().add_combined_set(set_name, set_names)
+def add_combined_set(
+    set_name: str,
+    set_names: list[str],
+    operator: str = "union",
+) -> str:
+    """Combine same-grain native sets using union or intersection."""
+    return get_editor().add_combined_set(set_name, set_names, operator=operator)
 
 
 @server.tool()

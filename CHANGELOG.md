@@ -5,6 +5,28 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+
+- Native intersections for same-grain dynamic sets through
+  `add_combined_set(..., operator="intersection")`.
+- Per-pane `wedge_size` bindings for layered Pie charts, including native
+  Measure Values wedges.
+- Discrete aggregate pills such as `DISCRETE(SUM(Sales))`, preserving the
+  aggregate derivation while emitting an ordinal header.
+- Hyper `field_overrides` for physical captions, roles and field types, with
+  qualified field names for logical relationship data sources.
+
+### Fixed
+
+- Text charts now apply the requested `color_map` instead of silently dropping it.
+- Invalid table-calculation addressing, table-calculation computed sorts and
+  `EXACTDATE(...)` custom-tooltip fields now fail with actionable errors before
+  they can produce empty Cloud views.
+- Optional shared Tableau credential paths that are unreadable in a sandbox are
+  skipped, so offline workbook construction and validation can continue.
+
 ## [0.29.0a1] - 2026-10-11
 
 ### Added

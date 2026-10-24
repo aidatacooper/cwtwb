@@ -734,10 +734,15 @@ class TWBEditor(ParametersMixin, ConnectionsMixin, ChartsMixin, DashboardsMixin)
         from .measure_aliases import set_measure_name_aliases
         return set_measure_name_aliases(self, worksheet_name, mapping)
 
-    def add_combined_set(self, set_name: str, set_names: list[str]) -> str:
-        """Create a native union of existing dynamic sets on the same dimension."""
+    def add_combined_set(
+        self,
+        set_name: str,
+        set_names: list[str],
+        operator: str = "union",
+    ) -> str:
+        """Combine same-grain dynamic sets with a native union or intersection."""
         from .combined_sets import add_combined_set
-        return add_combined_set(self, set_name, set_names)
+        return add_combined_set(self, set_name, set_names, operator=operator)
 
     def configure_datasource_blend(
         self, worksheet_name: str, secondary_datasource: str,
@@ -2760,6 +2765,15 @@ class TWBEditor(ParametersMixin, ConnectionsMixin, ChartsMixin, DashboardsMixin)
             raise ValueError("runs must contain at least one tooltip run")
         if pane_index < 0:
             raise ValueError("pane_index must be zero or greater")
+        for spec in runs:
+            field = spec.get("field") if isinstance(spec, dict) else None
+            if isinstance(field, str) and re.fullmatch(
+                r"EXACTDATE\(.+\)", field.strip(), flags=re.IGNORECASE
+            ):
+                raise ValueError(
+                    "EXACTDATE fields are not supported in custom tooltip runs; "
+                    "use the bare or bracketed date field"
+                )
 
         worksheet = self._find_worksheet(worksheet_name)
         view = worksheet.find("table/view")

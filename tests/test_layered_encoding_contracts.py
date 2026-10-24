@@ -1,7 +1,10 @@
 """Synthetic regressions for parallel coordinates and grouped bar layers."""
 import pytest
+from lxml import etree
+
 from cwtwb import TWBEditor
 from cwtwb.mcp import tools_workbook
+from cwtwb.validator import validate_against_schema
 
 
 def synthetic():
@@ -233,3 +236,94 @@ def test_measure_names_header_styles_use_virtual_field_without_registration():
     formats = editor.root.findall(".//style-rule[@element='label']/format")
     assert any(f.get("field", "").endswith(".[:Measure Names]") and f.get("attr") == "display" for f in formats)
     assert editor.field_registry.get("Measure Names") is None
+
+
+def test_layered_pie_serializes_field_wedge_size():
+    editor = TWBEditor("")
+    editor.add_worksheet("Donut")
+    editor.configure_layered_chart(
+        "Donut",
+        rows=["SUM(Sales)", "SUM(Sales)"],
+        panes=[
+            {
+                "axis": "SUM(Sales)",
+                "mark_type": "Pie",
+                "color": "Category",
+                "wedge_size": "SUM(Profit)",
+            },
+            {"axis": "SUM(Sales)", "mark_type": "Circle"},
+        ],
+    )
+
+    panes = editor.root.findall(".//worksheet[@name='Donut']//panes/pane")
+    wedge = panes[0].find("encodings/wedge-size")
+    assert wedge is not None
+    assert "[sum:Profit" in wedge.get("column")
+    assert panes[1].find("encodings/wedge-size") is None
+
+
+def test_layered_pie_serializes_multiple_values_wedge_size(tmp_path):
+    baseline = TWBEditor("")
+    baseline.add_worksheet("Donut")
+    baseline.configure_layered_chart(
+        "Donut",
+        rows=["SUM(Sales)", "SUM(Sales)"],
+        panes=[
+            {
+                "axis": "SUM(Sales)",
+                "mark_type": "Pie",
+                "color": "Measure Names",
+                "measure_values": ["SUM(Sales)", "SUM(Profit)"],
+            },
+            {"axis": "SUM(Sales)", "mark_type": "Circle"},
+        ],
+    )
+
+    editor = TWBEditor("")
+    editor.add_worksheet("Donut")
+    editor.configure_layered_chart(
+        "Donut",
+        rows=["SUM(Sales)", "SUM(Sales)"],
+        panes=[
+            {
+                "axis": "SUM(Sales)",
+                "mark_type": "Pie",
+                "color": "Measure Names",
+                "wedge_size": "Multiple Values",
+                "measure_values": ["SUM(Sales)", "SUM(Profit)"],
+            },
+            {"axis": "SUM(Sales)", "mark_type": "Circle"},
+        ],
+    )
+
+    panes = editor.root.findall(".//worksheet[@name='Donut']//panes/pane")
+    wedge = panes[0].find("encodings/wedge-size")
+    assert wedge is not None
+    assert wedge.get("column").endswith(".[Multiple Values]")
+    assert panes[1].find("encodings/wedge-size") is None
+    view = editor.root.find(".//worksheet[@name='Donut']//view")
+    filters = view.findall("filter")
+    assert any(node.get("column", "").endswith(".[:Measure Names]") for node in filters)
+    assert validate_against_schema(editor.root).errors == validate_against_schema(
+        baseline.root
+    ).errors
+    output = tmp_path / "layered-pie.twb"
+    editor.save(output)
+    assert validate_against_schema(etree.parse(str(output)).getroot()).errors == []
+
+
+def test_layered_multiple_values_wedge_size_requires_measure_values():
+    editor = TWBEditor("")
+    editor.add_worksheet("Donut")
+    with pytest.raises(ValueError, match="requires measure_values"):
+        editor.configure_layered_chart(
+            "Donut",
+            rows=["SUM(Sales)"],
+            panes=[
+                {
+                    "axis": "SUM(Sales)",
+                    "mark_type": "Pie",
+                    "wedge_size": "Multiple Values",
+                }
+            ],
+        )

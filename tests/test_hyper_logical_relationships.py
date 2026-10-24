@@ -140,6 +140,92 @@ def test_mcp_builds_composite_relationship_from_empty(inspected, monkeypatch):
     )
 
 
+def test_relationship_fields_accept_qualified_metadata_overrides(inspected):
+    editor = TWBEditor("")
+    editor.set_hyper_connection(
+        "synthetic.hyper",
+        tables=TABLES,
+        relationships=RELATIONSHIPS,
+        field_overrides={
+            "Actual.Sales": {
+                "caption": "Actual Sales Header",
+                "role": "dimension",
+                "field_type": "ordinal",
+            },
+            "Goals.Goal": {"caption": "Target Amount"},
+        },
+    )
+
+    actual = editor.field_registry._find_field("Actual Sales Header")
+    assert actual.local_name == "[Sales]"
+    assert actual.role == "dimension"
+    assert actual.field_type == "ordinal"
+    target = editor.field_registry._find_field("Target Amount")
+    assert target.local_name == "[Goal]"
+    assert target.role == "measure"
+    column = editor.root.find(
+        ".//datasource/column[@name='[Sales]'][@caption='Actual Sales Header']"
+    )
+    assert column is not None
+    assert column.get("role") == "dimension"
+    assert column.get("type") == "ordinal"
+    assert editor.root.xpath(
+        ".//object-graph/relationships/relationship//expression[@op='[Month]']"
+    )
+
+
+def test_unqualified_ambiguous_relationship_override_is_atomic(inspected):
+    editor = TWBEditor("")
+    before = etree.tostring(editor.root)
+    with pytest.raises(ValueError, match="Ambiguous"):
+        editor.set_hyper_connection(
+            "synthetic.hyper",
+            tables=TABLES,
+            relationships=RELATIONSHIPS,
+            field_overrides={"Segment": {"caption": "Segment Label"}},
+        )
+    assert etree.tostring(editor.root) == before
+
+
+def test_mcp_forwards_relationship_field_overrides(inspected, monkeypatch):
+    editor = TWBEditor("")
+    monkeypatch.setattr(tools_workbook, "get_editor", lambda: editor)
+    tools_workbook.set_hyper_connection(
+        "synthetic.hyper",
+        tables=TABLES,
+        relationships=RELATIONSHIPS,
+        field_overrides={
+            "Actual.Sales": {"caption": "Sales Display", "role": "dimension"}
+        },
+    )
+    field = editor.field_registry._find_field("Sales Display")
+    assert field.role == "dimension"
+    assert field.field_type == "nominal"
+
+
+def test_run_spec_forwards_relationship_field_overrides(inspected):
+    editor = TWBEditor("")
+    _apply_connection(
+        editor,
+        {
+            "type": "hyper",
+            "path": "synthetic.hyper",
+            "tables": TABLES,
+            "relationships": RELATIONSHIPS,
+            "field_overrides": {
+                "Actual.Sales": {
+                    "caption": "Sales Display",
+                    "role": "dimension",
+                }
+            },
+        },
+    )
+
+    field = editor.field_registry._find_field("Sales Display")
+    assert field.local_name == "[Sales]"
+    assert field.role == "dimension"
+
+
 def test_single_key_has_no_redundant_and(inspected):
     editor = TWBEditor("")
     editor.set_hyper_connection(
