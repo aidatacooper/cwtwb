@@ -734,10 +734,15 @@ class TWBEditor(ParametersMixin, ConnectionsMixin, ChartsMixin, DashboardsMixin)
         from .measure_aliases import set_measure_name_aliases
         return set_measure_name_aliases(self, worksheet_name, mapping)
 
-    def add_combined_set(self, set_name: str, set_names: list[str]) -> str:
-        """Create a native union of existing dynamic sets on the same dimension."""
+    def add_combined_set(
+        self,
+        set_name: str,
+        set_names: list[str],
+        operator: str = "union",
+    ) -> str:
+        """Combine same-grain dynamic sets with a native union or intersection."""
         from .combined_sets import add_combined_set
-        return add_combined_set(self, set_name, set_names)
+        return add_combined_set(self, set_name, set_names, operator=operator)
 
     def configure_datasource_blend(
         self, worksheet_name: str, secondary_datasource: str,
@@ -1703,6 +1708,7 @@ class TWBEditor(ParametersMixin, ConnectionsMixin, ChartsMixin, DashboardsMixin)
         worksheet = self._find_worksheet(worksheet_name)
         plan = self._plan_worksheet_refactor(worksheet, replacements)
         self._apply_worksheet_refactor_plan(worksheet, plan)
+        self._normalize_refactor_target_dependencies(worksheet, plan.replacements)
         self._normalize_worksheet_field_identities(worksheet, plan)
         self._reinit_fields()
         return plan.to_dict()
@@ -1935,6 +1941,32 @@ class TWBEditor(ParametersMixin, ConnectionsMixin, ChartsMixin, DashboardsMixin)
             "rewrite_map": rewrite_map,
         }
 
+    def _normalize_refactor_target_dependencies(
+        self,
+        worksheet: etree._Element,
+        replacements: dict[str, str],
+    ) -> None:
+        """Reuse canonical target fields and remove duplicate local instances."""
+
+        target_names = {f"[{name.strip('[]')}]" for name in replacements.values()}
+        for dependency in worksheet.findall(".//datasource-dependencies"):
+            for target_name in target_names:
+                canonical = self._datasource.find(f"column[@name='{target_name}']")
+                local_columns = dependency.findall(f"column[@name='{target_name}']")
+                if canonical is not None and local_columns:
+                    replacement = copy.deepcopy(canonical)
+                    local_columns[0].addprevious(replacement)
+                    for column in local_columns:
+                        dependency.remove(column)
+
+            seen_instances: set[tuple[str, str]] = set()
+            for instance in list(dependency.findall("column-instance")):
+                identity = (instance.get("name", ""), instance.get("column", ""))
+                if identity in seen_instances:
+                    dependency.remove(instance)
+                    continue
+                seen_instances.add(identity)
+
     def _formula_rewrite_map_from_plan(self, plan: WorksheetRefactorPreview) -> dict[str, str]:
         """Combine field-token rewrite rules used for formula rewrites."""
 
@@ -2027,13 +2059,15 @@ class TWBEditor(ParametersMixin, ConnectionsMixin, ChartsMixin, DashboardsMixin)
                     element.tail = updated_tail
 
     def _normalize_replacements(self, replacements: dict[str, str]) -> dict[str, str]:
-        """Resolve replacement field names to canonical display names."""
+        """Resolve replacement field names to canonical physical names."""
 
         normalized: dict[str, str] = {}
         for source_name, target_name in replacements.items():
             source_alias = self._resolve_field_alias(source_name)
             target_alias = self._resolve_field_alias(target_name)
-            normalized[source_alias["display_name"]] = target_alias["display_name"]
+            normalized[source_alias["local_name"].strip("[]")] = target_alias[
+                "local_name"
+            ].strip("[]")
         return normalized
 
     def set_geocoding_context(self, *, country: str, state: Optional[str] = None) -> str:
@@ -2760,6 +2794,15 @@ class TWBEditor(ParametersMixin, ConnectionsMixin, ChartsMixin, DashboardsMixin)
             raise ValueError("runs must contain at least one tooltip run")
         if pane_index < 0:
             raise ValueError("pane_index must be zero or greater")
+        for spec in runs:
+            field = spec.get("field") if isinstance(spec, dict) else None
+            if isinstance(field, str) and re.fullmatch(
+                r"EXACTDATE\(.+\)", field.strip(), flags=re.IGNORECASE
+            ):
+                raise ValueError(
+                    "EXACTDATE fields are not supported in custom tooltip runs; "
+                    "use the bare or bracketed date field"
+                )
 
         worksheet = self._find_worksheet(worksheet_name)
         view = worksheet.find("table/view")
@@ -2997,13 +3040,25 @@ class TWBEditor(ParametersMixin, ConnectionsMixin, ChartsMixin, DashboardsMixin)
         existing_names = {column.get("name", "") for column in local_columns if column.get("name")}
         rename_map: dict[str, str] = {}
         reserved = set(existing_names)
+        direct_targets = {
+            f"[{source.strip('[]')}]": f"[{target.strip('[]')}]"
+            for source, target in replacements.items()
+        }
 
         for column in local_columns:
             old_name = column.get("name", "")
             if not old_name:
                 continue
-            candidate = self._replace_plain_text(old_name, replacements)
-            candidate = self._ensure_unique_bracketed_name(candidate, reserved, old_name)
+            candidate = direct_targets.get(
+                old_name,
+                self._replace_plain_text(old_name, replacements),
+            )
+            if old_name not in direct_targets:
+                candidate = self._ensure_unique_bracketed_name(
+                    candidate,
+                    reserved,
+                    old_name,
+                )
             rename_map[old_name] = candidate
             reserved.add(candidate)
         return rename_map

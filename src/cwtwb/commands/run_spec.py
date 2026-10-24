@@ -31,7 +31,15 @@ def _apply_connection(editor, connection: dict[str, Any] | None) -> list[str]:
     if kind == "csv":
         return [editor.set_csv_connection(connection["path"], delimiter=connection.get("delimiter", ""), charset=connection.get("charset", "utf-8-sig"), fields=connection.get("fields"))]
     if kind == "hyper":
-        return [editor.set_hyper_connection(connection["path"], table_name=connection.get("table", "Extract"), tables=connection.get("tables"), relationships=connection.get("relationships"))]
+        return [
+            editor.set_hyper_connection(
+                connection["path"],
+                table_name=connection.get("table", "Extract"),
+                tables=connection.get("tables"),
+                relationships=connection.get("relationships"),
+                field_overrides=connection.get("field_overrides"),
+            )
+        ]
     if kind == "mysql":
         return [editor.set_mysql_connection(server=connection["server"], dbname=connection["dbname"], username=connection["username"], table_name=connection["table"], port=str(connection.get("port", "3306")))]
     if kind == "tableauserver":

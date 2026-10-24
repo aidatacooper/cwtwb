@@ -4,6 +4,7 @@ import pytest
 from lxml import etree
 
 from cwtwb import TWBEditor
+from cwtwb.validator import validate_against_schema
 
 
 @pytest.mark.parametrize(
@@ -61,7 +62,7 @@ def test_explicit_discrete_truncation_keeps_domain_and_order(grain, prefix, tmp_
 
 
 @pytest.mark.parametrize(
-    "expression", ["DISCRETE(Date)", "DISCRETE(YEAR(Date))", "DISCRETE(SUM(Value))"]
+    "expression", ["DISCRETE(Date)", "DISCRETE(YEAR(Date))"]
 )
 def test_discrete_wrapper_rejects_nontruncation(expression):
     editor = TWBEditor("")
@@ -69,5 +70,65 @@ def test_discrete_wrapper_rejects_nontruncation(expression):
         "Date", "#2020-01-01#", datatype="date", role="dimension", field_type="ordinal"
     )
     editor.add_calculated_field("Value", "1.0")
-    with pytest.raises(ValueError, match="date truncation"):
+    with pytest.raises(ValueError, match="date truncation or aggregate"):
         editor.field_registry.parse_expression(expression)
+
+
+@pytest.mark.parametrize(
+    "aggregate,derivation,prefix",
+    [
+        ("SUM", "Sum", "sum"),
+        ("AVG", "Avg", "avg"),
+        ("MIN", "Min", "min"),
+        ("MAX", "Max", "max"),
+        ("MEDIAN", "Median", "med"),
+        ("COUNT", "Count", "cnt"),
+        ("COUNTD", "CountD", "cntd"),
+        ("ATTR", "Attribute", "attr"),
+    ],
+)
+def test_discrete_aggregate_preserves_native_derivation(
+    aggregate, derivation, prefix, tmp_path
+):
+    baseline = TWBEditor("")
+    baseline.add_worksheet("Headers")
+    baseline.configure_chart(
+        "Headers",
+        mark_type="Text",
+        rows=[f"{aggregate}(Sales)"],
+        label="Category",
+    )
+
+    editor = TWBEditor("")
+    editor.add_worksheet("Headers")
+    expression = f"DISCRETE({aggregate}(Sales))"
+
+    editor.configure_chart(
+        "Headers",
+        mark_type="Text",
+        rows=[expression],
+        label="Category",
+    )
+
+    instance = editor.field_registry.parse_expression(expression)
+    assert instance.derivation == derivation
+    assert instance.ci_type == "ordinal"
+    assert instance.instance_name.startswith(f"[{prefix}:")
+    assert instance.instance_name.endswith(":ok]")
+    native = editor.root.find(
+        ".//worksheet[@name='Headers']//datasource-dependencies/column-instance"
+        f"[@name='{instance.instance_name}']"
+    )
+    assert native is not None
+    assert native.get("derivation") == derivation
+    assert native.get("type") == "ordinal"
+    assert instance.instance_name in editor.root.findtext(
+        ".//worksheet[@name='Headers']/table/rows"
+    )
+    assert validate_against_schema(editor.root).errors == validate_against_schema(
+        baseline.root
+    ).errors
+    if aggregate == "SUM":
+        output = tmp_path / "discrete-aggregate.twb"
+        editor.save(output)
+        assert validate_against_schema(etree.parse(str(output)).getroot()).errors == []

@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import os
 import sys
-import re
 import zipfile
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -110,7 +109,9 @@ def _candidate_env_files(
     result: list[Path] = []
     seen: set[Path] = set()
     for path in candidates:
-        resolved = path.resolve() if path.exists() else path.absolute()
+        # De-duplicate without touching the filesystem. Shared credential paths
+        # can exist outside the caller's readable sandbox.
+        resolved = path.absolute()
         if resolved not in seen:
             seen.add(resolved)
             result.append(path)
@@ -134,7 +135,12 @@ def _get_config(
     )
     dotenv: dict[str, str] = {}
     for env_file in reversed(_candidate_env_files(env_path, workbook_path)):
-        resolved = env_file.resolve() if env_file.exists() else env_file.absolute()
+        try:
+            resolved = env_file.resolve() if env_file.exists() else env_file.absolute()
+        except OSError:
+            # An unreadable optional credentials candidate must not prevent
+            # local workbook construction and validation.
+            continue
         if explicit_resolved is not None and resolved == explicit_resolved:
             continue
         dotenv.update(_load_dotenv(env_file))

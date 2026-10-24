@@ -44,6 +44,20 @@ def _validate_filter_columns(filters: Optional[list[dict]]) -> None:
 def _validate_table_calc_references(overrides) -> None:
     """Validate explicit selectors before a builder changes the worksheet."""
     for specifications in (overrides or {}).values():
+        top_level_field_specs = [
+            specification
+            for specification in specifications
+            if "field" not in specification
+            and specification.get(
+                "ordering_type", specification.get("ordering-type")
+            )
+            == "Field"
+        ]
+        if len(top_level_field_specs) > 1:
+            raise ValueError(
+                "A table calculation may have only one top-level Field addressing "
+                "specification; put the ordered fields in one order=[...] list"
+            )
         for specification in specifications:
             order = specification.get("order", [])
             references = list(order) if isinstance(order, list) else []
@@ -339,6 +353,7 @@ def configure_chart(
             label_runs=label_runs,
             label_param=label_param,
             sort_field=sort_field,
+            color_map=color_map,
         )
         return builder.build()
 

@@ -147,6 +147,79 @@ def _infer_external_field_type(role: str, datatype: str) -> str:
     return "nominal"
 
 
+def _apply_external_field_overrides(
+    tables: list[dict[str, Any]],
+    field_overrides: dict[str, dict[str, str]] | None,
+) -> list[dict[str, Any]]:
+    """Apply validated display/role overrides to inspected physical fields.
+
+    Keys may be an unqualified physical field name when it is unique, or a
+    ``<logical table>.<physical field>`` name for relationship datasources.
+    The physical name and relationship keys are never rewritten.
+    """
+
+    prepared = deepcopy(tables)
+    if field_overrides is None:
+        return prepared
+    if not isinstance(field_overrides, dict):
+        raise ValueError("field_overrides must be a mapping")
+
+    references: dict[str, list[dict[str, Any]]] = {}
+    for table in prepared:
+        table_name = str(table.get("name", "")).strip()
+        for field in table.get("fields", []):
+            field_name = str(field.get("name", "")).strip()
+            references.setdefault(field_name, []).append(field)
+            references.setdefault(f"{table_name}.{field_name}", []).append(field)
+
+    allowed = {"caption", "role", "field_type"}
+    for reference, override in field_overrides.items():
+        if not isinstance(reference, str) or not reference.strip():
+            raise ValueError("field_overrides keys must be nonempty field names")
+        matches = references.get(reference.strip(), [])
+        if not matches:
+            raise ValueError(f"Unknown field override target: {reference}")
+        if len(matches) != 1:
+            raise ValueError(
+                f"Ambiguous field override target '{reference}'; qualify it with the logical table name"
+            )
+        if not isinstance(override, dict) or not override:
+            raise ValueError(f"Field override for '{reference}' must be a nonempty mapping")
+        unknown = set(override) - allowed
+        if unknown:
+            raise ValueError(
+                f"Unsupported field override options for '{reference}': {', '.join(sorted(unknown))}"
+            )
+
+        field = matches[0]
+        if "caption" in override:
+            caption = override["caption"]
+            if not isinstance(caption, str) or not caption.strip():
+                raise ValueError(f"Field override caption for '{reference}' must be nonempty")
+            field["caption"] = caption.strip()
+        if "role" in override:
+            role = override["role"]
+            if role not in {"dimension", "measure"}:
+                raise ValueError(
+                    f"Field override role for '{reference}' must be dimension or measure"
+                )
+            field["role"] = role
+            if "field_type" not in override:
+                field["field_type"] = _infer_external_field_type(
+                    role,
+                    field["datatype"],
+                )
+        if "field_type" in override:
+            field_type = override["field_type"]
+            if field_type not in {"nominal", "ordinal", "quantitative"}:
+                raise ValueError(
+                    f"Field override field_type for '{reference}' must be nominal, ordinal or quantitative"
+                )
+            field["field_type"] = field_type
+
+    return prepared
+
+
 def _inspect_hyper_fields(filepath: str, table_name: str) -> list[dict[str, Any]]:
     """Read a local Hyper table schema when tableauhyperapi is available."""
 
@@ -577,7 +650,7 @@ def inspect_hyper_schema(filepath: str) -> dict:
     If the file is locked (e.g. open in Tableau), it is copied to a
     temporary location first.
     """
-    from tableauhyperapi import HyperProcess, Connection, Telemetry, SchemaName
+    from tableauhyperapi import Connection, HyperProcess, Telemetry
 
     # Copy to a temp file so we don't fail on locked hyper files
     TMP_DIR.mkdir(parents=True, exist_ok=True)
@@ -885,7 +958,11 @@ class ConnectionsMixin:
                 col.set("semantic-role", field["semantic_role"])
             elif "semantic-role" in col.attrib:
                 del col.attrib["semantic-role"]
-            col.attrib.pop("caption", None)
+            caption = str(field.get("caption", "")).strip()
+            if caption:
+                col.set("caption", caption)
+            else:
+                col.attrib.pop("caption", None)
             top_level_columns.append(col)
 
         internal_table_columns = [
@@ -1377,7 +1454,11 @@ class ConnectionsMixin:
                         col.set("hidden", "true")
                     elif "hidden" in col.attrib:
                         del col.attrib["hidden"]
-                    col.attrib.pop("caption", None)
+                    caption = str(field.get("caption", "")).strip()
+                    if caption:
+                        col.set("caption", caption)
+                    else:
+                        col.attrib.pop("caption", None)
                     top_level_columns.append(col)
 
         for table in normalized_tables:
@@ -1403,7 +1484,9 @@ class ConnectionsMixin:
         self._reinit_fields()
         for table in normalized_tables:
             for field in table["fields"]:
-                display_name = field["local_name"].strip("[]")
+                display_name = str(
+                    field.get("caption") or field["local_name"].strip("[]")
+                )
                 self.field_registry.register(
                     display_name=display_name,
                     local_name=field["local_name"],
@@ -1818,6 +1901,7 @@ class ConnectionsMixin:
         table_name: str = "Extract",
         tables: Optional[List[dict]] = None,
         relationships: Optional[List[dict]] = None,
+        field_overrides: Optional[dict[str, dict[str, str]]] = None,
     ) -> str:
         """Configure the datasource to use a local Hyper extract connection.
 
@@ -1837,16 +1921,33 @@ class ConnectionsMixin:
             is inspected with its real Hyper datatypes; ``table`` optionally
             specifies its physical Extract table separately from ``name``.
             No physical joins or inferred first-match keys are created.
+        field_overrides : dict[str, dict] | None
+            Override inspected physical fields with ``caption``, ``role`` or
+            ``field_type``. Relationship fields may be qualified as
+            ``<logical table>.<physical field>``.
         """
         logical_tables = None
         if relationships is not None:
             from .hyper_relationships import prepare_logical_tables
             logical_tables = prepare_logical_tables(filepath, tables, relationships)
+            logical_tables = _apply_external_field_overrides(
+                logical_tables,
+                field_overrides,
+            )
         inspected_fields = (
             _inspect_hyper_fields(filepath, table_name)
             if not tables
             else []
         )
+        if inspected_fields:
+            inspected_fields = _apply_external_field_overrides(
+                [{"name": table_name, "fields": inspected_fields}],
+                field_overrides,
+            )[0]["fields"]
+        elif field_overrides is not None and logical_tables is None:
+            raise ValueError(
+                "field_overrides require an inspected single-table or logical-relationship Hyper schema"
+            )
 
         # 1. Update <connection class='federated'>
         fed_conn = self._datasource.find("connection[@class='federated']")

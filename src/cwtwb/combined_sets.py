@@ -1,13 +1,15 @@
-"""Native unions of Tableau sets; retain dynamic set membership."""
+"""Native combinations of Tableau sets; retain dynamic set membership."""
 
 from lxml import etree
 
 
-def add_combined_set(editor, set_name, set_names):
+def add_combined_set(editor, set_name, set_names, operator="union"):
     if not isinstance(set_name, str) or not set_name.strip():
         raise ValueError("set_name must be nonempty")
     if not isinstance(set_names, list) or len(set_names) < 2:
         raise ValueError("A combined set requires at least two existing sets")
+    if not isinstance(operator, str) or operator not in {"union", "intersection"}:
+        raise ValueError("operator must be 'union' or 'intersection'")
     fields = [editor.field_registry._find_field(name) for name in set_names]
     if any(field.calculation_class != "set" for field in fields):
         raise ValueError("Combined set members must be existing sets")
@@ -31,10 +33,10 @@ def add_combined_set(editor, set_name, set_names):
         delimiter=",",
         **{"name-style": "unqualified"},
     )
-    union = etree.SubElement(group, "groupfilter", function="union")
+    combined = etree.SubElement(group, "groupfilter", function=operator)
     for field in fields:
         etree.SubElement(
-            union, "groupfilter", function="reference", field=field.local_name
+            combined, "groupfilter", function="reference", field=field.local_name
         )
     instance = etree.Element(
         "column-instance",
@@ -55,4 +57,4 @@ def add_combined_set(editor, set_name, set_names):
         is_calculated=True,
         calculation_class="set",
     )
-    return f"Added union set '{set_name.strip()}'"
+    return f"Added {operator} set '{set_name.strip()}'"

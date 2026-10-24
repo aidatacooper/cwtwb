@@ -1,5 +1,67 @@
 # Case-driven SDK enhancements
 
+## 2021 WW30-38: reusable authoring gaps and Cloud-empty guards
+
+The 2021 WW30-38 case review found four reusable authoring gaps. Combined sets
+now accept a native intersection while retaining the existing union default:
+
+```python
+editor.add_combined_set(
+    "Products to Include",
+    ["Top 50 Sales", "Unprofitable Products"],
+    operator="intersection",
+)
+```
+
+Layered Pie panes now bind either an ordinary measure or virtual Measure Values
+through `wedge_size`; Text charts forward `color_map`; and aggregate expressions
+can be made discrete without creating a duplicate calculated field:
+
+```python
+editor.configure_layered_chart(
+    "Donut",
+    rows=["Ring", "Ring"],
+    panes=[
+        {
+            "axis": "Ring",
+            "mark_type": "Pie",
+            "color": "Measure Names",
+            "wedge_size": "Multiple Values",
+            "measure_values": ["SUM(Sales)", "SUM(Profit)"],
+        },
+        {"axis": "Ring", "mark_type": "Circle"},
+    ],
+)
+editor.configure_chart(
+    "Labels",
+    mark_type="Text",
+    color="Status",
+    color_map={"Good": "#59a14f", "Bad": "#e15759"},
+)
+editor.configure_chart("Headers", mark_type="Text", rows=["DISCRETE(SUM(Sales))"])
+```
+
+Inspected Hyper schemas also accept display and Tableau-role overrides while
+preserving physical field names and relationship keys. A relationship field can
+be qualified with its logical table name when the physical name is ambiguous:
+
+```python
+editor.set_hyper_connection(
+    "facts.hyper",
+    field_overrides={
+        "Week": {"role": "dimension", "field_type": "ordinal"},
+        "Tasks.created_at": {"caption": "Created At"},
+    },
+)
+```
+
+The same review isolated three structures that pass static XML checks but can
+render empty on Tableau Cloud. The SDK now rejects multiple top-level Field
+addressing specifications, computed sorts driven by table calculations, and
+`EXACTDATE(...)` fields inside custom tooltip runs. Multiple ordered addressing
+fields remain supported in one canonical `order=[...]` specification. Exact-date
+shelf bindings remain available because valid workbooks depend on them.
+
 ## 2021 WW22: latitude/longitude geographic roles
 
 An extract whose schema exposes plain `latitude`/`longitude` (or the common

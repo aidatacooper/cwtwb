@@ -1625,6 +1625,7 @@ class TextChartBuilder(BaseChartBuilder):
         sort_field: Optional[str] = None,
         separate_measure_domains: bool = False,
         mark_type: str = "Text",
+        color_map: Optional[dict[str, str]] = None,
     ) -> None:
         """Capture text-table/KPI options, including measure-values configuration."""
         super().__init__(editor)
@@ -1645,6 +1646,7 @@ class TextChartBuilder(BaseChartBuilder):
         self.label_extra = label_extra or []
         self.label_runs = label_runs or []
         self.label_param = label_param
+        self.color_map = color_map
 
     def build(self) -> str:
         """Build text mark worksheet XML and optional measure-values overlays."""
@@ -1800,6 +1802,9 @@ class TextChartBuilder(BaseChartBuilder):
 
         if self.filters:
             self._add_filters(view, instances, self.filters)
+
+        if self.color_map and self.color and self.color != "Multiple Values":
+            self.editor.set_datasource_color_palette(self.color, self.color_map)
 
         return f"Configured worksheet '{self.worksheet_name}' as Text chart"
 

@@ -49,6 +49,32 @@ table calculation 语义可使用 `add_hierarchy`、`add_set`、`enable_domain_c
 `add_dashboard_action` 创建 filter、highlight、URL、navigation、parameter action，使用
 `add_dashboard_set_action` 创建 set action。
 
+高级数据源和 encoding 原语还包括同粒度动态 Set 的原生交集、离散聚合表头、每个 Pie pane
+独立的扇区大小，以及 Hyper 物理字段元数据覆盖：
+
+```python
+editor.add_combined_set(
+    "Profitable Top Products",
+    ["Profitable Products", "Top Products"],
+    operator="intersection",
+)
+editor.configure_chart(
+    "Headers",
+    mark_type="Text",
+    rows=["DISCRETE(SUM(Sales))"],
+)
+editor.set_hyper_connection(
+    "data.hyper",
+    field_overrides={
+        "Week": {"role": "dimension", "field_type": "ordinal"},
+        "Tasks.created_at": {"caption": "Created At"},
+    },
+)
+```
+
+Layered Pie pane 的 `wedge_size` 可以使用普通字段表达式，也可以配合 pane 内的
+`measure_values` 使用 `"Multiple Values"`。Text 图也会应用 `color_map`。
+
 这些操作也都通过 MCP 暴露。Agent 在采用某个组合前，可以调用 `list_capabilities` 或
 `describe_capability` 确认支持等级，并阅读 `cwtwb://skills/chart_builder` 或
 `cwtwb://skills/dashboard_designer` 了解推荐的 authoring 顺序。
@@ -226,6 +252,8 @@ cwtwb://docs/tool-surface
 | `apply_worksheet_refactor` | 应用 worksheet-scoped field rewrites，并保留原 worksheet |
 | `add_worksheet` | 添加空白 worksheet |
 | `configure_chart` | 配置 chart type 和 field mappings |
+| `configure_layered_chart` | 配置独立 mark panes，包括 pane 内 Pie `wedge_size` 和 Measure Values |
+| `add_combined_set` | 使用 `union` 或 `intersection` 组合同粒度原生 Set |
 | `configure_worksheet_style` | 应用 worksheet 级样式 |
 | `configure_dual_axis` | 配置 dual-axis chart |
 | `configure_chart_recipe` | 配置 `lollipop`、`donut`、`butterfly`、`calendar` 等 recipe chart |
@@ -243,7 +271,7 @@ cwtwb://docs/tool-surface
 | `set_excel_connection` | 将 datasource 配置为本地 Excel workbook |
 | `set_mysql_connection` | 将 datasource 配置为本地 MySQL 连接 |
 | `set_tableauserver_connection` | 配置 Tableau Server 连接 |
-| `set_hyper_connection` | 将 datasource 配置为本地 Hyper extract |
+| `set_hyper_connection` | 配置本地 Hyper extract，并可覆盖物理字段 caption、role 和 field type |
 | `save_workbook` | 保存为 `.twb` 或 `.twbx` |
 | `upload_workbook` | 发布 `.twb`/`.twbx` 到 Tableau Cloud，用于 openability evidence、`.twbx` validation 或 screenshots |
 | `screenshot_workbook` | 对 `upload_workbook` 发布的 workbook 截图 |

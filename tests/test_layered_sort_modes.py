@@ -90,3 +90,21 @@ def test_mcp_and_run_spec_forward_computed_sort(monkeypatch):
     assert e.root.find(".//computed-sort") is not None
     _apply_worksheets(e, {"worksheets": [{"name": "Table", "layered": options}]})
     assert len(e.root.findall(".//computed-sort")) == 1
+
+
+def test_computed_sort_rejects_table_calculation_measure():
+    e = editor()
+    e.add_calculated_field(
+        "Longest",
+        "WINDOW_MAX(SUM([Metric]))",
+        table_calc="Rows",
+    )
+    with pytest.raises(ValueError, match="sorting by a table calculation"):
+        e.configure_layered_chart(
+            "Table",
+            rows=["Member"],
+            panes=[{"mark_type": "Text", "label": "SUM(Metric)"}],
+            sort_descending="Longest",
+            sort_field="Member",
+            sort_mode="computed",
+        )
