@@ -624,6 +624,8 @@ def configure_chart(
     sort_field: Optional[str] = None,
     separate_measure_domains: bool = False,
     map_layer_mode: str = "overlay",
+    label_extra: list[str] | None = None,
+    table_calc_overrides: dict[str, list[dict]] | None = None,
 ) -> str:
     """Configure chart type and field mappings for a worksheet.
 
@@ -659,6 +661,8 @@ def configure_chart(
         map_layer_mode=map_layer_mode,
         label_runs=label_runs,
         label_param=label_param,
+        label_extra=label_extra,
+        table_calc_overrides=table_calc_overrides,
     )
     return result + _skill_hint("configure_chart")
 

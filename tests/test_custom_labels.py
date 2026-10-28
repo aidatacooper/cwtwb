@@ -117,6 +117,23 @@ def test_native_dual_zero_based_pane_index_preserves_other_panes():
     assert etree.tostring(panes[2]) == before
 
 
+@pytest.mark.parametrize("own_addressing", [None, "Columns"])
+def test_new_label_inherits_source_and_nested_table_calculation_metadata(own_addressing):
+    editor = build_editor()
+    editor.add_calculated_field("Late Window", "WINDOW_SUM(SUM([Profit]))", table_calc="Rows")
+    editor.add_calculated_field("Late Label", "[Late Window] * 2", table_calc=own_addressing)
+    editor.configure_custom_label("Synthetic", [{"field": "Late Label"}])
+    local = editor.field_registry.parse_expression("Late Label").column_local_name
+    instance = editor._find_worksheet("Synthetic").find(f".//column-instance[@column='{local}']")
+    own = [node for node in instance.findall("table-calc") if not node.get("field")]
+    nested = [node for node in instance.findall("table-calc") if node.get("field")]
+    assert [node.get("ordering-type") for node in own] == ([own_addressing] if own_addressing else [])
+    assert len(nested) == 1
+    nested_local = editor.field_registry.parse_expression("Late Window").column_local_name
+    assert nested[0].get("field").endswith(nested_local)
+    assert nested[0].get("ordering-type") == "Rows"
+
+
 @pytest.mark.parametrize(
     "runs,pane_index",
     [
