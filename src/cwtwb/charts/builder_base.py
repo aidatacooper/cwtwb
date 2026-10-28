@@ -429,6 +429,13 @@ class BaseChartBuilder:
                     ),
                     None,
                 )
+                if dependency_info is not None and dependency_info.calculation_class == "set":
+                    # Set formulas resolve through datasource groups, never a
+                    # fabricated physical column in worksheet dependencies.
+                    if self._datasource.find(f"group[@name='{local_ref}']") is None:
+                        raise ValueError(f"No datasource set group for {local_ref}")
+                    seen_columns.add(local_ref)
+                    continue
                 if (
                     (raw_col is not None or dependency_info is not None)
                     and local_ref not in seen_columns

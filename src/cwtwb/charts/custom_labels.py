@@ -1,10 +1,14 @@
 """Formatted mark labels for already configured worksheet panes."""
 
+from __future__ import annotations
+
 import copy
 import math
 import re
 
 from lxml import etree
+
+from .builder_base import BaseChartBuilder
 
 _ATTRIBUTES = {
     "bold",
@@ -189,6 +193,13 @@ def configure_custom_label(editor, worksheet_name, runs, *, pane_index=0):
                         "type": ci.ci_type,
                     },
                 )
+                source_calculation = datasource.find(
+                    f"column[@name='{ci.column_local_name}']/calculation"
+                )
+                if source_calculation is not None:
+                    BaseChartBuilder(editor)._add_table_calculation_metadata(
+                        instance, source_calculation, ds_name
+                    )
         reference = registry.resolve_full_reference(instance.get("name"))
         encodings = pane.find("encodings")
         if encodings is None:

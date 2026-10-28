@@ -12,9 +12,10 @@ def test_text_table_keeps_field_addressing_after_save(tmp_path, measure_values, 
     editor.add_calculated_field("Metric", "1.0")
     editor.add_calculated_field("Rank", "RANK(SUM([Metric]))", table_calc="Rows")
     editor.add_calculated_field("Share", "SUM([Metric]) / WINDOW_SUM(SUM([Metric]))", table_calc="Rows")
+    editor.add_calculated_field("Extra Label", "MAX([Metric])")
     editor.add_worksheet("Summary")
     options = dict(mark_type="Text", rows=["District"], label="Share",
-                   label_extra=["Rank"], filters=[{"column": "Rank", "min": "1", "max": "3"}],
+                   label_extra=["Rank", "Extra Label"], filters=[{"column": "Rank", "min": "1", "max": "3"}],
                    table_calc_overrides={name: [{"ordering_type": "Field", "order": ["District"]}]
                                          for name in ["Rank", "Share"]})
     if measure_values:
@@ -33,6 +34,9 @@ def test_text_table_keeps_field_addressing_after_save(tmp_path, measure_values, 
     path = tmp_path / "text-addressing.twb"
     editor.save(str(path))
     sheet = etree.parse(str(path)).find(".//worksheet[@name='Summary']")
+    extra = editor.field_registry.parse_expression("Extra Label")
+    assert sheet.xpath('.//pane/encodings/text[@column=$reference]',
+                       reference=editor.field_registry.resolve_full_reference(extra.instance_name))
     for name in ["Rank", "Share"]:
         local = editor.field_registry.parse_expression(name).column_local_name
         instances = sheet.xpath('.//column-instance[@column=$column]', column=local)

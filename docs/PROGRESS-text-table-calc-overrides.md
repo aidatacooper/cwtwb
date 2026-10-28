@@ -16,3 +16,25 @@
   shares=100%; candidate runtime capture pending. User cannot currently complete
   browser MFA, so native interaction checks remain explicitly unverified.
 - Next: candidate runtime data check, independent review, separate SDK PR.
+
+## Independent review follow-up: native set and new label dependencies
+
+- Review of 4049c85 found two existing gaps used by the case builds: ordinary
+  chart dependency traversal fabricated a physical column for a set referenced
+  indirectly by a calculation; a newly introduced custom-label calculation
+  received no source or nested table-calculation addressing on its instance.
+- Added synthetic regressions first: 8 failed / 32 passed on 4049c85, including
+  Python, MCP and run-spec paths. No author workbook or data is used.
+- The recursive builder now recognizes datasource set groups instead of creating
+  physical dependency columns. The source group remains unchanged.
+- Custom labels reuse the existing builder metadata helper only when creating a
+  new instance. Existing worksheet instances and their explicit Field/order
+  overrides remain intact; nested calculation metadata is inherited as well.
+- Strengthened label_extra coverage with a separate Extra Label field that has
+  no filter or Measure Values binding and an explicit text-encoding assertion.
+- Focused verification: 54 passed. Tests disable the save-time Cloud validation
+  hook; Desktop and Cloud numerical/interaction validation remain pending.
+- Full verification after the follow-up: 1100 passed, 25 skipped in 110.08 s,
+  with no test exclusions. Run with this worktree's `src` on `PYTHONPATH` and
+  `unittest.mock.patch.object(TWBEditor, '_validate_via_rest_api')` around
+  `pytest.main(['-q', '-p', 'no:cacheprovider'])` to prevent Cloud calls.
