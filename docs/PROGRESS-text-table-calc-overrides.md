@@ -38,3 +38,18 @@
   with no test exclusions. Run with this worktree's `src` on `PYTHONPATH` and
   `unittest.mock.patch.object(TWBEditor, '_validate_via_rest_api')` around
   `pytest.main(['-q', '-p', 'no:cacheprovider'])` to prevent Cloud calls.
+
+## Final acceptance, 2026-10-28
+
+- Final independent review of 11d72eb found no confirmed defect; 40 targeted
+  tests passed on a separate reviewer run. Python, MCP and run-spec are covered.
+- WW42 final Cloud default now shows correct state ranks and shares, the selected
+  peak only, and native reference band. Frozen artifact SHA256 is
+  4dd78637c94bfcd96c032b92c14903470210989912228aaa04c61068311d3275.
+  Its Desktop native log verdict is LOADED. Default CSV values match the raw
+  input oracle. No real selection or clearing event was tested (MFA unavailable).
+- All four final case artifacts load in Desktop. The existing 50-workbook
+  corpus also returned LOADED=50 FAIL=0 UNKNOWN=0 NOBUILD=0. This corpus opens
+  existing outputs, rather than claiming 50 independent rebuilds with this SDK.
+- Next: separate SDK PR, then merge before changing the WoW shared requirements
+  pin. Case PRs retain partial status until live dashboard interactions pass.
