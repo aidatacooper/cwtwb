@@ -136,6 +136,8 @@ def _apply_worksheets(editor, spec: dict[str, Any]) -> list[str]:
                     "color",
                     "size",
                     "label",
+                    "label_extra",
+                    "table_calc_overrides",
                     "detail",
                     "wedge_size",
                     "sort_descending",

@@ -5,7 +5,7 @@ from cwtwb import TWBEditor
 
 
 @pytest.mark.parametrize("measure_values", [False, True])
-@pytest.mark.parametrize("entrypoint", ["python", "mcp"])
+@pytest.mark.parametrize("entrypoint", ["python", "mcp", "run-spec"])
 def test_text_table_keeps_field_addressing_after_save(tmp_path, measure_values, entrypoint, monkeypatch):
     editor = TWBEditor("")
     editor.add_calculated_field("District", "'North'", datatype="string", role="dimension", field_type="nominal")
@@ -25,6 +25,9 @@ def test_text_table_keeps_field_addressing_after_save(tmp_path, measure_values, 
         from cwtwb.mcp import tools_workbook
         monkeypatch.setattr(tools_workbook, "get_editor", lambda: editor)
         tools_workbook.configure_chart("Summary", **options)
+    elif entrypoint == "run-spec":
+        from cwtwb.commands.run_spec import _apply_worksheets
+        _apply_worksheets(editor, {"worksheets": [{"name": "Summary", **options}]})
     else:
         editor.configure_chart("Summary", **options)
     path = tmp_path / "text-addressing.twb"
