@@ -354,6 +354,7 @@ def configure_chart(
             label_param=label_param,
             sort_field=sort_field,
             color_map=color_map,
+            table_calc_overrides=table_calc_overrides,
         )
         return builder.build()
 

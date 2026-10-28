@@ -1626,6 +1626,7 @@ class TextChartBuilder(BaseChartBuilder):
         separate_measure_domains: bool = False,
         mark_type: str = "Text",
         color_map: Optional[dict[str, str]] = None,
+        table_calc_overrides: Optional[dict[str, list[dict]]] = None,
     ) -> None:
         """Capture text-table/KPI options, including measure-values configuration."""
         super().__init__(editor)
@@ -1647,6 +1648,7 @@ class TextChartBuilder(BaseChartBuilder):
         self.label_runs = label_runs or []
         self.label_param = label_param
         self.color_map = color_map
+        self.table_calc_overrides = table_calc_overrides or {}
 
     def build(self) -> str:
         """Build text mark worksheet XML and optional measure-values overlays."""
@@ -1747,6 +1749,10 @@ class TextChartBuilder(BaseChartBuilder):
         # Rich-text label runs
         if self.label_runs:
             self._build_rich_label(pane, instances, self.label_runs)
+
+        self._apply_table_calc_overrides(
+            view, instances, ds_name, self.table_calc_overrides
+        )
 
         if self.measure_values:
             self.editor._apply_measure_values(
