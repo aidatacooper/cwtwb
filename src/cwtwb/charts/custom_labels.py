@@ -100,6 +100,13 @@ def configure_custom_label(editor, worksheet_name, runs, *, pane_index=0):
                 ),
                 None,
             )
+            if field is not None and field.calculation_class == "set":
+                # Native sets are datasource groups, not physical columns.
+                # Their direct label instance is InOut; indirect references
+                # keep resolving through the already authored group definition.
+                if datasource.find(f"group[@name='{local_name}']") is None:
+                    raise ValueError(f"No datasource set group for {local_name}")
+                return
             if field is None or field.is_calculated:
                 raise ValueError(f"No datasource column for {local_name}")
             source = etree.Element(
