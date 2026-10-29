@@ -516,7 +516,8 @@ class LayeredChartBuilder(BaseChartBuilder):
                 for expression in self.measure_names_order:
                     if self._is_special(expression):
                         raise ValueError("measure_names_order requires concrete measure expressions")
-                    resolved = self.field_registry.parse_expression(expression)
+                    normalized = self.field_registry.default_view_expression(expression)
+                    resolved = self.field_registry.parse_expression(normalized)
                     if resolved.instance_name in seen:
                         raise ValueError("measure_names_order contains duplicate resolved fields")
                     seen.add(resolved.instance_name)

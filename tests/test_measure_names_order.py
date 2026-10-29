@@ -65,3 +65,15 @@ def test_mcp_and_run_spec_forward_order(monkeypatch):
     _apply_worksheets(e, {"worksheets": [{"name": "Chart", "layered": kw}]})
     assert len(e.root.findall(".//manual-sort/dictionary/bucket")) == 4
     assert len(e.root.findall(".//filter/groupfilter/groupfilter")) == 3
+
+
+def test_bare_physical_measure_duplicates_aggregate(tmp_path):
+    source = tmp_path / "physical.csv"
+    source.write_text("Category,Sales\nA,12.5\nB,4.0\n", encoding="utf-8")
+    e = TWBEditor("")
+    e.set_csv_connection(str(source))
+    e.add_worksheet("Chart")
+    with pytest.raises(ValueError, match="duplicate resolved"):
+        e.configure_layered_chart("Chart", columns=["Multiple Values"],
+            panes=[dict(axis="Multiple Values", mark_type="Bar", measure_values=["SUM(Sales)"])],
+            measure_names_order=["Sales", "SUM(Sales)"])
