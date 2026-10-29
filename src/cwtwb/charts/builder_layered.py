@@ -64,6 +64,7 @@ class LayeredChartBuilder(BaseChartBuilder):
         axis_shelf: str = "rows",
         synchronized: bool = True,
         fold_axes: bool = True,
+        measure_names_order: Optional[list[str]] = None,
         hide_axes: bool = False,
         sort_descending: Optional[str] = None,
         sort_field: Optional[str] = None,
@@ -84,6 +85,9 @@ class LayeredChartBuilder(BaseChartBuilder):
         if not isinstance(fold_axes, bool):
             raise ValueError("fold_axes must be boolean")
         self.fold_axes = fold_axes
+        if measure_names_order is not None and (not isinstance(measure_names_order, list) or any(not isinstance(x, str) or not x.strip() for x in measure_names_order)):
+            raise ValueError("measure_names_order must be a list of non-empty field expressions")
+        self.measure_names_order = measure_names_order
         self.hide_axes = hide_axes
         self.sort_descending = sort_descending
         self.sort_field = sort_field
@@ -503,6 +507,23 @@ class LayeredChartBuilder(BaseChartBuilder):
                 if expression not in all_measure_values:
                     all_measure_values.append(expression)
 
+        # Register order-only dependencies without adding mark or filter bindings.
+        if self.measure_names_order is not None:
+            seen = set()
+            allow_unknown = self.field_registry.allow_unknown_fields
+            try:
+                self.field_registry.allow_unknown_fields = False
+                for expression in self.measure_names_order:
+                    if self._is_special(expression):
+                        raise ValueError("measure_names_order requires concrete measure expressions")
+                    resolved = self.field_registry.parse_expression(expression)
+                    if resolved.instance_name in seen:
+                        raise ValueError("measure_names_order contains duplicate resolved fields")
+                    seen.add(resolved.instance_name)
+                    include(expression)
+            finally:
+                self.field_registry.allow_unknown_fields = allow_unknown
+
         instances = self._parse_and_prepare_instances(expressions, self.filters)
         if self.sort_field is not None:
             bound_expressions = list(self.columns + self.rows)
@@ -581,6 +602,9 @@ class LayeredChartBuilder(BaseChartBuilder):
                     view.append(sort)
             else:
                 self._add_shelf_sort(view, ds_name, instances, self.rows, self.sort_descending, sort_field=self.sort_field)
+        for old in list(view.findall("filter")):
+            if old.get("column") == f"[{ds_name}].[:Measure Names]":
+                view.remove(old)
         self._append_measure_names_filter(
             view,
             instances,
@@ -590,11 +614,12 @@ class LayeredChartBuilder(BaseChartBuilder):
         for old in list(view.findall("manual-sort")):
             if old.get("column") == f"[{ds_name}].[:Measure Names]":
                 view.remove(old)
-        if all_measure_values:
+        measure_order = all_measure_values if self.measure_names_order is None else self.measure_names_order
+        if measure_order:
             self._ensure_manifest_entry("SortTagCleanup")
             values = etree.Element("manual-sort", column=f"[{ds_name}].[:Measure Names]", direction="ASC")
             dictionary = etree.SubElement(values, "dictionary")
-            for expression in all_measure_values:
+            for expression in measure_order:
                 bucket = etree.SubElement(dictionary, "bucket")
                 bucket.text = '"' + self._field_ref(instances, expression, ds_name) + '"'
             anchor = next((view.find(tag) for tag in ("shelf-sorts", "slices", "aggregation") if view.find(tag) is not None), None)

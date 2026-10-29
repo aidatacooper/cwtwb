@@ -213,6 +213,7 @@ class ChartsMixin:
         axis_shelf: str = "rows",
         synchronized: bool = True,
         fold_axes: bool = True,
+        measure_names_order: Optional[list[str]] = None,
         hide_axes: bool = False,
         sort_descending: Optional[str] = None,
         table_calc_overrides: Optional[dict[str, list[dict]]] = None,
@@ -221,7 +222,14 @@ class ChartsMixin:
         sort_mode: str = "auto",
         filters: Optional[list[dict]] = None,
     ) -> str:
-        """Configure panes with encodings, sorting, and native trendline/style dictionaries."""
+        """Configure panes with encodings, sorting, and native styles.
+
+        ``measure_names_order`` sets the manual order independently of pane
+        ``measure_values`` filter membership. Order-only expressions receive
+        worksheet dependencies, not mark bindings. None uses Measure Values
+        order; an empty list omits manual sorting. Duplicate resolved fields
+        and unknown expressions are rejected.
+        """
 
         return dispatch_configure_layered_chart(
             self,
@@ -232,6 +240,7 @@ class ChartsMixin:
             axis_shelf=axis_shelf,
             synchronized=synchronized,
             fold_axes=fold_axes,
+            measure_names_order=measure_names_order,
             hide_axes=hide_axes,
             sort_descending=sort_descending,
             sort_field=sort_field,
