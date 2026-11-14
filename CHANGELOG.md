@@ -5,6 +5,39 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.29.0a3] - 2026-11-14
+
+### Added
+
+- `configure_map_selection()` configures the native Drive Time tool on a map
+  worksheet and its current or subsequently created dashboard viewpoints.
+- Native map layers accept an independent `datasource` name or unique caption.
+  Geometry, details, tooltip fields, palettes and Measure Names dependencies
+  resolve against each layer's source without joining unrelated extracts.
+- Dashboard layouts support named Web Page nodes with tiled or floating bounds.
+  URL actions accept `target_web_zone` to navigate a named page on the same
+  dashboard through Python and MCP, without hardcoding generated zone IDs.
+- Layered charts support independent Measure Names ordering.
+
+### Fixed
+
+- Named Web Page actions emit `SpecificWebTargetsForActions`, required for
+  Tableau Desktop to load their native target configuration.
+- Native map layers resolve same-named table-calculation dependencies by source.
+- Text-chart table-calculation overrides and extra labels are forwarded through
+  public authoring and run-spec entry points.
+- Rich labels retain native set and newly referenced calculation dependencies.
+- Ordering expressions are normalized before duplicate validation.
+
+### Validation and scope
+
+- SDK regression suite: 1151 passed, 25 skipped. Fifty historical case workbooks
+  were rebuilt and loaded in Tableau Desktop 2026.2; three feature cases also loaded.
+- Drive Time gestures, story-step interaction and embedded-page navigation have
+  not completed live acceptance. Loading and XSD checks do not establish those behaviors.
+- Continues the 0.29 alpha channel, including the native-conversion preview.
+  Install explicitly with `pip install --upgrade cwtwb==0.29.0a3`.
+
 ## [0.29.0a2] - 2026-10-24
 
 ### Added

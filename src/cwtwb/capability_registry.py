@@ -35,6 +35,9 @@ class CapabilitySpec:
 
 
 CAPABILITY_SPECS: tuple[CapabilitySpec, ...] = (
+    CapabilitySpec(key="drive-time-selection", kind="feature", level="advanced", canonical="configure_map_selection", rationale="Persist native Drive Time selection and toolbar visibility in worksheet and dashboard viewpoints.", notes="Requires a Tableau client supporting Drive Time."),
+    CapabilitySpec(key="independent-map-datasources", kind="feature", level="advanced", canonical="configure_chart", rationale="Resolve native map layer fields against independent existing datasources without a blend or join.", notes="map_layer_mode='native'; each map_layers entry may specify datasource by name or unique caption."),
+    CapabilitySpec(key="web", kind="dashboard_zone", level="core", canonical="add_dashboard", aliases=("web-page",), rationale="Embed a native Web Page object through a layout node with type='web' and url."),
     CapabilitySpec(key="native-map-layers", kind="feature", level="advanced", canonical="configure_chart", rationale="Build independently partitioned native map layers, including multi-measure Pie wedges, on one geographic canvas.", notes="map_layer_mode='native'; default overlay behavior remains compatible."),
     CapabilitySpec(key="dashboard-extension", kind="dashboard_zone", level="advanced", canonical="add_dashboard_extension", rationale="Declare native extension manifests, localized resources, settings and dashboard bounds without a workbook template."),
     CapabilitySpec(key="extended-time-series", kind="feature", level="advanced", canonical="configure_worksheet_time_series", rationale="Extend continuous date shelves into future periods with native calculations on densified marks."),
@@ -419,7 +422,7 @@ CAPABILITY_SPECS: tuple[CapabilitySpec, ...] = (
         level="advanced",
         canonical="URL Action",
         aliases=("url",),
-        rationale="Important authoring primitive for linking Tableau marks to external workflows.",
+        rationale="Links marks to URLs, optionally routing to a named native Web Page zone via target_web_zone.",
     ),
     CapabilitySpec(
         key="go-to-sheet-action",

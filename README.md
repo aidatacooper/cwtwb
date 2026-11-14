@@ -49,6 +49,19 @@ The `cw` in `cwtwb` comes from `Cooper Wenhua`.
 
 ### Install
 
+The latest alpha, **0.29.0a3**, adds Drive Time map-tool configuration,
+independent data sources in native map layers, and named embedded Web Page
+targets for URL actions. It also includes label and table-calculation fixes.
+See [the feature guide](https://github.com/aidatacooper/cwtwb/blob/main/docs/map-and-web-authoring.md)
+and [changelog](https://github.com/aidatacooper/cwtwb/blob/main/CHANGELOG.md).
+
+```bash
+pip install --upgrade cwtwb==0.29.0a3
+uvx --from cwtwb==0.29.0a3 cwtwb
+```
+
+To use the stable channel instead:
+
 ```bash
 pip install cwtwb
 ```

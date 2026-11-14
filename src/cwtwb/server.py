@@ -21,6 +21,7 @@ from .mcp_server import (
     analyze_twb,
     clone_worksheet,
     configure_chart,
+    configure_map_selection as configure_map_selection,
     configure_chart_recipe,
     configure_dual_axis,
     configure_layered_chart,

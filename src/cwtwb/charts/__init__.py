@@ -45,6 +45,17 @@ from .helpers import (
 class ChartsMixin:
     """Mixin providing the stable chart configuration facade for TWBEditor."""
 
+    def configure_map_selection(
+        self, worksheet_name: str, *, tool: str = "drive_time",
+        show_toolbar: bool = True,
+    ) -> str:
+        """Set native Drive Time selection on map and dashboard viewpoints."""
+        from ..map_selection import configure_map_selection
+
+        return configure_map_selection(
+            self, worksheet_name, tool=tool, show_toolbar=show_toolbar
+        )
+
     def configure_chart(
         self,
         worksheet_name: str,
@@ -77,7 +88,12 @@ class ChartsMixin:
         separate_measure_domains: bool = False,
         map_layer_mode: str = "overlay",
     ) -> str:
-        """Route chart configuration to the correct builder."""
+        """Route chart configuration to the correct builder.
+
+        With ``map_layer_mode="native"``, each ``map_layers`` entry may specify
+        ``datasource`` by existing source name or unique caption. Its fields
+        resolve independently; omitted datasource uses the active source.
+        """
 
         return dispatch_configure_chart(
             self,

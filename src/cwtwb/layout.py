@@ -10,6 +10,22 @@ from lxml import etree
 logger = logging.getLogger(__name__)
 
 
+def validate_web_url(url: Any) -> str:
+    """Validate a Web Page URL before replacing an existing dashboard."""
+    from urllib.parse import urlsplit
+
+    message = "web requires an HTTP or HTTPS url without credentials or whitespace"
+    if not isinstance(url, str):
+        raise ValueError(message)  # noqa: TRY004 - authoring validation uses ValueError
+    parsed = urlsplit(url)
+    if (
+        parsed.scheme not in {"http", "https"} or not parsed.hostname
+        or parsed.username or parsed.password or any(c.isspace() for c in url)
+    ):
+        raise ValueError(message)
+    return url
+
+
 def _coerce_text_run(run: dict[str, Any]) -> dict[str, Any]:
     """Normalize one declarative text run while preserving Tableau-like keys."""
     res = {
@@ -41,6 +57,9 @@ class FlexNode:
         self.style = d.get("style", {})
 
         self.name = d.get("name")
+        self.url = d.get("url")
+        if self.type == "web":
+            validate_web_url(self.url)
         self.text_content = d.get("text", "")
         self.font_size = d.get("font_size", "12")
         self.font_color = d.get("font_color", "#111e29")
@@ -254,6 +273,12 @@ def render_flex_node(
         _render_navigation_button(node, zone, context)
     elif node.type == "empty":
         _render_empty(node, zone)
+    elif node.type == "web":
+        zone.set("type-v2", "web")
+        zone.set("param", node.url)
+        zone.set("forceUpdate", "")
+        if node.name is not None:
+            zone.set("name", node.name)
 
     style_dict = dict(node.style)
     if node.type in ("filter", "paramctrl", "set_control"):

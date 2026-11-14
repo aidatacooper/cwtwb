@@ -379,7 +379,8 @@ class LayeredChartBuilder(BaseChartBuilder):
             f"column-instance[@name='{instance.instance_name}']"
         )
         bound_instance = view.find(
-            f"datasource-dependencies/column-instance[@name='{instance.instance_name}']"
+            f"datasource-dependencies[@datasource='{self._datasource.get('name')}']"
+            f"/column-instance[@name='{instance.instance_name}']"
         )
         if bound_instance is not None:
             for old in list(palette_instance.findall("table-calc")):
