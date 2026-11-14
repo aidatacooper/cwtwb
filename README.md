@@ -30,6 +30,8 @@ The `cw` in `cwtwb` comes from `Cooper Wenhua`.
 
 [Website](https://datacooper.com) · [Source](https://github.com/aidatacooper/cwtwb) · [Changelog](https://github.com/aidatacooper/cwtwb/blob/main/CHANGELOG.md)
 
+[Online Tableau Workbook Checker](https://datacooper.com/en/tools/tableau-workbook-checker?utm_source=github&utm_medium=referral&utm_campaign=checker_validation_20261114) checks a single `.twb` or `.twbx` for free with no Tableau installation or login required; uploaded inputs are processed in memory and released after processing, without reading data rows (see [security details](https://datacooper.com/en/security)).
+
 [![PyPI Downloads](https://static.pepy.tech/personalized-badge/cwtwb?period=total&units=INTERNATIONAL_SYSTEM&left_color=BLACK&right_color=GREEN&left_text=downloads)](https://pepy.tech/projects/cwtwb)
 [![Website](https://img.shields.io/badge/Website-datacooper.com-0A7CFF?style=flat-square)](https://datacooper.com)
 [![Source](https://img.shields.io/badge/Source-GitHub-181717?style=flat-square)](https://github.com/aidatacooper/cwtwb)
