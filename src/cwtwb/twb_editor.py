@@ -3398,6 +3398,13 @@ class TWBEditor(ParametersMixin, ConnectionsMixin, ChartsMixin, DashboardsMixin)
                 if zoom_type:
                     zoom = etree.SubElement(viewpoint, "zoom")
                     zoom.set("type", zoom_type)
+                from .map_selection import copy_map_selection
+
+                for source_window in windows.findall("window[@class='worksheet']"):
+                    if source_window.get("name") == vp_name:
+                        source_viewpoint = source_window.find("viewpoint")
+                        if source_viewpoint is not None:
+                            copy_map_selection(source_viewpoint, viewpoint)
             active = etree.SubElement(win, "active")
             active.set("id", "-1")
 

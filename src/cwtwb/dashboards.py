@@ -94,6 +94,7 @@ VALID_LAYOUT_NODE_TYPES = {
     "size",
     "navigation_button",
     "empty",
+    "web",
 }
 
 LAYOUT_DOCUMENT_WRAPPER_KEY = "layout_schema"
@@ -169,7 +170,22 @@ def normalize_dashboard_layout(node: dict[str, Any]) -> dict[str, Any]:
     """Normalize legacy layout aliases and validate the declarative tree."""
     if not isinstance(node, dict):
         raise ValueError("Dashboard layout nodes must be objects.")
-    return _normalize_dashboard_layout_node(node, path="layout")
+    normalized = _normalize_dashboard_layout_node(node, path="layout")
+    web_names: set[str] = set()
+
+    def validate_names(item):
+        if item["type"] == "web" and "name" in item:
+            name = item["name"]
+            if not isinstance(name, str) or not name.strip():
+                raise ValueError("Web zone name must be a nonempty string")
+            if name in web_names:
+                raise ValueError(f"Duplicate web zone name: {name}")
+            web_names.add(name)
+        for child in item.get("children", []):
+            validate_names(child)
+
+    validate_names(normalized)
+    return normalized
 
 
 def load_dashboard_layout_file(layout_path: str | Path) -> dict[str, Any]:
@@ -235,6 +251,11 @@ def _normalize_dashboard_layout_node(node: dict[str, Any], path: str) -> dict[st
         )
     else:
         normalized["type"] = node_type
+
+    if node_type == "web":
+        from .layout import validate_web_url
+
+        validate_web_url(normalized.get("url"))
 
     children = normalized.get("children")
     if children is None:
@@ -509,8 +530,13 @@ def add_dashboard_action(
     source_sheets: list[str] | None = None,
     target_sheets: list[str] | None = None,
     target_dashboard: str = "",
+    target_web_zone: str | None = None,
 ) -> str:
-    """Add an interaction action to a dashboard."""
+    """Add an action; target_web_zone names a web layout node on this dashboard.
+
+    Omit target_web_zone to retain Tableau's default URL destination.
+    The named web zone must already exist; its generated ID is resolved here.
+    """
 
     normalized_type = action_type.strip().casefold()
     if normalized_type not in _SUPPORTED_ACTION_TYPES:
@@ -549,6 +575,25 @@ def add_dashboard_action(
     db_el = editor.root.find(f".//dashboards/dashboard[@name='{dashboard_name}']")
     if db_el is None:
         raise ValueError(f"Dashboard '{dashboard_name}' not found.")
+
+    web_zone_id = None
+    if target_web_zone is not None:
+        if normalized_type != "url":
+            raise ValueError("target_web_zone is supported only for URL actions")
+        if not isinstance(target_web_zone, str) or not target_web_zone.strip():
+            raise ValueError("target_web_zone must be a nonempty web zone name")
+        if target_sheet:
+            raise ValueError("target_web_zone and target_sheet are mutually exclusive")
+        matches = db_el.xpath(
+            "./zones//zone[@type-v2='web' and @name=$name]", name=target_web_zone
+        )
+        if len(matches) != 1:
+            raise ValueError("target_web_zone must identify exactly one web zone on this dashboard")
+        web_zone_id = matches[0].get("id")
+        if not web_zone_id or not web_zone_id.isdecimal():
+            raise ValueError("Target web zone must have a numeric generated ID")
+        if len(db_el.xpath("./zones//zone[@id=$id]", id=web_zone_id)) != 1:
+            raise ValueError("Target web zone ID must be unique on this dashboard")
 
     dashboard_sheets = _collect_dashboard_worksheets(editor, db_el)
     if source_sheets is not None or target_sheets is not None:
@@ -676,7 +721,14 @@ def add_dashboard_action(
             exclude_sheets,
         )
     elif normalized_type == "url":
-        _configure_url_action(action_el, action_caption, url)
+        if web_zone_id is not None:
+            manifest = editor.root.find("document-format-change-manifest")
+            if manifest is None:
+                manifest = etree.Element("document-format-change-manifest")
+                editor.root.insert(0, manifest)
+            if manifest.find("SpecificWebTargetsForActions") is None:
+                etree.SubElement(manifest, "SpecificWebTargetsForActions")
+        _configure_url_action(action_el, action_caption, url, web_zone_id)
     else:
         _configure_go_to_sheet_action(action_el, target_sheet)
 
@@ -972,6 +1024,7 @@ def _collect_dashboard_worksheets(editor, db_el: etree._Element) -> list[str]:
         sheet_name = zone.get("name")
         if (
             sheet_name
+            and zone.get("type-v2") != "web"
             and sheet_name in worksheet_names
             and sheet_name not in dashboard_sheets
         ):
@@ -1070,12 +1123,16 @@ def _configure_url_action(
     action_el: etree._Element,
     action_caption: str,
     url: str,
+    web_zone_id: str | None = None,
 ) -> None:
     """Populate a static URL action without a Tableau command payload."""
 
     link_el = etree.SubElement(action_el, "link")
     link_el.set("caption", action_caption)
     link_el.set("expression", url)
+    if web_zone_id is not None:
+        etree.SubElement(link_el, "url-action-type").text = "specific-zone"
+        etree.SubElement(link_el, "url-action-target").text = web_zone_id
 
 
 def _configure_go_to_sheet_action(
@@ -1418,8 +1475,9 @@ class DashboardsMixin:
         source_sheets: list[str] | None = None,
         target_sheets: list[str] | None = None,
         target_dashboard: str = "",
+        target_web_zone: str | None = None,
     ) -> str:
-        """Add an interaction action to a dashboard."""
+        """Add an action, optionally targeting a web layout node by name."""
         return add_dashboard_action(
             self,
             dashboard_name,
@@ -1439,6 +1497,7 @@ class DashboardsMixin:
             source_sheets=source_sheets,
             target_sheets=target_sheets,
             target_dashboard=target_dashboard,
+            target_web_zone=target_web_zone,
         )
 
     def add_dashboard_set_action(

@@ -596,6 +596,16 @@ def set_worksheet_hidden(worksheet_name: str, hidden: bool = True) -> str:
 
 
 @server.tool()
+def configure_map_selection(
+    worksheet_name: str, tool: str = "drive_time", show_toolbar: bool = True,
+) -> str:
+    """Set native Drive Time selection for a map and its dashboard viewpoints."""
+    return get_editor().configure_map_selection(
+        worksheet_name, tool=tool, show_toolbar=show_toolbar
+    )
+
+
+@server.tool()
 def configure_chart(
     worksheet_name: str,
     mark_type: str = "Automatic",
@@ -628,6 +638,9 @@ def configure_chart(
     table_calc_overrides: dict[str, list[dict]] | None = None,
 ) -> str:
     """Configure chart type and field mappings for a worksheet.
+
+    Native map layers (map_layer_mode="native") accept a per-layer datasource
+    name or unique caption. Layer fields resolve independently within that source.
 
     For chart type selection and encoding best practices, read: read_resource('cwtwb://skills/chart_builder')
     """
@@ -1008,6 +1021,7 @@ def add_dashboard(
     - str (file path): Path to JSON or YAML layout file (recommended for complex layouts)
     - dict: Custom declarative layout tree passed inline
       Native set control (mode dropdown or checkdropdown): {"type": "set_control", "field": "Set name", "worksheet": "View", "mode": "dropdown"}
+      Native Web Page: {"type": "web", "url": "https://example.org"}
     - "auto" (default): Simple vertical fallback — use layout dict or layout file for mixed layouts
     - "vertical": All worksheets stacked vertically
     - "horizontal": All worksheets side-by-side
@@ -1068,12 +1082,15 @@ def add_dashboard_action(
     source_sheets: list[str] | None = None,
     target_sheets: list[str] | None = None,
     target_dashboard: str = "",
+    target_web_zone: str | None = None,
 ) -> str:
     """Add a filter, highlight, URL, navigation, or parameter dashboard action.
 
     For ``action_type="parameter"``, provide ``source_field``,
     ``target_parameter``, and a Tableau-serialized ``clear_value`` such as
     ``d:2026-02-12``, ``i:0``, or ``s:LROOT:All``.
+    For URL actions, ``target_web_zone`` selects an existing web layout node
+    by its ``name`` on this dashboard, using Tableau's specific-zone routing.
     """
 
     editor = get_editor()
@@ -1095,6 +1112,7 @@ def add_dashboard_action(
         source_sheets=source_sheets,
         target_sheets=target_sheets,
         target_dashboard=target_dashboard,
+        target_web_zone=target_web_zone,
     )
 
 

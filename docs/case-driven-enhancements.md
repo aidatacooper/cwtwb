@@ -1,5 +1,16 @@
 # Case-driven SDK enhancements
 
+## 2026 WW26, WW36 and WW38: maps and embedded pages
+
+Version 0.29.0a3 adds native Drive Time selection settings, independent
+datasource bindings for native map layers, and named Web Page action targets.
+See [the public API examples](map-and-web-authoring.md).
+
+The rebuilt feature workbooks and 50 historical regression workbooks loaded in
+Tableau Desktop 2026.2. Static contracts also check source-qualified layers,
+story visibility bindings and URL targets. Live drag/clear, story-step changes
+and page navigation remain separate acceptance work; cases retain partial status.
+
 ## 2021 WW30-38: reusable authoring gaps and Cloud-empty guards
 
 The 2021 WW30-38 case review found four reusable authoring gaps. Combined sets

@@ -209,6 +209,16 @@ configure_chart(
 Different Pie layers share that domain; `color_map` keys are public expressions.
 `map_partition` is supported by overlay mode only.
 
+Native layers also accept `datasource` as an existing source name or unique
+caption. Add each source and its calculated fields before configuring the map;
+each layer's geometry, details, colors and tooltips resolve in that source.
+This does not join the sources. Top-level fields remain in the active source.
+
+After configuring a map, call `configure_map_selection("Map", tool="drive_time")`
+to select the Drive Time tool and show its toolbar. Dashboard viewpoints inherit
+the setting. This configures the client tool; it does not calculate travel-time
+polygons in Python. Verify the interaction in a supporting Tableau client.
+
 ### Pie Charts
 
 For composition/parts of whole:

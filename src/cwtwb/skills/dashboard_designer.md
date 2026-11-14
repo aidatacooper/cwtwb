@@ -215,6 +215,16 @@ Best practices:
 - Prefer highlight when you want comparison without fully filtering away context.
 - Use it for shared time periods or shared dimensions.
 
+### Embedded Web Page URL Targets
+
+In the generated layout JSON, give a Web Page node a unique name:
+`{"type": "web", "name": "Preview", "url": "https://example.org"}`.
+After creating the dashboard, call
+`add_dashboard_action(..., action_type="url", target_web_zone="Preview")`.
+The SDK resolves the generated zone ID and adds the required Tableau manifest.
+The name must identify one Web Page node on that dashboard. Test actual navigation
+and the destination's embedding support separately from structural validation.
+
 ### Go-To-Sheet Action
 
 Use go-to-sheet actions for a clear overview-to-detail flow.

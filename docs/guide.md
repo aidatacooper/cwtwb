@@ -323,13 +323,14 @@ These aliases exist to keep less disciplined clients from stopping on an `Unknow
 | `apply_worksheet_refactor` | Apply worksheet-scoped field rewrites while preserving the original worksheet |
 | `add_worksheet` | Add a new blank worksheet |
 | `configure_chart` | Configure chart type and field mappings |
+| `configure_map_selection` | Configure the Drive Time tool on a map worksheet and its dashboard viewpoints |
 | `configure_layered_chart` | Configure independent mark panes, including pane-local Pie `wedge_size` and Measure Values |
 | `add_combined_set` | Combine same-grain native sets with `union` or `intersection` |
 | `configure_worksheet_style` | Apply worksheet-level styling: background color, axis/grid/border visibility |
 | `configure_dual_axis` | Configure a dual-axis chart composition |
 | `configure_chart_recipe` | Configure a showcase recipe chart such as `lollipop`, `donut`, `butterfly`, or `calendar` |
-| `add_dashboard` | Create a dashboard combining worksheets |
-| `add_dashboard_action` | Add filter, highlight, URL, or go-to-sheet actions to a dashboard |
+| `add_dashboard` | Create a dashboard combining worksheets, text and named Web Page layout nodes |
+| `add_dashboard_action` | Add dashboard actions; URL actions accept a named `target_web_zone` |
 | `set_worksheet_caption` | Set or clear a worksheet caption using plain text |
 | `set_worksheet_hidden` | Hide or unhide a worksheet by updating its worksheet window metadata |
 | `generate_layout_json` | Build and validate an interactive structured dashboard flexbox layout JSON before writing it |
@@ -347,6 +348,9 @@ These aliases exist to keep less disciplined clients from stopping on an `Unknow
 | `upload_workbook` | Publish `.twb`/`.twbx` to Tableau Cloud for explicit openability evidence, `.twbx` validation, or screenshots (requires `cwtwb[validate]`) |
 | `screenshot_workbook` | Capture a view image from a workbook published by `upload_workbook` (requires `cwtwb[validate]`) |
 
+For independent map data sources, Drive Time settings and embedded-page routing,
+see [Map and Web Page authoring](map-and-web-authoring.md), available in 0.29.0a3.
+
 Important save semantics for agents:
 
 - `save_workbook(output_path=...)` is the only default MCP tool that writes the active in-memory workbook to disk.
@@ -359,12 +363,6 @@ Important save semantics for agents:
 ### MCP Prompts
 
 The default MCP entrypoint currently registers no prompts. This is intentional: the default server is optimized for direct tool calling through the workbook engineering surface.
-
-### Rebuild Notes
-
-The previous datasource-first guided authoring implementation has been removed
-from the codebase. If that workflow needs to return in the future, use the
-rebuild document in [guided-authoring-rebuild.md](/C:/Users/imgwho/Desktop/projects/20260227-cwtwb/backup/guided-authoring-rebuild.md).
 
 ## Capability Model
 

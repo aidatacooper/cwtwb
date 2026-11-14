@@ -252,13 +252,14 @@ cwtwb://docs/tool-surface
 | `apply_worksheet_refactor` | 应用 worksheet-scoped field rewrites，并保留原 worksheet |
 | `add_worksheet` | 添加空白 worksheet |
 | `configure_chart` | 配置 chart type 和 field mappings |
+| `configure_map_selection` | 为地图 worksheet 及 dashboard viewpoint 配置 Drive Time 工具 |
 | `configure_layered_chart` | 配置独立 mark panes，包括 pane 内 Pie `wedge_size` 和 Measure Values |
 | `add_combined_set` | 使用 `union` 或 `intersection` 组合同粒度原生 Set |
 | `configure_worksheet_style` | 应用 worksheet 级样式 |
 | `configure_dual_axis` | 配置 dual-axis chart |
 | `configure_chart_recipe` | 配置 `lollipop`、`donut`、`butterfly`、`calendar` 等 recipe chart |
-| `add_dashboard` | 创建组合 worksheets 的 dashboard |
-| `add_dashboard_action` | 添加 filter、highlight、URL 或 go-to-sheet action |
+| `add_dashboard` | 创建组合 worksheets、文本和命名 Web Page 区域的 dashboard |
+| `add_dashboard_action` | 添加 dashboard action；URL action 可通过 `target_web_zone` 指向命名网页区域 |
 | `set_worksheet_caption` | 设置或清除 worksheet caption |
 | `set_worksheet_hidden` | 通过 worksheet window metadata 隐藏或显示 worksheet |
 | `generate_layout_json` | 生成并验证 dashboard flexbox layout JSON |

@@ -1835,6 +1835,7 @@ class MapChartBuilder(BaseChartBuilder):
 
     Layer dict keys
     ---------------
+    datasource      : str   – existing source name or unique caption (native mode)
     mark_type       : str   – e.g. "Automatic", "Multipolygon"
     geometry        : str   – spatial field expression for geometry encoding
     color           : str   – field expression for color encoding
@@ -1883,6 +1884,11 @@ class MapChartBuilder(BaseChartBuilder):
         for layer in map_layers or []:
             if not isinstance(layer, dict):
                 raise TypeError("Map layers must be dictionaries")
+            if "datasource" in layer:
+                if map_layer_mode != "native":
+                    raise ValueError("Per-layer datasource requires map_layer_mode='native'")
+                if not isinstance(layer["datasource"], str) or not layer["datasource"].strip():
+                    raise ValueError("Map layer datasource must be a nonempty name or caption")
             values = layer.get("measure_values", [])
             if not isinstance(values, list) or not all(isinstance(v, str) and v for v in values):
                 raise ValueError("Map layer measure_values must be a list of expressions")
@@ -1909,16 +1915,26 @@ class MapChartBuilder(BaseChartBuilder):
         ds_name = self._datasource.get("name", "")
 
         # Gather all field expressions across all layers for dependency setup
-        all_exprs = self._collect_all_expressions()
-        instances = self._parse_and_prepare_instances(all_exprs, self.filters)
-        # Augment with tooltip-specific aggregations (Attribute for dimensions,
-        # Sum for measures) so the encoding references resolve correctly.
-        tooltip_for_deps = self._collect_tooltip_expressions()
-        self._add_tooltip_instances(instances, all_exprs, tooltip_for_deps)
-        self._setup_datasource_dependencies(view, ds_name, instances, all_exprs)
+        contexts = None
+        if any("datasource" in layer for layer in self.map_layers or []):
+            contexts = self._prepare_independent_sources(view)
+            instances = contexts[ds_name][1]
+        else:
+            all_exprs = self._collect_all_expressions()
+            instances = self._parse_and_prepare_instances(all_exprs, self.filters)
+            # Tooltip aggregations must also be declared as dependencies.
+            tooltip_for_deps = self._collect_tooltip_expressions()
+            self._add_tooltip_instances(instances, all_exprs, tooltip_for_deps)
+            self._setup_datasource_dependencies(view, ds_name, instances, all_exprs)
+            declarations = view.find("datasources")
+            if declarations is not None:
+                required = {d.get("datasource") for d in view.findall("datasource-dependencies")}
+                for source in list(declarations):
+                    if source.get("name") not in required:
+                        declarations.remove(source)
 
         if self.map_layers and self.map_layer_mode == "native":
-            self._build_native_layers(table, ds_name, instances)
+            self._build_native_layers(table, ds_name, instances, contexts)
         elif self.map_layers:
             self._build_multi_layer(table, ds_name, instances)
         else:
@@ -1961,6 +1977,66 @@ class MapChartBuilder(BaseChartBuilder):
                 etree.SubElement(rule, "encoding", {"attr": "space", "class": str(index), "field": f"[{ds_name}].[Longitude (generated)]", "field-type": "quantitative", "fold": "true", "scope": "cols", "type": "space"})
 
         return f"Configured worksheet '{self.worksheet_name}' as Map chart"
+
+    def _prepare_independent_sources(self, view):
+        """Resolve each source independently before changing worksheet XML."""
+        from ..blending import _registry, _source
+
+        primary_name = self._datasource.get("name")
+        sources = {primary_name: self._datasource}
+        grouped = {primary_name: []}
+        for spec in self.map_layers:
+            source = _source(self.editor, spec["datasource"]) if "datasource" in spec else self._datasource
+            name = source.get("name")
+            sources[name] = source
+            grouped.setdefault(name, []).append(spec)
+        contexts = {}
+        prepared_views = {}
+        for name, source in sources.items():
+            builder = copy.copy(self)
+            builder._datasource = source
+            builder.field_registry = _registry(self.editor, source)
+            builder.field_registry.allow_unknown_fields = False
+            builder.map_layers = grouped[name]
+            if name != primary_name:
+                for attr in ("geographic_field", "color", "size", "label", "detail",
+                             "tooltip", "map_fields", "filters", "map_partition"):
+                    setattr(builder, attr, None)
+            expressions = builder._collect_all_expressions()
+            instances = builder._parse_and_prepare_instances(expressions, builder.filters)
+            builder._add_tooltip_instances(
+                instances, expressions, builder._collect_tooltip_expressions()
+            )
+            prepared = etree.Element("view")
+            builder._setup_datasource_dependencies(prepared, name, instances, expressions)
+            prepared_views[name] = prepared
+            contexts[name] = (builder, instances)
+        for old in view.findall("datasource-dependencies"):
+            view.remove(old)
+        declarations = view.find("datasources")
+        if declarations is None:
+            declarations = etree.Element("datasources")
+            view.insert(0, declarations)
+        for child in list(declarations):
+            declarations.remove(child)
+        dependency_names = set()
+        for name, source in sources.items():
+            etree.SubElement(declarations, "datasource", name=name,
+                             caption=source.get("caption", name))
+            for deps in prepared_views[name].findall("datasource-dependencies"):
+                dep_name = deps.get("datasource")
+                if dep_name in dependency_names:
+                    continue
+                dependency_names.add(dep_name)
+                aggregation = view.find("aggregation")
+                if aggregation is not None:
+                    aggregation.addprevious(deps)
+                else:
+                    view.append(deps)
+        if "Parameters" in dependency_names:
+            etree.SubElement(declarations, "datasource", name="Parameters")
+        self._ensure_manifest_entry("LayersPerPaneSpecPrimaryDS")
+        return contexts
 
     # ------------------------------------------------------------------
     # Field expression collection
@@ -2062,7 +2138,7 @@ class MapChartBuilder(BaseChartBuilder):
     # ------------------------------------------------------------------
     # Multi-layer map
     # ------------------------------------------------------------------
-    def _build_native_layers(self, table, ds_name, instances):
+    def _build_native_layers(self, table, ds_name, instances, contexts=None):
         """Build Tableau map layers with independent geographic partitions."""
         from .builder_layered import LayeredChartBuilder
 
@@ -2099,8 +2175,24 @@ class MapChartBuilder(BaseChartBuilder):
             )
             etree.SubElement(base_encodings, "tooltip", column=reference)
         etree.SubElement(base, "style")
-        measures = []
+        primary_name = ds_name
+        primary_instances = instances
+        measures_by_source = {}
         for index, spec in enumerate(self.map_layers, 1):
+            context = self
+            ds_name, instances = primary_name, primary_instances
+            if contexts is not None:
+                from ..blending import _source
+
+                if "datasource" in spec:
+                    ds_name = _source(self.editor, spec["datasource"]).get("name")
+                context, instances = contexts[ds_name]
+            helper.field_registry = context.field_registry
+            helper._datasource = context._datasource
+            helper.editor = copy.copy(self.editor)
+            helper.editor._datasource = context._datasource
+            helper.editor.field_registry = context.field_registry
+            measures = measures_by_source.setdefault(ds_name, [])
             mark = spec.get("mark_type", "Automatic")
             pane = etree.SubElement(
                 panes,
@@ -2171,9 +2263,9 @@ class MapChartBuilder(BaseChartBuilder):
             if isinstance(tooltip, str):
                 tooltip = [tooltip]
             for expression in tooltip:
-                instance = self._tooltip_instance_for_expression(expression)
+                instance = context._tooltip_instance_for_expression(expression)
                 ref = (
-                    self.field_registry.resolve_full_reference(instance.instance_name)
+                    context.field_registry.resolve_full_reference(instance.instance_name)
                     if instance is not None
                     else helper._field_ref(instances, expression, ds_name)
                 )
@@ -2206,9 +2298,16 @@ class MapChartBuilder(BaseChartBuilder):
             helper._apply_color_map(instances, spec, table.find("view"))
         view = table.find("view")
         for old_filter in view.findall("filter"):
-            if old_filter.get("column") == f"[{ds_name}].[:Measure Names]":
+            if old_filter.get("column", "").endswith("].[:Measure Names]"):
                 view.remove(old_filter)
-        helper._append_measure_names_filter(view, instances, ds_name, measures)
+        for source_name, measures in measures_by_source.items():
+            source_context, source_instances = (
+                contexts[source_name] if contexts is not None
+                else (self, primary_instances)
+            )
+            helper.field_registry = source_context.field_registry
+            helper._datasource = source_context._datasource
+            helper._append_measure_names_filter(view, source_instances, source_name, measures)
 
     def _build_multi_layer(self, table, ds_name, instances):
         """Build multi-layer panes with ``customization-axis='layer'``."""

@@ -46,6 +46,18 @@ cwtwb 与 Adam Mico、Salesforce、Tableau 均无隶属关系。
 
 ### 安装
 
+最新预发布版 **0.29.0a3** 新增 Drive Time 地图工具配置、原生地图图层的
+独立数据源，以及 URL action 指向命名嵌入网页区域的能力；同时修复标签和表计算问题。
+详见[功能使用指南](https://github.com/aidatacooper/cwtwb/blob/main/docs/map-and-web-authoring.md)
+和[更新日志](https://github.com/aidatacooper/cwtwb/blob/main/CHANGELOG.md)。
+
+```bash
+pip install --upgrade cwtwb==0.29.0a3
+uvx --from cwtwb==0.29.0a3 cwtwb
+```
+
+如果使用稳定版通道：
+
 ```bash
 pip install cwtwb
 ```
