@@ -1,5 +1,17 @@
 # Case-driven SDK enhancements
 
+## 2023 hover: pane-local tooltip bindings
+
+Version 0.29.0a4 fixes layered tooltip deduplication across different axes.
+For a line pane on `SUM(Sales)` and a circle pane on `MIN(Latest Sales)`,
+the circle's `tooltip="SUM(Sales)"` now emits its own tooltip binding.
+The line's axis does not supply that value to the circle pane. Same-pane axis
+and shared shelf deduplication remain intact.
+
+Synthetic public API tests cover both axis orientations, folded and independent
+axes, same-axis deduplication and saved workbook bindings. Runtime hover
+acceptance of the rebuilt WW2023 workbook remains pending.
+
 ## 2025 WW02: patterned line manifest
 
 Version 0.29.0a4 adds `PatternedLineMarks` automatically when a workbook uses

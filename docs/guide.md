@@ -355,6 +355,9 @@ In 0.29.0a4, layered pane `mark_style={"mark-line-pattern": "dashed"}` and
 worksheet `pane_mark_style` automatically receive the `PatternedLineMarks`
 document declaration on save. `solid` and `dotted` also receive the declaration.
 Opening an existing workbook reconciles this feature declaration too.
+Layered pane `tooltip` fields are deduplicated against that pane's axis and
+shared shelf fields. A measure used only by another pane's axis still receives
+an explicit tooltip binding in the requesting pane.
 
 Important save semantics for agents:
 

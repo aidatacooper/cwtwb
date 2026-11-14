@@ -820,7 +820,7 @@ class BaseChartBuilder:
         fmt.set("attr", "mark-labels-cull")
         fmt.set("value", "true")
 
-    def _setup_pane(self, pane: etree._Element, mark_type: str, original_mark_type: str, instances: dict[str, ColumnInstance], color: Optional[str], size: Optional[str], label: Optional[str], detail: Optional[str], wedge_size: Optional[str], tooltip: Optional[Union[str, list[str]]], is_map: bool, geographic_field: Optional[str], map_fields: Optional[list[str]], ds_name: str) -> None:
+    def _setup_pane(self, pane: etree._Element, mark_type: str, original_mark_type: str, instances: dict[str, ColumnInstance], color: Optional[str], size: Optional[str], label: Optional[str], detail: Optional[str], wedge_size: Optional[str], tooltip: Optional[Union[str, list[str]]], is_map: bool, geographic_field: Optional[str], map_fields: Optional[list[str]], ds_name: str, *, pane_shelf_expressions: Optional[list[str]] = None) -> None:
         """Populate pane mark, encodings, tooltip, style, and map-specific XML."""
         # Validate mark class against the Tableau XSD enumeration before
         # writing it to <mark class="…"/>.  An unknown class would cause
@@ -910,8 +910,11 @@ class BaseChartBuilder:
                     for expression in (color, size, label, detail, wedge_size)
                     if expression
                 }
-                mark_expressions.update(getattr(self, "columns", None) or [])
-                mark_expressions.update(getattr(self, "rows", None) or [])
+                if pane_shelf_expressions is None:
+                    mark_expressions.update(getattr(self, "columns", None) or [])
+                    mark_expressions.update(getattr(self, "rows", None) or [])
+                else:
+                    mark_expressions.update(pane_shelf_expressions)
                 for tt in tooltip_list:
                     if tt in mark_expressions:
                         continue

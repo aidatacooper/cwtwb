@@ -280,6 +280,8 @@ cwtwb://docs/tool-surface
 0.29.0a4 在保存时，为分层图表的 `mark_style={"mark-line-pattern": "dashed"}`
 和 worksheet 的 `pane_mark_style` 自动补充 `PatternedLineMarks` 声明。
 `solid` 和 `dotted` 同样适用；打开已有工作簿时也会补充缺失的声明。
+分层图表的 `tooltip` 只针对当前 pane 坐标轴和共享 shelf 字段去重。
+仅用于其他 pane 坐标轴的指标，仍会在请求它的 pane 中生成 tooltip 绑定。
 
 Agent 需要特别注意的保存语义：
 

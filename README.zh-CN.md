@@ -47,7 +47,8 @@ cwtwb 与 Adam Mico、Salesforce、Tableau 均无隶属关系。
 ### 安装
 
 预发布版 **0.29.0a4** 修复线型样式缺少 `PatternedLineMarks` 声明的问题，
-避免生成的工作簿因此无法在 Tableau Desktop 中打开。此版本保留 0.29.0a3 的
+避免生成的工作簿因此无法在 Tableau Desktop 中打开；分层图表的 tooltip 也会
+保留仅绑定到其他 pane 坐标轴的指标。此版本保留 0.29.0a3 的
 Drive Time 地图工具配置、地图图层独立数据源和命名嵌入网页区域 URL action 能力。
 详见[功能使用指南](https://github.com/aidatacooper/cwtwb/blob/main/docs/map-and-web-authoring.md)
 和[更新日志](https://github.com/aidatacooper/cwtwb/blob/main/CHANGELOG.md)。
