@@ -1,5 +1,28 @@
 # Case-driven SDK enhancements
 
+## 2023 hover: pane-local tooltip bindings
+
+Version 0.29.0a4 fixes layered tooltip deduplication across different axes.
+For a line pane on `SUM(Sales)` and a circle pane on `MIN(Latest Sales)`,
+the circle's `tooltip="SUM(Sales)"` now emits its own tooltip binding.
+The line's axis does not supply that value to the circle pane. Same-pane axis
+and shared shelf deduplication remain intact.
+
+Synthetic public API tests cover both axis orientations, folded and independent
+axes, same-axis deduplication and saved workbook bindings. Runtime hover
+acceptance of the rebuilt WW2023 workbook remains pending.
+
+## 2025 WW02: patterned line manifest
+
+Version 0.29.0a4 adds `PatternedLineMarks` automatically when a workbook uses
+`mark-line-pattern`, including layered charts, worksheet pane styles, and
+existing page-trail attributes. The shared open/save reconciliation fixes the
+reported Tableau Desktop 2026.2 `D2E8DA72` enumeration error.
+
+The release coordinator confirmed WW2025-02 loaded with the fix. Fifty corpus
+workbooks were rebuilt with the fix, but their new Desktop load checks are
+pending. The 0.29.0a3 evidence below applies to that earlier build.
+
 ## 2026 WW26, WW36 and WW38: maps and embedded pages
 
 Version 0.29.0a3 adds native Drive Time selection settings, independent

@@ -680,6 +680,12 @@ class LayeredChartBuilder(BaseChartBuilder):
                 None,
                 None,
                 ds_name,
+                pane_shelf_expressions=(
+                    (self.columns if self.axis_shelf == "rows" else self.rows)
+                    + ([axis] if axis else (
+                        self.rows if self.axis_shelf == "rows" else self.columns
+                    ))
+                ),
             )
             if pane_spec.get("color") in {_SPECIAL_MEASURE_NAMES, _SPECIAL_MULTIPLE_VALUES}:
                 encodings = pane.find("encodings")
