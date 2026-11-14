@@ -245,6 +245,10 @@ class ChartsMixin:
         worksheet dependencies, not mark bindings. None uses Measure Values
         order; an empty list omits manual sorting. Duplicate resolved fields
         and unknown expressions are rejected.
+
+        Pane ``mark_style={"mark-line-pattern": "dashed"}`` (also ``solid`` or
+        ``dotted``) automatically adds the required ``PatternedLineMarks``
+        document manifest entry when the workbook is saved.
         """
 
         return dispatch_configure_layered_chart(

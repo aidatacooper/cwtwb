@@ -419,6 +419,10 @@ class TWBEditor(ParametersMixin, ConnectionsMixin, ChartsMixin, DashboardsMixin)
     # Attributes that imply a manifest flag rather than a child element.
     _MANIFEST_ATTRIBUTE_FLAGS: tuple[tuple[str, str], ...] = (
         ("generated-title", "Layers"),
+        ("mark-line-pattern", "PatternedLineMarks"),
+    )
+    _MANIFEST_FORMAT_FLAGS: tuple[tuple[str, str], ...] = (
+        ("mark-line-pattern", "PatternedLineMarks"),
     )
     # Mark classes that are gated behind a document-format manifest entry.
     # A density ``Heatmap`` mark is schema-valid on its own, but Desktop's
@@ -453,6 +457,7 @@ class TWBEditor(ParametersMixin, ConnectionsMixin, ChartsMixin, DashboardsMixin)
         """
         present_tags: set[str] = set()
         present_attrs: set[str] = set()
+        present_formats: set[str] = set()
         present_mark_classes: set[str] = set()
         text_button = False
         for element in self.root.iter():
@@ -460,6 +465,8 @@ class TWBEditor(ParametersMixin, ConnectionsMixin, ChartsMixin, DashboardsMixin)
                 continue
             present_tags.add(element.tag)
             present_attrs.update(element.attrib.keys())
+            if element.tag == "format" and element.get("attr"):
+                present_formats.add(element.get("attr"))
             if element.tag == "mark" and element.get("class"):
                 present_mark_classes.add(element.get("class"))
             if element.tag == "button" and element.get("button-type") == "text":
@@ -473,6 +480,11 @@ class TWBEditor(ParametersMixin, ConnectionsMixin, ChartsMixin, DashboardsMixin)
             flag
             for attribute, flag in self._MANIFEST_ATTRIBUTE_FLAGS
             if attribute in present_attrs
+        )
+        required.update(
+            flag
+            for attribute, flag in self._MANIFEST_FORMAT_FLAGS
+            if attribute in present_formats
         )
         required.update(
             flag
