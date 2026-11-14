@@ -1,10 +1,10 @@
 # Map and Web Page authoring
 
-These public Python and MCP capabilities are included in `0.29.0a3`.
+These public Python and MCP capabilities are available since `0.29.0a3`.
 Install the alpha explicitly:
 
 ```bash
-python -m pip install --upgrade cwtwb==0.29.0a3
+python -m pip install --upgrade cwtwb==0.29.0a4
 ```
 
 ## Drive Time map tool

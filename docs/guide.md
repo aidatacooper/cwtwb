@@ -349,7 +349,12 @@ These aliases exist to keep less disciplined clients from stopping on an `Unknow
 | `screenshot_workbook` | Capture a view image from a workbook published by `upload_workbook` (requires `cwtwb[validate]`) |
 
 For independent map data sources, Drive Time settings and embedded-page routing,
-see [Map and Web Page authoring](map-and-web-authoring.md), available in 0.29.0a3.
+see [Map and Web Page authoring](map-and-web-authoring.md), available since 0.29.0a3.
+
+In 0.29.0a4, layered pane `mark_style={"mark-line-pattern": "dashed"}` and
+worksheet `pane_mark_style` automatically receive the `PatternedLineMarks`
+document declaration on save. `solid` and `dotted` also receive the declaration.
+Opening an existing workbook reconciles this feature declaration too.
 
 Important save semantics for agents:
 

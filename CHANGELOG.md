@@ -5,7 +5,7 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [0.29.0a4] - 2026-11-14
 
 ### Fixed
 
@@ -13,6 +13,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `PatternedLineMarks` when opened or saved. This covers layered chart mark
   styles, worksheet pane styles, and existing page-trail attributes, addressing
   the reported Tableau Desktop 2026.2 enumeration error `D2E8DA72`.
+
+### Validation and scope
+
+- SDK regression suite: 1172 passed, 25 skipped, including 21 synthetic
+  patterned-line regressions using no author workbooks.
+- The release coordinator confirmed that WW2025-02 loaded in Tableau Desktop
+  2026.2 with the fix. Fifty corpus workbooks were rebuilt with the fix; their
+  new Desktop load checks remain pending and are not covered by the a3 results.
+- Continues the 0.29 alpha channel. Install explicitly with
+  `pip install --upgrade cwtwb==0.29.0a4`.
 
 ## [0.29.0a3] - 2026-11-14
 

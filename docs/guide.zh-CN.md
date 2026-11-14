@@ -277,6 +277,10 @@ cwtwb://docs/tool-surface
 | `upload_workbook` | 发布 `.twb`/`.twbx` 到 Tableau Cloud，用于 openability evidence、`.twbx` validation 或 screenshots |
 | `screenshot_workbook` | 对 `upload_workbook` 发布的 workbook 截图 |
 
+0.29.0a4 在保存时，为分层图表的 `mark_style={"mark-line-pattern": "dashed"}`
+和 worksheet 的 `pane_mark_style` 自动补充 `PatternedLineMarks` 声明。
+`solid` 和 `dotted` 同样适用；打开已有工作簿时也会补充缺失的声明。
+
 Agent 需要特别注意的保存语义：
 
 - `save_workbook(output_path=...)` 是默认 MCP 工具中唯一会把 active in-memory workbook 写到磁盘的工具。
